@@ -1,0 +1,63 @@
+name: Rust
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+
+      - name: Install latest rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+          override: true
+
+      - name: Build
+        run: |
+          sudo apt-get install musl-tools -y
+          sudo apt-get install pkg-config libssl-dev -y
+          rustup target add x86_64-unknown-linux-musl
+          cargo build --target=x86_64-unknown-linux-musl --release --all-features
+          strip target/x86_64-unknown-linux-musl/release/observer_ward
+          mv target/x86_64-unknown-linux-musl/release/observer_ward target/x86_64-unknown-linux-musl/release/observer_ward_amd64
+
+      - name: Upload binary to release
+        uses: svenstaro/upload-release-action@v1-release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/x86_64-unknown-linux-musl/release/observer_ward_amd64
+          asset_name: observer_ward_amd64
+          tag: default
+          overwrite: true
+
+  build-win:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+
+      - name: Install latest rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+          override: true
+
+      - name: Build
+        run: cargo build --all --release
+      - name: Upload binary to release
+        uses: svenstaro/upload-release-action@v1-release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/release/observer_ward.exe
+          asset_name: observer_ward.exe
+          tag: default
+          overwrite: true

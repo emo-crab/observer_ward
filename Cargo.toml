@@ -1,0 +1,29 @@
+[package]
+name = "observer_ward"
+version = "0.1.0"
+authors = ["Kali-Team <root@kali-team.cn>"]
+edition = "2018"
+description = "Identifies technologies used on a web page."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+serde = { version = "1.0.99", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.8"
+serde_derive = "1.0"
+reqwest = { version = "0.10", features = ["cookies", "json", "blocking"] }
+tokio = { version = "0.2", features = ["full"] }
+futures = { version = "0.3", features = ["compat"] }
+url = "2.1.1"
+scraper = "0.10.1"
+base64 = "0.3.0"
+md-5 = "0.9.1"
+hex-literal = "0.3.3"
+lazy_static = "1.4.0"
+clap = "2.33.3"
+colored = "2"
+actix-web = "3"
+actix-service = "1.0.0"
+prettytable-rs = "^0.8"
+textwrap = "0.14"
