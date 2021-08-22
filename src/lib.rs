@@ -189,8 +189,6 @@ async fn fetch_raw_data(res: Response) -> Result<Arc<RawData>, WardError> {
 //首页请求
 async fn index_fetch(url_str: String) -> Result<Vec<Response>, WardError> {
     let mut res_list: Vec<Response> = vec![];
-    let mut headers = header::HeaderMap::new();
-    headers.insert(header::USER_AGENT, header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"));
     let schemes: [String; 2] = ["https://".to_string(), "http://".to_string()];
     let mut next_url: Option<Url> = Option::None;
     //最大重定向跳转次数
@@ -319,10 +317,16 @@ fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
 }
 
 pub async fn update_web_fingerprint() {
-    let target = "https://cdn.jsdelivr.net/gh/0x727/FingerprintHub/web_fingerprint.json";
-    let response = reqwest::get(target).await.unwrap();
-    let mut file = std::fs::File::create("web_fingerprint.json").unwrap();
-    let mut content = Cursor::new(response.bytes().await.unwrap());
-    std::io::copy(&mut content, &mut file).unwrap();
-    println!("Complete fingerprint update: web_fingerprint.json file size => {:?}", file.metadata().unwrap().len());
+    let update_url = "https://0x727.github.io/ObserverWard_0x727/web_fingerprint.json";
+    match reqwest::get(update_url).await {
+        Ok(response) => {
+            let mut file = std::fs::File::create("web_fingerprint.json").unwrap();
+            let mut content = Cursor::new(response.bytes().await.unwrap());
+            std::io::copy(&mut content, &mut file).unwrap();
+            println!("Complete fingerprint update: web_fingerprint.json file size => {:?}", file.metadata().unwrap().len());
+        }
+        Err(err) => {
+            println!("{:?}", err);
+        }
+    };
 }

@@ -42,8 +42,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if !targets.is_empty() {
         let futures = targets.into_iter().map(scan).collect::<Vec<_>>();
-        let mut results = join_all(futures).await;
-        results.sort_by(|a, b| b.priority.cmp(&a.priority));
+        let results = join_all(futures).await;
+        // results.sort_by(|a, b| b.priority.cmp(&a.priority));
         // 导出json
         if !config.json.is_empty() {
             serde_json::to_writer(&File::create(config.json)?, &results)?
