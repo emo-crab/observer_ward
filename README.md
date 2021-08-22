@@ -19,7 +19,7 @@ cd ObserverWard_0x727
 cargo build --target  x86_64-unknown-linux-musl --release --all-features
 ```
 
-- 更多安装细节请查看当前项目的Actions自动化编译构建流程文件。
+- 更多安装细节请查看当前项目的Actions自动化编译构建流程[文件](https://github.com/0x727/ObserverWard_0x727/blob/main/.github/workflows/basic.yml)。
 
 ### 2. 下载二进制安装
 
@@ -76,7 +76,7 @@ Result:
 [{"url":"https://httpbin.org/","what_web_name":["swagger"],"priority":2,"length":9593,"title":"httpbin.org"}]
 ```
 
-- 服务开启后会在提供的IP和端口上提供一个API服务。
+- 服务开启后会在提供的IP和端口上开启Web指纹识别的API服务。
 
 ![image-20210821173531800](./doc/README.assets/image-20210821173531800.png)
 
