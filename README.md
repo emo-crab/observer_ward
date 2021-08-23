@@ -54,7 +54,7 @@ OPTIONS:
 | ------------- | ------------------------------------------------------------ |
 | -h, --help    | 打印帮助信息                                                 |
 | --stdin       | 从标准输出获取要识别的目标                                   |
-| -u, --update  | 从远程[指纹库](https://github.com/0x727/FingerprintHub)更新最新指纹，也可以手动从[CDN](https://cdn.jsdelivr.net/gh/0x727/FingerprintHub/web_fingerprint.json)下载 |
+| -u, --update  | 从远程[指纹库](https://github.com/0x727/FingerprintHub)更新最新指纹，也可以手动从[Github](https://0x727.github.io/FingerprintHub/web_fingerprint.json)下载 |
 | -V, --version | 打印版本                                                     |
 | -c, --csv     | 将识别结果导出csv文件，接受一个文件路径                      |
 | -f, --file    | 从文件里面读取要识别的目标                                   |

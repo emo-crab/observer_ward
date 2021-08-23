@@ -6,7 +6,6 @@ extern crate prettytable;
 pub mod cli;
 pub mod api;
 
-use futures::future::join_all;
 use observer_ward::{scan, strings_to_urls, read_file_to_target, update_web_fingerprint};
 use api::{api_server};
 use cli::{WardArgs};
@@ -16,6 +15,8 @@ use std::thread;
 use colored::Colorize;
 use prettytable::{Table, Cell, Row, Attr, color};
 use std::fs::File;
+use futures::stream::FuturesUnordered;
+use async_std::prelude::*;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -41,9 +42,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         process::exit(0);
     }
     if !targets.is_empty() {
-        let futures = targets.into_iter().map(scan).collect::<Vec<_>>();
-        let results = join_all(futures).await;
-        // results.sort_by(|a, b| b.priority.cmp(&a.priority));
+        let mut worker = FuturesUnordered::new();
+        let mut targets_iter = targets.iter();
+        let mut results = vec![];
+        for _ in 0..100 {
+            match targets_iter.next() {
+                Some(target) => {
+                    worker.push(scan(target.to_string()))
+                }
+                None => {}
+            }
+        }
+        while let Some(result) = worker.next().await {
+            if let Some(target) = targets_iter.next() {
+                worker.push(scan(target.to_string()));
+                results.push(result)
+            }
+        }
+        if results.len() < 2000 {
+            results.sort_by(|a, b| b.priority.cmp(&a.priority));
+        }
         // 导出json
         if !config.json.is_empty() {
             serde_json::to_writer(&File::create(config.json)?, &results)?
