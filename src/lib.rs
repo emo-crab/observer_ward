@@ -318,15 +318,15 @@ fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
 
 pub async fn update_web_fingerprint() {
     let update_url = "https://0x727.github.io/FingerprintHub/web_fingerprint.json";
-    match reqwest::get(&update_url).await {
+    match reqwest::get(update_url).await {
         Ok(response) => {
             let mut file = std::fs::File::create("web_fingerprint.json").unwrap();
             let mut content = Cursor::new(response.bytes().await.unwrap());
             std::io::copy(&mut content, &mut file).unwrap();
             println!("Complete fingerprint update: web_fingerprint.json file size => {:?}", file.metadata().unwrap().len());
         }
-        Err(err) => {
-            println!("更新失败，请手动下载 {} 到本地目录。"，update_url);
+        Err(_) => {
+            println!("更新失败，请手动下载 {} 到本地目录。", update_url);
         }
     };
 }
