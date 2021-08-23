@@ -191,9 +191,9 @@ async fn index_fetch(url_str: String) -> Result<Vec<Response>, WardError> {
     let mut res_list: Vec<Response> = vec![];
     let schemes: [String; 2] = ["https://".to_string(), "http://".to_string()];
     let mut next_url: Option<Url> = Option::None;
-    //最大重定向跳转次数
-    let mut max_redirect = 5;
     for mut scheme in schemes {
+        //最大重定向跳转次数
+        let mut max_redirect = 5;
         let mut scheme_url = url_str.clone();
         if !url_str.to_lowercase().starts_with("http") {
             scheme.push_str(url_str.as_str());
@@ -259,7 +259,6 @@ fn get_title(raw_data: &Arc<RawData>) -> String {
 }
 
 pub async fn scan(url: String) -> WhatWebResult {
-    // TODO 整理,应该是请求完两个请求，放回raw_data后再匹配规则
     let mut what_web_name: HashSet<String> = HashSet::new();
     let mut what_web_result: WhatWebResult = WhatWebResult { url: url.clone(), what_web_name: HashSet::new(), priority: 0, length: 0, title: String::new() };
     match index_fetch(url.clone()).await { //首页请求允许跳转

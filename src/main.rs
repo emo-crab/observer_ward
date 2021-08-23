@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Some(target) => {
                     worker.push(scan(target.to_string()))
                 }
-                None => {}
+                None => { break; }
             }
         }
         while let Some(result) = worker.next().await {
