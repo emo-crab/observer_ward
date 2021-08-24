@@ -62,7 +62,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if results.len() < 2000 {
             results.sort_by(|a, b| b.priority.cmp(&a.priority));
         }
-        // 导出json
         if !config.json.is_empty() {
             serde_json::to_writer(&File::create(config.json)?, &results)?
         }
@@ -79,7 +78,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Cell::new(&res.priority.to_string()),
                 ]));
         }
-        // 导出CSV文件
         if !config.csv.is_empty() {
             let out = File::create(config.csv)?;
             table.to_csv(out)?;
@@ -100,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         if table.len() > 0 {
-            println!("{}", "\n高关注组件:\n".red());
+            println!("{}", "Important technology:".red());
             table.printstd();
         }
     }

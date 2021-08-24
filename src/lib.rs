@@ -24,7 +24,6 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use colored::Colorize;
 
-/// Possible Errors in the domain_info lib
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum WardError {
     Fetch(String),
@@ -80,7 +79,8 @@ impl From<url::ParseError> for WardError {
 
 async fn send_requests(url: &Url) -> Result<Response, reqwest::Error> {
     let mut headers = header::HeaderMap::new();
-    headers.insert(header::USER_AGENT, header::HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"));
+    let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36";
+    headers.insert(header::USER_AGENT, header::HeaderValue::from_static(ua));
     return reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
         .default_headers(headers.clone())
@@ -195,7 +195,7 @@ async fn index_fetch(url_str: String) -> Result<Vec<Response>, WardError> {
         //最大重定向跳转次数
         let mut max_redirect = 5;
         let mut scheme_url = url_str.clone();
-        if !url_str.to_lowercase().starts_with("http") {
+        if !url_str.to_lowercase().starts_with("http://") || !url_str.to_lowercase().starts_with("https://") {
             scheme.push_str(url_str.as_str());
             scheme_url = scheme;
         }
@@ -245,6 +245,20 @@ pub struct WhatWebResult {
     pub title: String,
 }
 
+impl WhatWebResult {
+    pub fn new(
+        url: String,
+    ) -> Self {
+        Self {
+            url,
+            what_web_name: HashSet::new(),
+            priority: 0,
+            length: 0,
+            title: String::new(),
+        }
+    }
+}
+
 fn get_title(raw_data: &Arc<RawData>) -> String {
     let parsed_html = Html::parse_fragment(&raw_data.text);
     let selector = Selector::parse("title").unwrap();
@@ -260,7 +274,7 @@ fn get_title(raw_data: &Arc<RawData>) -> String {
 
 pub async fn scan(url: String) -> WhatWebResult {
     let mut what_web_name: HashSet<String> = HashSet::new();
-    let mut what_web_result: WhatWebResult = WhatWebResult { url: url.clone(), what_web_name: HashSet::new(), priority: 0, length: 0, title: String::new() };
+    let mut what_web_result: WhatWebResult = WhatWebResult::new(url.clone());
     match index_fetch(url.clone()).await { //首页请求允许跳转
         Ok(res_list) => {
             for res in res_list {
@@ -300,7 +314,6 @@ pub fn strings_to_urls(domains: String) -> HashSet<String> {
     HashSet::from_iter(target_list)
 }
 
-// 从文件的中读取文件
 pub fn read_file_to_target(file_path: String) -> HashSet<String> {
     if let Ok(lines) = read_lines(file_path) {
         let target_list: Vec<String> = lines.filter_map(Result::ok).collect();
@@ -325,7 +338,7 @@ pub async fn update_web_fingerprint() {
             println!("Complete fingerprint update: web_fingerprint.json file size => {:?}", file.metadata().unwrap().len());
         }
         Err(_) => {
-            println!("更新失败，请手动下载 {} 到本地目录。", update_url);
+            println!("Update failed, please download {} to local directory manually.", update_url);
         }
     };
 }
