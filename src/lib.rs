@@ -190,12 +190,12 @@ async fn fetch_raw_data(res: Response) -> Result<Arc<RawData>, WardError> {
 async fn index_fetch(url_str: String) -> Result<Vec<Response>, WardError> {
     let mut res_list: Vec<Response> = vec![];
     let schemes: [String; 2] = ["https://".to_string(), "http://".to_string()];
-    let mut next_url: Option<Url> = Option::None;
     for mut scheme in schemes {
         //最大重定向跳转次数
         let mut max_redirect = 5;
+        let mut is_right_scheme: bool = false;
         let mut scheme_url = url_str.clone();
-        if !url_str.to_lowercase().starts_with("http://") || !url_str.to_lowercase().starts_with("https://") {
+        if !url_str.to_lowercase().starts_with("http://") && !url_str.to_lowercase().starts_with("https://") {
             scheme.push_str(url_str.as_str());
             scheme_url = scheme;
         }
@@ -213,11 +213,13 @@ async fn index_fetch(url_str: String) -> Result<Vec<Response>, WardError> {
                 .and_then(|location| response.url().join(location).ok())
         };
         loop {
+            let mut next_url: Option<Url> = Option::None;
             match send_requests(&url).await
             {
                 Ok(res) => {
                     next_url = get_next_url(&res);
                     res_list.push(res);
+                    is_right_scheme = true;
                 }
                 Err(_) => {}
             };
@@ -231,6 +233,9 @@ async fn index_fetch(url_str: String) -> Result<Vec<Response>, WardError> {
             if max_redirect == 0 {
                 break;
             }
+        }
+        if is_right_scheme {
+            break;
         }
     }
     return Ok(res_list);
