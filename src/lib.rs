@@ -327,7 +327,7 @@ async fn index_fetch(url_str: &String, special_wfp: Option<&WebFingerPrint>) -> 
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WhatWebResult {
-    pub url: Url,
+    pub url: String,
     pub what_web_name: HashSet<String>,
     pub priority: u32,
     pub length: usize,
@@ -336,7 +336,7 @@ pub struct WhatWebResult {
 
 impl WhatWebResult {
     pub fn new(
-        url: Url,
+        url: String,
     ) -> Self {
         Self {
             url,
@@ -363,7 +363,7 @@ fn get_title(raw_data: &Arc<RawData>) -> String {
 
 pub async fn scan(url: String) -> WhatWebResult {
     let mut what_web_name: HashSet<String> = HashSet::new();
-    let mut what_web_result: WhatWebResult = WhatWebResult::new(Url::from_str("http://localhost").unwrap());
+    let mut what_web_result: WhatWebResult = WhatWebResult::new(url.clone());
     if let Ok(res_list) = index_fetch(&url, None).await { //首页请求允许跳转
         for res in res_list {
             if let Ok(raw_data) = fetch_raw_data(res, true).await {
@@ -372,7 +372,7 @@ pub async fn scan(url: String) -> WhatWebResult {
                     what_web_name.insert(k);
                     what_web_result.priority = v;
                 }
-                what_web_result.url = raw_data.url.clone();
+                what_web_result.url = String::from(raw_data.url.clone());
                 what_web_result.title = get_title(&raw_data);
                 what_web_result.length = raw_data.text.len();
             }
@@ -389,7 +389,7 @@ pub async fn scan(url: String) -> WhatWebResult {
                             what_web_name.insert(k);
                             what_web_result.priority = v;
                         }
-                        what_web_result.url = raw_data.url.clone();
+                        what_web_result.url = String::from(raw_data.url.clone());
                         what_web_result.title = get_title(&raw_data);
                         what_web_result.length = raw_data.text.len();
                     }
