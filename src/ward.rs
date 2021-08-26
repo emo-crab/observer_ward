@@ -1,25 +1,15 @@
 use futures::future::join_all;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::fs::File;
-use std::io::Read;
 use std::env;
+use crate::{WebFingerPrint, WebFingerPrintLib};
+use url::Url;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct WebFingerPrint {
-    name: String,
-    status_code: u16,
-    headers: HashMap<String, String>,
-    keyword: Vec<String>,
-    favicon_hash: Vec<String>,
-    priority: u32,
-}
 
 #[derive(Debug)]
 pub struct RawData {
-    pub url: String,
+    pub url: Url,
     pub path: String,
     pub headers: reqwest::header::HeaderMap,
     pub status_code: reqwest::StatusCode,
@@ -27,35 +17,22 @@ pub struct RawData {
     pub favicon_hash: HashMap<String, HashMap<String, String>>,
 
 }
-// 加载指纹库到常量，防止在文件系统反复加载
-lazy_static! {
-    static ref WEB_FINGERPRINT_JSON_DATA: HashMap<String, Vec<WebFingerPrint>> = {
-        let mut file = match File::open("web_fingerprint.json") {
-            Err(_) => {
-                println!("The fingerprint library cannot be found in the current directory!");
-                std::process::exit(0);
-            }
-            Ok(file) => file,
-        };
-        let mut data = String::new();
-        file.read_to_string(&mut data).unwrap();
-        let web_fingerprint: HashMap<String, Vec<WebFingerPrint>> =
-            serde_json::from_str(&data).expect("JSON was not well-formatted");
-        web_fingerprint
-    };
-}
-pub async fn check(raw_data: &Arc<RawData>) -> HashMap<String, u32> {
+
+pub async fn check(raw_data: &Arc<RawData>, fingerprint_lib: &WebFingerPrintLib, is_special: bool) -> HashMap<String, u32> {
     let mut futures = vec![];
     let mut web_name_set: HashMap<String, u32> = HashMap::new();
-    let path_list: Vec<String> = vec![String::from("/"), String::from("/favicon.ico")];
-    for path in path_list {
-        match WEB_FINGERPRINT_JSON_DATA.get(path.as_str()) {
-            Some(fingerprints) => {
-                for fingerprint in fingerprints {
-                    futures.push(what_web(raw_data.clone(), fingerprint));
-                }
+    if is_special {
+        for fingerprint in fingerprint_lib.special.iter() {
+            futures.push(what_web(raw_data.clone(), fingerprint));
+        }
+    } else {
+        for fingerprint in fingerprint_lib.index.iter() {
+            futures.push(what_web(raw_data.clone(), fingerprint));
+        }
+        if raw_data.favicon_hash.is_empty() {
+            for fingerprint in fingerprint_lib.favicon.iter() {
+                futures.push(what_web(raw_data.clone(), fingerprint));
             }
-            None => {}
         }
     }
     let results = join_all(futures).await;
@@ -69,8 +46,8 @@ pub async fn check(raw_data: &Arc<RawData>) -> HashMap<String, u32> {
 }
 
 pub async fn what_web(raw_data: Arc<RawData>, fingerprint: &WebFingerPrint) -> (bool, &WebFingerPrint) {
-    let mut hash_set = HashSet::new();
     let mut default_result = (false, fingerprint);
+    let mut hash_set = HashSet::new();
     for favicon_hash in raw_data.favicon_hash.iter() {
         let (_path, md5_mmh3) = favicon_hash;
         for (_key, value) in md5_mmh3.iter() {

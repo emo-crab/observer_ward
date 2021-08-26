@@ -16,14 +16,90 @@ use std::iter::FromIterator;
 use url::Url;
 use ward::{check, RawData};
 use favicon_hash_lib::{get_md5, murmurhash3_x86_32};
-use reqwest::header::LOCATION;
+use reqwest::header::{LOCATION, HeaderValue, HeaderName};
 use reqwest::redirect::Policy;
 use reqwest::{header, Response};
 use scraper::{Html, Selector};
-use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use colored::Colorize;
+use std::io::Read;
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WebFingerPrint {
+    path: String,
+    name: String,
+    status_code: u16,
+    headers: HashMap<String, String>,
+    keyword: Vec<String>,
+    favicon_hash: Vec<String>,
+    priority: u32,
+    request_method: String,
+    request_headers: HashMap<String, String>,
+    request_data: String,
+}
+
+impl WebFingerPrint {
+    pub fn new() -> Self {
+        Self {
+            path: String::from(""),
+            name: String::from(""),
+            status_code: 0,
+            headers: HashMap::new(),
+            keyword: vec![],
+            favicon_hash: vec![],
+            priority: 1,
+            request_method: String::from(""),
+            request_headers: HashMap::new(),
+            request_data: String::from(""),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WebFingerPrintLib {
+    index: Vec<WebFingerPrint>,
+    special: Vec<WebFingerPrint>,
+    favicon: Vec<WebFingerPrint>,
+
+}
+
+impl WebFingerPrintLib {
+    pub fn new() -> Self {
+        Self {
+            index: vec![],
+            special: vec![],
+            favicon: vec![],
+        }
+    }
+}
+// 加载指纹库到常量，防止在文件系统反复加载
+lazy_static! {
+    static ref WEB_FINGERPRINT_LIB_DATA: WebFingerPrintLib = {
+        let mut web_fingerprint_lib = WebFingerPrintLib::new();
+        let mut file = match File::open("web_fingerprint_v2.json") {
+            Err(_) => {
+                println!("The fingerprint library cannot be found in the current directory!");
+                std::process::exit(0);
+            }
+            Ok(file) => file,
+        };
+        let mut data = String::new();
+        file.read_to_string(&mut data).unwrap();
+        let web_fingerprint: Vec<WebFingerPrint> =serde_json::from_str(&data).expect("Bad Yaml");
+        for f_rule in web_fingerprint{
+            if f_rule.path =="/"&&f_rule.request_headers.is_empty()&&f_rule.request_method=="get"&&f_rule.request_data.is_empty(){
+                web_fingerprint_lib.index.push(f_rule);
+            }else if !f_rule.favicon_hash.is_empty() {
+                web_fingerprint_lib.favicon.push(f_rule);
+            }else {
+                web_fingerprint_lib.special.push(f_rule);
+            }
+        }
+        web_fingerprint_lib
+    };
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum WardError {
     Fetch(String),
@@ -77,10 +153,18 @@ impl From<url::ParseError> for WardError {
     }
 }
 
-async fn send_requests(url: &Url) -> Result<Response, reqwest::Error> {
+async fn send_requests(mut url: Url, fingerprint: Option<&WebFingerPrint>) -> Result<Response, reqwest::Error> {
     let mut headers = header::HeaderMap::new();
     let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36";
     headers.insert(header::USER_AGENT, header::HeaderValue::from_static(ua));
+    if let Some(fingerprint) = fingerprint {
+        if !fingerprint.request_headers.is_empty() {
+            for (k, v) in fingerprint.request_headers.clone() {
+                headers.insert(HeaderName::from_str(&k).unwrap(), HeaderValue::from_str(&v).unwrap());
+            }
+        }
+        url.set_path(fingerprint.path.as_str());
+    }
     return reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
         .default_headers(headers.clone())
@@ -94,9 +178,9 @@ async fn send_requests(url: &Url) -> Result<Response, reqwest::Error> {
 }
 
 // favicon的URL到Hash
-pub async fn get_favicon_hash(url: &Url) -> Result<HashMap<String, String>, WardError> {
+pub async fn get_favicon_hash(url: Url) -> Result<HashMap<String, String>, WardError> {
     let mut favicon_hash = HashMap::new();
-    match send_requests(url).await {
+    match send_requests(url, None).await {
         Ok(res) => {
             let status_code = res.status();
             if !res.status().is_success() {
@@ -132,10 +216,10 @@ async fn find_favicon_tag(
         if let (Some(href), Some(rel)) = (link.value().attr("href"), link.value().attr("rel")) {
             if ["icon", "shortcut icon"].contains(&rel) {
                 let favicon_url = base_url.join(href).unwrap();
-                match get_favicon_hash(&favicon_url).await {
+                match get_favicon_hash(favicon_url.clone()).await {
                     Ok(md5_mmh3) => {
                         let md5_mmh3_hash = md5_mmh3;
-                        link_tags.insert(String::from(favicon_url), md5_mmh3_hash);
+                        link_tags.insert(String::from(favicon_url.clone()), md5_mmh3_hash);
                     }
                     Err(_) => {}
                 };
@@ -145,10 +229,10 @@ async fn find_favicon_tag(
     // 补充默认路径
     let favicon_url = base_url.join("/favicon.ico").unwrap();
     if !link_tags.contains_key(&String::from(favicon_url.clone())) {
-        match get_favicon_hash(&favicon_url).await {
+        match get_favicon_hash(favicon_url.clone()).await {
             Ok(md5_mmh3) => {
                 let md5_mmh3_hash = md5_mmh3;
-                link_tags.insert(String::from(favicon_url), md5_mmh3_hash);
+                link_tags.insert(String::from(favicon_url.clone()), md5_mmh3_hash);
             }
             Err(_) => {}
         };
@@ -156,9 +240,9 @@ async fn find_favicon_tag(
     return link_tags;
 }
 
-async fn fetch_raw_data(res: Response) -> Result<Arc<RawData>, WardError> {
+async fn fetch_raw_data(res: Response, is_icon: bool) -> Result<Arc<RawData>, WardError> {
     let path: String = res.url().path().to_string();
-    let url = res.url().join("/").unwrap().to_string();
+    let url = res.url().join("/").unwrap();
     let status_code = res.status();
     let mut is_index = false;
     if let "/" = res.url().path() {
@@ -171,7 +255,7 @@ async fn fetch_raw_data(res: Response) -> Result<Arc<RawData>, WardError> {
         Ok(text) => text.to_lowercase(),
         Err(_) => String::from(""),
     };
-    if is_index && !status_code.is_server_error() {
+    if is_index && !status_code.is_server_error() && is_icon {
         // 只有在首页的时候提取favicon图标链接
         favicon_hash = find_favicon_tag(base_url, &text).await;
     }
@@ -187,7 +271,7 @@ async fn fetch_raw_data(res: Response) -> Result<Arc<RawData>, WardError> {
 }
 
 //首页请求
-async fn index_fetch(url_str: String) -> Result<Vec<Response>, WardError> {
+async fn index_fetch(url_str: &String, special_wfp: Option<&WebFingerPrint>) -> Result<Vec<Response>, WardError> {
     let mut res_list: Vec<Response> = vec![];
     let schemes: [String; 2] = ["https://".to_string(), "http://".to_string()];
     for mut scheme in schemes {
@@ -214,7 +298,7 @@ async fn index_fetch(url_str: String) -> Result<Vec<Response>, WardError> {
         };
         loop {
             let mut next_url: Option<Url> = Option::None;
-            match send_requests(&url).await
+            match send_requests(url, special_wfp).await
             {
                 Ok(res) => {
                     next_url = get_next_url(&res);
@@ -243,7 +327,7 @@ async fn index_fetch(url_str: String) -> Result<Vec<Response>, WardError> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WhatWebResult {
-    pub url: String,
+    pub url: Url,
     pub what_web_name: HashSet<String>,
     pub priority: u32,
     pub length: usize,
@@ -252,7 +336,7 @@ pub struct WhatWebResult {
 
 impl WhatWebResult {
     pub fn new(
-        url: String,
+        url: Url,
     ) -> Self {
         Self {
             url,
@@ -279,13 +363,28 @@ fn get_title(raw_data: &Arc<RawData>) -> String {
 
 pub async fn scan(url: String) -> WhatWebResult {
     let mut what_web_name: HashSet<String> = HashSet::new();
-    let mut what_web_result: WhatWebResult = WhatWebResult::new(url.clone());
-    match index_fetch(url.clone()).await { //首页请求允许跳转
-        Ok(res_list) => {
-            for res in res_list {
-                match fetch_raw_data(res).await {
-                    Ok(raw_data) => {
-                        let web_name_set = check(&raw_data).await;
+    let mut what_web_result: WhatWebResult = WhatWebResult::new(Url::from_str("http://localhost").unwrap());
+    if let Ok(res_list) = index_fetch(&url, None).await { //首页请求允许跳转
+        for res in res_list {
+            if let Ok(raw_data) = fetch_raw_data(res, true).await {
+                let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA, false).await;
+                for (k, v) in web_name_set {
+                    what_web_name.insert(k);
+                    what_web_result.priority = v;
+                }
+                what_web_result.url = raw_data.url.clone();
+                what_web_result.title = get_title(&raw_data);
+                what_web_result.length = raw_data.text.len();
+            }
+        }
+    };
+    //如果首页识别不出来就跑特定请求
+    if what_web_name.is_empty() {
+        for special_wfp in WEB_FINGERPRINT_LIB_DATA.special.iter() {
+            if let Ok(res_list) = index_fetch(&what_web_result.url.to_string(), Some(special_wfp)).await {
+                for res in res_list {
+                    if let Ok(raw_data) = fetch_raw_data(res, false).await {
+                        let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA, true).await;
                         for (k, v) in web_name_set {
                             what_web_name.insert(k);
                             what_web_result.priority = v;
@@ -294,12 +393,13 @@ pub async fn scan(url: String) -> WhatWebResult {
                         what_web_result.title = get_title(&raw_data);
                         what_web_result.length = raw_data.text.len();
                     }
-                    Err(_) => {}
-                };
+                }
+                if !what_web_name.is_empty() {
+                    break;
+                }
             }
         }
-        Err(_) => {}
-    };
+    }
     what_web_result.what_web_name = what_web_name.clone();
     let color_web_name: Vec<String> = what_web_name.iter().map(String::from).collect();
     if !what_web_name.is_empty() {
@@ -334,13 +434,13 @@ fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
 }
 
 pub async fn update_web_fingerprint() {
-    let update_url = "https://0x727.github.io/FingerprintHub/web_fingerprint.json";
+    let update_url = "https://0x727.github.io/FingerprintHub/web_fingerprint_v2.json";
     match reqwest::get(update_url).await {
         Ok(response) => {
-            let mut file = std::fs::File::create("web_fingerprint.json").unwrap();
+            let mut file = std::fs::File::create("web_fingerprint_v2.json").unwrap();
             let mut content = Cursor::new(response.bytes().await.unwrap());
             std::io::copy(&mut content, &mut file).unwrap();
-            println!("Complete fingerprint update: web_fingerprint.json file size => {:?}", file.metadata().unwrap().len());
+            println!("Complete fingerprint update: web_fingerprint_v2.json file size => {:?}", file.metadata().unwrap().len());
         }
         Err(_) => {
             println!("Update failed, please download {} to local directory manually.", update_url);

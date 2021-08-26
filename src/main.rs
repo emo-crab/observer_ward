@@ -16,7 +16,7 @@ use colored::Colorize;
 use prettytable::{Table, Cell, Row, Attr, color};
 use std::fs::File;
 use futures::stream::FuturesUnordered;
-use async_std::prelude::*;
+use futures::StreamExt;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

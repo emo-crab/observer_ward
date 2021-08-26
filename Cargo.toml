@@ -15,7 +15,7 @@ serde_derive = "1.0"
 reqwest = { version = "0.10", features = ["cookies", "json", "blocking"] }
 tokio = { version = "0.2", features = ["full"] }
 futures = { version = "0.3", features = ["compat"] }
-url = "2.1.1"
+url = { version = "2.1.1", features = ["serde"] }
 scraper = "0.10.1"
 base64 = "0.3.0"
 md-5 = "0.9.1"
