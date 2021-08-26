@@ -364,6 +364,7 @@ fn get_title(raw_data: &Arc<RawData>) -> String {
 pub async fn scan(url: String) -> WhatWebResult {
     let mut what_web_name: HashSet<String> = HashSet::new();
     let mut what_web_result: WhatWebResult = WhatWebResult::new(url.clone());
+    let mut is_200 = false;
     if let Ok(res_list) = index_fetch(&url, None).await { //首页请求允许跳转
         for res in res_list {
             if let Ok(raw_data) = fetch_raw_data(res, true).await {
@@ -376,10 +377,11 @@ pub async fn scan(url: String) -> WhatWebResult {
                 what_web_result.title = get_title(&raw_data);
                 what_web_result.length = raw_data.text.len();
             }
+            is_200 = true;
         }
     };
     //如果首页识别不出来就跑特定请求
-    if what_web_name.is_empty() {
+    if what_web_name.is_empty() && is_200 {
         for special_wfp in WEB_FINGERPRINT_LIB_DATA.special.iter() {
             if let Ok(res_list) = index_fetch(&what_web_result.url.to_string(), Some(special_wfp)).await {
                 for res in res_list {
