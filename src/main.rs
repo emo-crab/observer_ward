@@ -3,8 +3,9 @@ extern crate reqwest;
 extern crate url;
 extern crate prettytable;
 
-pub mod cli;
-pub mod api;
+mod cli;
+mod api;
+mod benchmark;
 
 use observer_ward::{scan, strings_to_urls, read_file_to_target, update_web_fingerprint};
 use api::{api_server};
@@ -17,9 +18,14 @@ use prettytable::{Table, Cell, Row, Attr, color};
 use std::fs::File;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use benchmark::{Benchmark, NamedTimer};
+
+#[macro_use]
+extern crate log;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
     let config = WardArgs::new();
     let mut targets = vec![];
     if !config.server_host_port.is_empty() {
@@ -41,6 +47,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         update_web_fingerprint().await;
         process::exit(0);
     }
+    let mut benchmarks = Benchmark::init();
+    let mut observer_ward_bench = NamedTimer::start("ObserverWard");
     if !targets.is_empty() {
         let mut worker = FuturesUnordered::new();
         let mut targets_iter = targets.iter();
@@ -102,5 +110,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             table.printstd();
         }
     }
+    observer_ward_bench.end();
+    benchmarks.push(observer_ward_bench);
+    debug!("Benchmarks raw {:?}", benchmarks);
+    info!("{}", benchmarks.summary());
     Ok(())
 }
