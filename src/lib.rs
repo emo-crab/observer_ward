@@ -24,7 +24,10 @@ use std::time::Duration;
 use colored::Colorize;
 use std::io::Read;
 use serde::{Deserialize, Serialize};
+use std::str;
+use encoding_rs::{UTF_8, Encoding};
 use std::str::FromStr;
+use regex::Regex;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WebFingerPrint {
@@ -240,6 +243,20 @@ async fn find_favicon_tag(
     return link_tags;
 }
 
+fn get_default_encoding(byte: &[u8]) -> String {
+    let (html, _, _) = UTF_8.decode(byte);
+    let charset_re = Regex::new(r#"(?im)charset=(?P<cs>.*?)""#).unwrap();
+    let mut default_encoding = "utf-8";
+    for charset in charset_re.captures(&html).into_iter() {
+        if let Some(cs) = &charset.name("cs") {
+            default_encoding = cs.as_str();
+        }
+    }
+    let encoding = Encoding::for_label(default_encoding.as_bytes()).unwrap_or(UTF_8);
+    let (text, _, _) = encoding.decode(byte);
+    text.to_lowercase()
+}
+
 async fn fetch_raw_data(res: Response, is_icon: bool) -> Result<Arc<RawData>, WardError> {
     let path: String = res.url().path().to_string();
     let url = res.url().join("/").unwrap();
@@ -251,10 +268,11 @@ async fn fetch_raw_data(res: Response, is_icon: bool) -> Result<Arc<RawData>, Wa
     let mut favicon_hash = HashMap::new();
     let headers = res.headers().clone();
     let base_url = res.url().clone();
-    let text = match res.text().await {
-        Ok(text) => text.to_lowercase(),
+    let text = match res.bytes().await {
+        Ok(byte) => get_default_encoding(&byte),
         Err(_) => String::from(""),
     };
+    // println!("{:?}", text);
     if is_index && !status_code.is_server_error() && is_icon {
         // 只有在首页的时候提取favicon图标链接
         favicon_hash = find_favicon_tag(base_url, &text).await;
@@ -353,10 +371,7 @@ fn get_title(raw_data: &Arc<RawData>) -> String {
     let selector = Selector::parse("title").unwrap();
     for title in parsed_html.select(&selector).into_iter() {
         let title: String = title.inner_html().trim().to_string();
-        // if title.bytes().all(|b| b.is_()) {
         return title;
-        // }
-        // TODO 解码
     }
     return String::new();
 }
@@ -391,9 +406,6 @@ pub async fn scan(url: String) -> WhatWebResult {
                             what_web_name.insert(k);
                             what_web_result.priority = v;
                         }
-                        what_web_result.url = String::from(raw_data.url.clone());
-                        what_web_result.title = get_title(&raw_data);
-                        what_web_result.length = raw_data.text.len();
                     }
                 }
                 if !what_web_name.is_empty() {
