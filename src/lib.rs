@@ -245,11 +245,13 @@ async fn find_favicon_tag(
 
 fn get_default_encoding(byte: &[u8]) -> String {
     let (html, _, _) = UTF_8.decode(byte);
-    let charset_re = Regex::new(r#"(?im)charset=(?P<cs>.*?)""#).unwrap();
+    let charset_re = Regex::new(r#"(?im)charset="(.*?)"|charset=(.*?)""#).unwrap();
     let mut default_encoding = "utf-8";
-    for charset in charset_re.captures(&html).into_iter() {
-        if let Some(cs) = &charset.name("cs") {
-            default_encoding = cs.as_str();
+    for charset in charset_re.captures(&html) {
+        for cs in charset.iter() {
+            if let Some(c) = cs {
+                default_encoding = c.as_str();
+            }
         }
     }
     let encoding = Encoding::for_label(default_encoding.as_bytes()).unwrap_or(UTF_8);
