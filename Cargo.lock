@@ -1710,6 +1710,7 @@ dependencies = [
  "lazy_static",
  "log",
  "md-5",
+ "mime",
  "openssl",
  "prettytable-rs",
  "regex",

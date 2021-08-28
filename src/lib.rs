@@ -16,7 +16,7 @@ use std::iter::FromIterator;
 use url::Url;
 use ward::{check, RawData};
 use favicon_hash_lib::{get_md5, murmurhash3_x86_32};
-use reqwest::header::{LOCATION, HeaderValue, HeaderName};
+use reqwest::header::{LOCATION, HeaderValue, HeaderName, HeaderMap};
 use reqwest::redirect::Policy;
 use reqwest::{header, Response};
 use scraper::{Html, Selector};
@@ -28,6 +28,7 @@ use std::str;
 use encoding_rs::{UTF_8, Encoding};
 use std::str::FromStr;
 use regex::Regex;
+use mime::Mime;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WebFingerPrint {
@@ -243,7 +244,7 @@ async fn find_favicon_tag(
     return link_tags;
 }
 
-fn get_default_encoding(byte: &[u8]) -> String {
+fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
     let (html, _, _) = UTF_8.decode(byte);
     let charset_re = Regex::new(r#"(?im)charset="(.*?)"|charset=(.*?)""#).unwrap();
     let mut default_encoding = "utf-8";
@@ -254,7 +255,15 @@ fn get_default_encoding(byte: &[u8]) -> String {
             }
         }
     }
-    let encoding = Encoding::for_label(default_encoding.as_bytes()).unwrap_or(UTF_8);
+    let content_type = headers
+        .get(crate::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<Mime>().ok());
+    let encoding_name = content_type
+        .as_ref()
+        .and_then(|mime| mime.get_param("charset").map(|charset| charset.as_str()))
+        .unwrap_or(default_encoding);
+    let encoding = Encoding::for_label(encoding_name.as_bytes()).unwrap_or(UTF_8);
     let (text, _, _) = encoding.decode(byte);
     text.to_lowercase()
 }
@@ -271,7 +280,7 @@ async fn fetch_raw_data(res: Response, is_icon: bool) -> Result<Arc<RawData>, Wa
     let headers = res.headers().clone();
     let base_url = res.url().clone();
     let text = match res.bytes().await {
-        Ok(byte) => get_default_encoding(&byte),
+        Ok(byte) => get_default_encoding(&byte, headers.clone()),
         Err(_) => String::from(""),
     };
     // println!("{:?}", text);
