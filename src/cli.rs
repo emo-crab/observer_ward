@@ -5,7 +5,7 @@ use clap::{Arg, App};
 use std::{process, env};
 use colored::Colorize;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WardArgs {
     pub target: String,
     pub stdin: bool,
@@ -14,6 +14,7 @@ pub struct WardArgs {
     pub server_host_port: String,
     pub csv: String,
     pub json: String,
+    pub proxy: String,
 }
 
 impl WardArgs {
@@ -58,6 +59,16 @@ impl WardArgs {
                 .value_name("JSON")
                 .help("Export to the json file")
             )
+            .arg(
+                Arg::with_name("proxy")
+                    .short("p")
+                    .long("proxy")
+                    .takes_value(true)
+                    .value_name("PROXY")
+                    .help(
+                        "Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)",
+                    ),
+            )
             .arg(Arg::with_name("update")
                 .short("u")
                 .long("update")
@@ -76,6 +87,7 @@ impl WardArgs {
         let mut file_path: String = String::new();
         let mut csv_file_path: String = String::new();
         let mut json_file_path: String = String::new();
+        let mut proxy_uri: String = String::new();
         let mut server_host_port: String = String::new();
         if args.is_present("stdin") {
             stdin = true;
@@ -98,7 +110,19 @@ impl WardArgs {
         if let Some(file) = args.value_of("json") {
             json_file_path = file.to_string();
         };
-        WardArgs { target: target_url, stdin, file: file_path, update, server_host_port, csv: csv_file_path, json: json_file_path }
+        if let Some(proxy) = args.value_of("proxy") {
+            proxy_uri = proxy.to_string();
+        };
+        WardArgs {
+            target: target_url,
+            stdin,
+            file: file_path,
+            update,
+            server_host_port,
+            csv: csv_file_path,
+            json: json_file_path,
+            proxy: proxy_uri,
+        }
     }
 }
 

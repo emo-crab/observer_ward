@@ -3,10 +3,11 @@ extern crate lazy_static;
 
 pub mod favicon_hash_lib;
 pub mod ward;
+mod cli;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::fmt;
+use std::{fmt, process};
 use std::sync::Arc;
 use std::fs::File;
 use std::path::Path;
@@ -18,7 +19,7 @@ use ward::{check, RawData};
 use favicon_hash_lib::{get_md5, murmurhash3_x86_32};
 use reqwest::header::{LOCATION, HeaderValue, HeaderName, HeaderMap};
 use reqwest::redirect::Policy;
-use reqwest::{header, Response};
+use reqwest::{header, Response, Proxy};
 use scraper::{Html, Selector};
 use std::time::Duration;
 use colored::Colorize;
@@ -29,7 +30,9 @@ use encoding_rs::{UTF_8, Encoding};
 use std::str::FromStr;
 use regex::Regex;
 use mime::Mime;
+use cli::WardArgs;
 
+//TODO 整理lib文件
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WebFingerPrint {
     path: String,
@@ -104,6 +107,12 @@ lazy_static! {
         web_fingerprint_lib
     };
 }
+lazy_static! {
+    static ref CONFIG: WardArgs = {
+        let config = WardArgs::new();
+        config
+    };
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum WardError {
     Fetch(String),
@@ -137,14 +146,12 @@ impl From<&dyn std::error::Error> for WardError {
     }
 }
 
-// the trait `std::convert::From<page::reqwest::Error>` is not implemented for `WardError`
 impl From<reqwest::Error> for WardError {
     fn from(err: reqwest::Error) -> Self {
         WardError::Other(err.to_string())
     }
 }
 
-// the trait `std::convert::From<std::str::Utf8Error>` is not implemented for `WardError`
 impl From<std::str::Utf8Error> for WardError {
     fn from(err: std::str::Utf8Error) -> Self {
         WardError::Other(err.to_string())
@@ -169,14 +176,29 @@ async fn send_requests(mut url: Url, fingerprint: Option<&WebFingerPrint>) -> Re
         }
         url.set_path(fingerprint.path.as_str());
     }
-    return reqwest::Client::builder()
+    let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
         .default_headers(headers.clone())
         .redirect(Policy::none())
-        .build()
-        .unwrap()
+        .timeout(Duration::new(10, 0));
+
+    if !CONFIG.proxy.is_empty() {
+        match Url::parse(CONFIG.proxy.clone().as_str()) {
+            Ok(proxy_uri) => {
+                let proxy_obj = Proxy::all(proxy_uri).unwrap();
+                return client.proxy(proxy_obj).build().unwrap()
+                    .get(url.as_ref())
+                    .send()
+                    .await;
+            }
+            Err(_) => {
+                println!("Invalid Proxy Uri");
+                process::exit(0);
+            }
+        };
+    }
+    return client.build().unwrap()
         .get(url.as_ref())
-        .timeout(Duration::new(10, 0))
         .send()
         .await;
 }
