@@ -53,7 +53,7 @@ OPTIONS:
 ➜  ~ 
 ```
 
-| 命令行参数    | 描述                                                         |
+| Command line parameters    | describe                                                         |
 | ------------- | ------------------------------------------------------------ |
 | -h, --help    | Prints help information                                                 |
 | --stdin       | Read url(s) from STDIN                                   |
@@ -172,7 +172,7 @@ Url,Name,Length,Title,Priority
 https://httpbin.org/,swagger,9593,httpbin.org,2
 ```
 
-## 提交指纹
+## Contribution fingerprint
 
 - ObserverWard_0x727 All the fingerprint rules used come
   from [FingerprintHub](https://github.com/0x727/FingerprintHub),If you need to obtain fingerprint database and submit
