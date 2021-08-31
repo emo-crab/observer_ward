@@ -1,4 +1,3 @@
-extern crate base64;
 extern crate reqwest;
 extern crate url;
 extern crate prettytable;

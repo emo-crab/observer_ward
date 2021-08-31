@@ -1,6 +1,5 @@
 use futures::future::join_all;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::env;
 use crate::{WebFingerPrint, WebFingerPrintLib};
@@ -14,8 +13,6 @@ pub struct RawData {
     pub headers: reqwest::header::HeaderMap,
     pub status_code: reqwest::StatusCode,
     pub text: String,
-    pub favicon_hash: HashMap<String, HashMap<String, String>>,
-
 }
 
 pub async fn check(raw_data: &Arc<RawData>, fingerprint_lib: &WebFingerPrintLib, is_special: bool) -> HashMap<String, u32> {
@@ -28,11 +25,6 @@ pub async fn check(raw_data: &Arc<RawData>, fingerprint_lib: &WebFingerPrintLib,
     } else {
         for fingerprint in fingerprint_lib.index.iter() {
             futures.push(what_web(raw_data.clone(), fingerprint));
-        }
-        if raw_data.favicon_hash.is_empty() {
-            for fingerprint in fingerprint_lib.favicon.iter() {
-                futures.push(what_web(raw_data.clone(), fingerprint));
-            }
         }
     }
     let results = join_all(futures).await;
@@ -47,22 +39,6 @@ pub async fn check(raw_data: &Arc<RawData>, fingerprint_lib: &WebFingerPrintLib,
 
 pub async fn what_web(raw_data: Arc<RawData>, fingerprint: &WebFingerPrint) -> (bool, &WebFingerPrint) {
     let mut default_result = (false, fingerprint);
-    let mut hash_set = HashSet::new();
-    for favicon_hash in raw_data.favicon_hash.iter() {
-        let (_path, md5_mmh3) = favicon_hash;
-        for (_key, value) in md5_mmh3.iter() {
-            hash_set.insert(value);
-        }
-    }
-    if !fingerprint.favicon_hash.is_empty() {
-        let mut fph_set = HashSet::new();
-        for fph in fingerprint.favicon_hash.iter() {
-            fph_set.insert(fph);
-        }
-        if hash_set.intersection(&fph_set).count() == 0 {
-            return default_result;
-        }
-    }
     if fingerprint.status_code != 0 && raw_data.status_code.as_u16() != fingerprint.status_code {
         return default_result;
     }

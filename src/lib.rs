@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate lazy_static;
 
-pub mod favicon_hash_lib;
 pub mod ward;
 mod cli;
 
@@ -16,7 +15,6 @@ use std::io::{self, BufRead};
 use std::iter::FromIterator;
 use url::Url;
 use ward::{check, RawData};
-use favicon_hash_lib::{get_md5, murmurhash3_x86_32};
 use reqwest::header::{LOCATION, HeaderValue, HeaderName, HeaderMap};
 use reqwest::redirect::Policy;
 use reqwest::{header, Response, Proxy};
@@ -40,7 +38,6 @@ pub struct WebFingerPrint {
     status_code: u16,
     headers: HashMap<String, String>,
     keyword: Vec<String>,
-    favicon_hash: Vec<String>,
     priority: u32,
     request_method: String,
     request_headers: HashMap<String, String>,
@@ -55,7 +52,6 @@ impl WebFingerPrint {
             status_code: 0,
             headers: HashMap::new(),
             keyword: vec![],
-            favicon_hash: vec![],
             priority: 1,
             request_method: String::from(""),
             request_headers: HashMap::new(),
@@ -68,8 +64,6 @@ impl WebFingerPrint {
 pub struct WebFingerPrintLib {
     index: Vec<WebFingerPrint>,
     special: Vec<WebFingerPrint>,
-    favicon: Vec<WebFingerPrint>,
-
 }
 
 impl WebFingerPrintLib {
@@ -77,7 +71,6 @@ impl WebFingerPrintLib {
         Self {
             index: vec![],
             special: vec![],
-            favicon: vec![],
         }
     }
 }
@@ -98,8 +91,6 @@ lazy_static! {
         for f_rule in web_fingerprint{
             if f_rule.path =="/"&&f_rule.request_headers.is_empty()&&f_rule.request_method=="get"&&f_rule.request_data.is_empty(){
                 web_fingerprint_lib.index.push(f_rule);
-            }else if !f_rule.favicon_hash.is_empty() {
-                web_fingerprint_lib.favicon.push(f_rule);
             }else {
                 web_fingerprint_lib.special.push(f_rule);
             }
@@ -203,69 +194,6 @@ async fn send_requests(mut url: Url, fingerprint: Option<&WebFingerPrint>) -> Re
         .await;
 }
 
-// favicon的URL到Hash
-pub async fn get_favicon_hash(url: Url) -> Result<HashMap<String, String>, WardError> {
-    let mut favicon_hash = HashMap::new();
-    match send_requests(url, None).await {
-        Ok(res) => {
-            let status_code = res.status();
-            if !res.status().is_success() {
-                return Err(WardError::Fetch(format!(
-                    "Non-200 status code: {}",
-                    status_code
-                )));
-            }
-            let content = res.bytes().await?;
-            let bs64 = base64::encode(&content);
-            let favicon_mmh3 = format!("{}", murmurhash3_x86_32(&bs64.as_bytes(), 0));
-            let favicon_md5: String = get_md5(&content);
-            favicon_hash.insert(String::from("md5"), favicon_md5);
-            favicon_hash.insert(String::from("mmh3"), favicon_mmh3);
-            Ok(favicon_hash)
-        }
-        Err(err) => {
-            Err(WardError::Fetch(format!("{}", err)))
-        }
-    }
-}
-
-// 从HTML标签中提取favicon的链接
-async fn find_favicon_tag(
-    base_url: reqwest::Url,
-    text: &String,
-) -> HashMap<String, HashMap<String, String>> {
-    let parsed_html = Html::parse_fragment(&text);
-    let selector = Selector::parse("link").unwrap();
-    let mut link_tags = HashMap::new();
-    let path_list = parsed_html.select(&selector);
-    for link in path_list.into_iter() {
-        if let (Some(href), Some(rel)) = (link.value().attr("href"), link.value().attr("rel")) {
-            if ["icon", "shortcut icon"].contains(&rel) {
-                let favicon_url = base_url.join(href).unwrap();
-                match get_favicon_hash(favicon_url.clone()).await {
-                    Ok(md5_mmh3) => {
-                        let md5_mmh3_hash = md5_mmh3;
-                        link_tags.insert(String::from(favicon_url.clone()), md5_mmh3_hash);
-                    }
-                    Err(_) => {}
-                };
-            }
-        }
-    }
-    // 补充默认路径
-    let favicon_url = base_url.join("/favicon.ico").unwrap();
-    if !link_tags.contains_key(&String::from(favicon_url.clone())) {
-        match get_favicon_hash(favicon_url.clone()).await {
-            Ok(md5_mmh3) => {
-                let md5_mmh3_hash = md5_mmh3;
-                link_tags.insert(String::from(favicon_url.clone()), md5_mmh3_hash);
-            }
-            Err(_) => {}
-        };
-    }
-    return link_tags;
-}
-
 fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
     let (html, _, _) = UTF_8.decode(byte);
     let charset_re = Regex::new(r#"(?im)charset="(.*?)"|charset=(.*?)""#).unwrap();
@@ -290,32 +218,20 @@ fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
     text.to_lowercase()
 }
 
-async fn fetch_raw_data(res: Response, is_icon: bool) -> Result<Arc<RawData>, WardError> {
+async fn fetch_raw_data(res: Response) -> Result<Arc<RawData>, WardError> {
     let path: String = res.url().path().to_string();
     let url = res.url().join("/").unwrap();
     let status_code = res.status();
-    let mut is_index = false;
-    if let "/" = res.url().path() {
-        is_index = true;
-    };
-    let mut favicon_hash = HashMap::new();
     let headers = res.headers().clone();
-    let base_url = res.url().clone();
     let text = match res.bytes().await {
         Ok(byte) => get_default_encoding(&byte, headers.clone()),
         Err(_) => String::from(""),
     };
-    // println!("{:?}", text);
-    if is_index && !status_code.is_server_error() && is_icon {
-        // 只有在首页的时候提取favicon图标链接
-        favicon_hash = find_favicon_tag(base_url, &text).await;
-    }
     let raw_data = Arc::new(RawData {
         url,
         path,
         headers,
         status_code,
-        favicon_hash,
         text,
     });
     Ok(raw_data)
@@ -415,7 +331,7 @@ pub async fn scan(url: String) -> WhatWebResult {
     let mut is_200 = false;
     if let Ok(res_list) = index_fetch(&url, None).await { //首页请求允许跳转
         for res in res_list {
-            if let Ok(raw_data) = fetch_raw_data(res, true).await {
+            if let Ok(raw_data) = fetch_raw_data(res).await {
                 let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA, false).await;
                 for (k, v) in web_name_set {
                     what_web_name.insert(k);
@@ -433,7 +349,7 @@ pub async fn scan(url: String) -> WhatWebResult {
         for special_wfp in WEB_FINGERPRINT_LIB_DATA.special.iter() {
             if let Ok(res_list) = index_fetch(&what_web_result.url.to_string(), Some(special_wfp)).await {
                 for res in res_list {
-                    if let Ok(raw_data) = fetch_raw_data(res, false).await {
+                    if let Ok(raw_data) = fetch_raw_data(res).await {
                         let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA, true).await;
                         for (k, v) in web_name_set {
                             what_web_name.insert(k);

@@ -17,8 +17,6 @@ tokio = { version = "0.2", features = ["full"] }
 futures = { version = "0.3", features = ["compat"] }
 url = { version = "2.1.1", features = ["serde"] }
 scraper = "0.10.1"
-base64 = "0.3.0"
-md-5 = "0.9.1"
 hex-literal = "0.3.3"
 lazy_static = "1.4.0"
 clap = "2.33.3"
