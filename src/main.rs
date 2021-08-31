@@ -62,9 +62,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         while let Some(result) = worker.next().await {
+            results.push(result);
             if let Some(target) = targets_iter.next() {
                 worker.push(scan(target.to_string()));
-                results.push(result)
             }
         }
         if results.len() < 2000 {
