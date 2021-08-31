@@ -8,7 +8,7 @@
 | ---- | --- |
 | author | [三米前有蕉皮](https://github.com/cn-kali-team) |
 | team | [0x727](https://github.com/0x727) Open source tools will be available in the future. |
-| what for? | Communalization[FingerprintHub](https://github.com/0x727/FingerprintHub)Identification tool. |
+| what for? | Communalization [FingerprintHub](https://github.com/0x727/FingerprintHub) Identification tool. |
 | language | Rust |
 | feature | Command line,Custom request,API service web fingerprint identification tool. |
 
@@ -21,11 +21,11 @@ cargo build --target  x86_64-unknown-linux-musl --release --all-features
 ```
 
 - For more installation details, please see the actions automatic compilation and construction process file of the
-  current project[workflows](https://github.com/0x727/ObserverWard_0x727/blob/main/.github/workflows/basic.yml).
+  current project [workflows](https://github.com/0x727/ObserverWard_0x727/blob/main/.github/workflows/basic.yml).
 
 ### 2. Download release binary installation
 
-- [Release version](https://github.com/0x727/ObserverWard_0x727/releases)Download page.
+- [Release version](https://github.com/0x727/ObserverWard_0x727/releases) Download page.
 
 ## Usage:
 
