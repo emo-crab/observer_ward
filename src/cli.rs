@@ -45,7 +45,7 @@ impl WardArgs {
                 .short("f")
                 .long("file")
                 .value_name("FILE")
-                .help("Path to the file")
+                .help("Read the target from the file")
             )
             .arg(Arg::with_name("csv")
                 .short("c")
