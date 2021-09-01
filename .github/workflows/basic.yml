@@ -22,10 +22,12 @@ jobs:
 
       - name: Build
         run: |
+          sudo apt-get install upx-ucl -y
           sudo apt-get install musl-tools -y
           sudo apt-get install pkg-config libssl-dev -y
           cargo build --target=x86_64-unknown-linux-musl --release --all-features
           strip target/x86_64-unknown-linux-musl/release/observer_ward
+          upx --best --lzma target/x86_64-unknown-linux-musl/release/observer_ward
           mv target/x86_64-unknown-linux-musl/release/observer_ward target/x86_64-unknown-linux-musl/release/observer_ward_amd64
 
       - name: Upload binary to release
@@ -53,6 +55,12 @@ jobs:
 
       - name: Build
         run: cargo build --all --release
+      - name: Compress binaries
+        uses: svenstaro/upx-action@v2
+        with:
+          file: target/release/observer_ward.exe
+          strip: false
+          args: -9
       - name: Upload binary to release
         uses: svenstaro/upload-release-action@v1-release
         with:
