@@ -55,12 +55,6 @@ jobs:
 
       - name: Build
         run: cargo build --all --release
-      - name: Compress binaries
-        uses: svenstaro/upx-action@v2
-        with:
-          file: target/release/observer_ward.exe
-          strip: false
-          args: -9
       - name: Upload binary to release
         uses: svenstaro/upload-release-action@v1-release
         with:
