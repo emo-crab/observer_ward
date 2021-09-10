@@ -5,7 +5,11 @@ authors = ["Kali-Team <root@kali-team.cn>"]
 edition = "2018"
 description = "Identifies technologies used on a web page."
 license = "MIT OR Apache-2.0"
-
+[profile.release]
+lto = true
+opt-level = "z"
+codegen-units = 1
+panic = "abort"
 [dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
 serde = { version = "1.0.99", features = ["derive"] }
