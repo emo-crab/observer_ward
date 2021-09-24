@@ -6,10 +6,10 @@ mod cli;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::{fmt, process};
+use std::{fmt, process, env};
 use std::sync::Arc;
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::io::Cursor;
 use std::io::{self, BufRead};
 use std::iter::FromIterator;
@@ -78,7 +78,9 @@ impl WebFingerPrintLib {
 lazy_static! {
     static ref WEB_FINGERPRINT_LIB_DATA: WebFingerPrintLib = {
         let mut web_fingerprint_lib = WebFingerPrintLib::new();
-        let mut file = match File::open("web_fingerprint_v2.json") {
+        let self_path: PathBuf = env::current_exe().unwrap_or(PathBuf::new());
+        let path = Path::new(&self_path).parent().unwrap_or(Path::new(""));
+        let mut file = match File::open(path.join("web_fingerprint_v2.json")) {
             Err(_) => {
                 println!("The fingerprint library cannot be found in the current directory!");
                 std::process::exit(0);
@@ -400,7 +402,9 @@ pub async fn update_web_fingerprint() {
     let update_url = "https://0x727.github.io/FingerprintHub/web_fingerprint_v2.json";
     match reqwest::get(update_url).await {
         Ok(response) => {
-            let mut file = std::fs::File::create("web_fingerprint_v2.json").unwrap();
+            let self_path: PathBuf = env::current_exe().unwrap_or(PathBuf::new());
+            let path = Path::new(&self_path).parent().unwrap_or(Path::new(""));
+            let mut file = std::fs::File::create(path.join("web_fingerprint_v2.json")).unwrap();
             let mut content = Cursor::new(response.bytes().await.unwrap());
             std::io::copy(&mut content, &mut file).unwrap();
             println!("Complete fingerprint update: web_fingerprint_v2.json file size => {:?}", file.metadata().unwrap().len());
