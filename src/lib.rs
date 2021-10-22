@@ -29,6 +29,7 @@ use std::time::Duration;
 use std::{env, fmt, process};
 use url::Url;
 use ward::{check, RawData};
+use std::sync::Mutex;
 
 //TODO 整理lib文件
 #[derive(Debug, Serialize, Deserialize)]
@@ -73,11 +74,9 @@ impl WebFingerPrintLib {
             special: vec![],
         }
     }
-}
-// 加载指纹库到常量，防止在文件系统反复加载
-lazy_static! {
-    static ref WEB_FINGERPRINT_LIB_DATA: WebFingerPrintLib = {
-        let mut web_fingerprint_lib = WebFingerPrintLib::new();
+    pub fn init(&mut self) {
+        self.index.clear();
+        self.special.clear();
         let self_path: PathBuf = env::current_exe().unwrap_or(PathBuf::new());
         let path = Path::new(&self_path).parent().unwrap_or(Path::new(""));
         let mut file = match File::open(path.join("web_fingerprint_v2.json")) {
@@ -96,13 +95,23 @@ lazy_static! {
                 && f_rule.request_method == "get"
                 && f_rule.request_data.is_empty()
             {
-                web_fingerprint_lib.index.push(f_rule);
+                self.index.push(f_rule);
             } else {
-                web_fingerprint_lib.special.push(f_rule);
+                self.special.push(f_rule);
             }
         }
-        web_fingerprint_lib
+    }
+}
+// 加载指纹库到常量，防止在文件系统反复加载
+lazy_static! {
+    static ref WEB_FINGERPRINT_LIB_DATA: Mutex<WebFingerPrintLib> = {
+        let mut web_fingerprint_lib = WebFingerPrintLib::new();
+        web_fingerprint_lib.init();
+        Mutex::new(web_fingerprint_lib)
     };
+}
+pub fn update_fingerprint() {
+    WEB_FINGERPRINT_LIB_DATA.lock().unwrap().init();
 }
 lazy_static! {
     static ref CONFIG: WardArgs = {
@@ -349,7 +358,7 @@ pub async fn scan(url: String) -> WhatWebResult {
         //首页请求允许跳转
         for res in res_list {
             if let Ok(raw_data) = fetch_raw_data(res).await {
-                let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA, false).await;
+                let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA.lock().unwrap(), false).await;
                 for (k, v) in web_name_set {
                     what_web_name.insert(k);
                     what_web_result.priority = v;
@@ -363,13 +372,13 @@ pub async fn scan(url: String) -> WhatWebResult {
     };
     //如果首页识别不出来就跑特定请求
     if what_web_name.is_empty() && is_200 {
-        for special_wfp in WEB_FINGERPRINT_LIB_DATA.special.iter() {
+        for special_wfp in WEB_FINGERPRINT_LIB_DATA.lock().unwrap().special.iter() {
             if let Ok(res_list) =
-                index_fetch(&what_web_result.url.to_string(), Some(special_wfp)).await
+            index_fetch(&what_web_result.url.to_string(), Some(special_wfp)).await
             {
                 for res in res_list {
                     if let Ok(raw_data) = fetch_raw_data(res).await {
-                        let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA, true).await;
+                        let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA.lock().unwrap(), true).await;
                         for (k, v) in web_name_set {
                             what_web_name.insert(k);
                             what_web_result.priority = v;
@@ -424,8 +433,8 @@ pub fn read_file_to_target(file_path: String) -> HashSet<String> {
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where
-    P: AsRef<Path>,
+    where
+        P: AsRef<Path>,
 {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())

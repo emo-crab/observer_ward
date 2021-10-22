@@ -1,6 +1,6 @@
 use actix_web::{web, App, HttpResponse, HttpServer};
 use serde::{Deserialize, Serialize};
-use observer_ward::{scan, WhatWebResult};
+use observer_ward::{scan, WhatWebResult, update_web_fingerprint};
 use futures::future::join_all;
 use colored::Colorize;
 use std::collections::{HashSet};
@@ -22,6 +22,12 @@ async fn index(item: web::Json<ApiTargetList>) -> HttpResponse {
     HttpResponse::Ok().json(results_list)
 }
 
+async fn update() -> HttpResponse {
+    update_web_fingerprint().await;
+    let results: Vec<String> = Vec::new();
+    HttpResponse::Ok().json(results)
+}
+
 #[actix_web::main]
 pub async fn api_server(server_host_port: String) -> std::io::Result<()> {
     let s = format!("http://{}/what_web", server_host_port);
@@ -36,6 +42,7 @@ pub async fn api_server(server_host_port: String) -> std::io::Result<()> {
         App::new()
             .data(web::JsonConfig::default().limit(4096))
             .service(web::resource("/what_web").route(web::post().to(index)))
+            .service(web::resource("/update").route(web::get().to(update)))
     }).bind(server_host_port)?
         .run()
         .await

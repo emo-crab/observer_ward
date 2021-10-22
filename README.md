@@ -1,18 +1,18 @@
 ![logo](./doc/images/logo.png)
 
+[English](./README_EN.md) | [中文简体](./README.md)
+
 # ObserverWard_0x727
 
-[English](./README.md) | [中文简体](./README_CN.md)
-
-| category | describe |
+| 类别 | 说明 |
 | ---- | --- |
-| author | [三米前有蕉皮](https://github.com/cn-kali-team) |
-| team | [0x727](https://github.com/0x727) Open source tools will be available in the future. |
-| what for? | Communalization [FingerprintHub](https://github.com/0x727/FingerprintHub) Identification tool. |
-| language | Rust |
-| feature | Command line,Custom request,API service web fingerprint identification tool. |
+| 作者 | [三米前有蕉皮](https://github.com/cn-kali-team) |
+| 团队 | [0x727](https://github.com/0x727) 未来一段时间将陆续开源工具 |
+| 定位 | 社区化[指纹库](https://github.com/0x727/FingerprintHub)识别工具。 |
+| 语言 | Rust |
+| 功能 | 命令行，API服务Web指纹识别工具 |
 
-### 1. Installation of source code
+### 1. 源码手动安装
 
 ```bash
 git clone https://github.com/0x727/ObserverWard_0x727
@@ -20,22 +20,21 @@ cd ObserverWard_0x727
 cargo build --target  x86_64-unknown-linux-musl --release --all-features
 ```
 
-- For more installation details, please see the actions automatic compilation and construction process file of the
-  current project [workflows](https://github.com/0x727/ObserverWard_0x727/blob/main/.github/workflows/basic.yml).
+- 更多安装细节请查看当前项目的Actions自动化编译构建流程[文件](https://github.com/0x727/ObserverWard_0x727/blob/main/.github/workflows/basic.yml)。
 
-### 2. Download release binary installation
+### 2. 下载二进制安装
 
-- [Release version](https://github.com/0x727/ObserverWard_0x727/releases) Download page.
+- [发行版本](https://github.com/0x727/ObserverWard_0x727/releases)下载页面。
 
-## Usage:
+## 使用方法
 
 ```bash
-➜  ~ ./observer_ward_amd64 -h
+➜  ~ ./observer_ward -h
 ObserverWard 0.0.1
 author: Kali-Team
 
 USAGE:
-    observer_ward_amd64 [FLAGS] [OPTIONS]
+    observer_ward [FLAGS] [OPTIONS]
 
 FLAGS:
     -h, --help       Prints help information
@@ -45,28 +44,26 @@ FLAGS:
 
 OPTIONS:
     -c, --csv <CSV>          Export to the csv file
-    -f, --file <FILE>        Read the target from the file
+    -f, --file <FILE>        Path to the file
     -j, --json <JSON>        Export to the json file
-    -p, --proxy <PROXY>      Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)
     -s, --server <SERVER>    Start a web API service (127.0.0.1:8080)
     -t, --target <TARGET>    The target URL(s) (required, unless --stdin used)
-➜  ~ 
+
 ```
 
-| Command line parameters    | describe                                                         |
+| 命令行参数    | 描述                                                         |
 | ------------- | ------------------------------------------------------------ |
-| -h, --help    | Prints help information                                                 |
-| --stdin       | Read url(s) from STDIN                                   |
-| -u, --update  | Update the latest fingerprint from the [FingerprintHub](https://github.com/0x727/FingerprintHub)|
-| -V, --version | Prints version information                                                     |
-| -c, --csv     | Export the result to a CSV file, expecting a file path                      |
-| -f, --file    | Read the target from the file                                   |
-| -j, --json    | Export the result to a JSON file, expecting a file path                     |
-| -p, --proxy   | Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)     |
-| -s, --server  | Open the API service and receive the IP and port to listen.(ex: 127.0.0.1:8080)      |
-| -t, --target  | The target URL(s) (required, unless --stdin used)                                                 |
+| -h, --help    | 打印帮助信息                                                 |
+| --stdin       | 从标准输出获取要识别的目标                                   |
+| -u, --update  | 从远程[指纹库](https://github.com/0x727/FingerprintHub)更新最新指纹，也可以手动从[Github](https://0x727.github.io/FingerprintHub/web_fingerprint_v2.json)下载 |
+| -V, --version | 打印版本                                                     |
+| -c, --csv     | 将识别结果导出csv文件，接受一个文件路径                      |
+| -f, --file    | 从文件里面读取要识别的目标                                   |
+| -j, --json    | 将识别结果导出json文件，接受一个文件路径                     |
+| -s, --server  | 开启api服务，接收要监听的IP和端口，例如：127.0.0.1:8080      |
+| -t, --target  | 识别单个目标                                                 |
 
-### Start API service
+### 开启API服务
 
 ```bash
 ➜  ~ ./observer_ward -s 127.0.0.1:8080
@@ -80,13 +77,12 @@ Result:
 [{"url":"https://httpbin.org/","what_web_name":["swagger"],"priority":2,"length":9593,"title":"httpbin.org"}]
 ```
 
-- After the service is started, the API service of Web fingerprint identification will be started on the provided IP and
-  port.
+- 服务开启后会在提供的IP和端口上开启Web指纹识别的API服务。
 
 ![image-20210821173531800](./doc/README.assets/image-20210821173531800.png)
 
-- API interface address is`http://127.0.0.1:8080/what_ Web`, the request method is `POST`, and the accepted JSON data
-  structure is as follows:
+- 通过API接口热更新指纹：`http://127.0.0.1:8080/update`,请求方式为`GET`。
+- API接口地址为`http://127.0.0.1:8080/what_web`，请求方式为`POST`，接受json数据结构如下：
 
 ```json
 {
@@ -99,16 +95,15 @@ Result:
 
 ![image-20210821173903713](./doc/README.assets/image-20210821173903713.png)
 
-- The speed of returning results depends on the local service and the network status of the target to be identified.
-  When submitting multiple, it will wait for all targets to be identified before returning.
+- 返回结果速度取决于本地服务与要识别目标的网络状况，提交多个时会等待全部目标识别完成后才会返回。
 
-### Single target
+### 单个目标识别
 
 ```bash
 ➜  ~ ./observer_ward -t https://httpbin.org
 [ https://httpbin.org | ["swagger"] | 9593 | httpbin.org |
 
-Important technology:
+高关注组件:
 
 +---------------------+---------+--------+-------------+----------+
 | Url                 | Name    | Length | Title       | Priority |
@@ -119,7 +114,7 @@ Important technology:
 
 ![image-20210821130602444](./doc/README.assets/image-20210821130602444.png)
 
-### Read the target from the file
+### 从文件获取要识别的目标
 
 ```bash
 ➜  ~ ./observer_ward -f target.txt
@@ -129,21 +124,21 @@ Important technology:
 
 ![image-20210821172601830](./doc/README.assets/image-20210821172601830.png)
 
-### Read url(s) from STDIN
+### 从标准输出获取识别目标
 
 ```bash
 ➜  ~ cat target.txt| ./observer_ward --stdin
 ```
 
-- The result is the same as the effect obtained from the file, which is not shown in the screenshot here.
+- 结果和从文件获取的效果一样，这里不再截图展示。
 
-### Export the result to a JSON file
+### 导出结果到JSON文件
 
 ```bash
 ➜  ~ ./observer_ward -t https://httpbin.org -j result.json
 [ https://httpbin.org/ | ["swagger"] | 9593 | httpbin.org |
 
-Important technology:
+高关注组件:
 
 +----------------------+---------+--------+-------------+----------+
 | Url                  | Name    | Length | Title       | Priority |
@@ -154,13 +149,13 @@ Important technology:
 [{"url":"https://httpbin.org/","what_web_name":["swagger"],"priority":2,"length":9593,"title":"httpbin.org"}]%
 ```
 
-### Export the result to a CSV file
+### 导出结果到CSV文件
 
 ```bash
 ➜  ~ ./observer_ward -t https://httpbin.org -c result.csv
 [ https://httpbin.org/ | ["swagger"] | 9593 | httpbin.org |
 
-Important technology:
+高关注组件:
 
 +----------------------+---------+--------+-------------+----------+
 | Url                  | Name    | Length | Title       | Priority |
@@ -172,23 +167,21 @@ Url,Name,Length,Title,Priority
 https://httpbin.org/,swagger,9593,httpbin.org,2
 ```
 
-## Contribution fingerprint
+## 提交指纹
 
-- ObserverWard_0x727 All the fingerprint rules used come
-  from [FingerprintHub](https://github.com/0x727/FingerprintHub),If you need to obtain fingerprint database and submit
-  fingerprint rules，Refer to [FingerprintHub](https://github.com/0x727/FingerprintHub).
+-
+ObserverWard_0x727使用到的指纹规则全部来自[FingerprintHub](https://github.com/0x727/FingerprintHub)项目，如果需要获取指纹库和提交指纹规则，请查看[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
 
-## Contributing
+## 为ObserverWard_0x727做贡献
 
-Interested in getting involved? We would like to help you!
+ObserverWard_0x727 是一个免费且开源的项目，我们欢迎任何人为其开发和进步贡献力量。
 
-* Take a look at our [issues list](https://github.com/0x727/Template/issues) and consider sending a Pull Request to **
-  dev branch**.
-* If you want to add a new feature, please create an issue first to describe the new feature, as well as the
-  implementation approach. Once a proposal is accepted, create an implementation of the new features and submit it as a
-  pull request.
-* Sorry for my poor English. Improvements for this document are welcome, even some typo fixes.
-* If you have great ideas, email 0x727Team@gmail.com.
+- 在使用过程中出现任何问题，可以通过 issues 来反馈。
+- Bug 的修复可以直接提交 Pull Request 到 dev 分支。
+- 如果是增加新的功能特性，请先创建一个 issue 并做简单描述以及大致的实现方法，提议被采纳后，就可以创建一个实现新特性的 Pull Request。
+- 欢迎对说明文档做出改善，帮助更多的人使用 ObserverWard_0x727，特别是英文文档。
+- 贡献代码请提交 PR 至 dev 分支，master 分支仅用于发布稳定可用版本。
+- 如果你有任何其他方面的问题或合作，欢迎发送邮件至 0x727Team@gmail.com 。
 
 ## Stargazers over time
 
