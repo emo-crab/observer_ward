@@ -1,6 +1,6 @@
 use actix_web::{web, App, HttpResponse, HttpServer};
 use serde::{Deserialize, Serialize};
-use observer_ward::{scan, WhatWebResult, update_web_fingerprint};
+use observer_ward::{scan, WhatWebResult, download_fingerprints_from_github};
 use futures::future::join_all;
 use colored::Colorize;
 use std::collections::{HashSet};
@@ -9,6 +9,12 @@ use std::iter::FromIterator;
 #[derive(Debug, Serialize, Deserialize)]
 struct ApiTargetList {
     targets: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ApiUpdate {
+    #[serde(default)]
+    is_local: bool,
 }
 
 async fn index(item: web::Json<ApiTargetList>) -> HttpResponse {
@@ -22,8 +28,11 @@ async fn index(item: web::Json<ApiTargetList>) -> HttpResponse {
     HttpResponse::Ok().json(results_list)
 }
 
-async fn update() -> HttpResponse {
-    update_web_fingerprint().await;
+async fn update(web::Query(config): web::Query<ApiUpdate>) -> HttpResponse {
+    if !config.is_local {
+        download_fingerprints_from_github().await;
+    }
+    // update_fingerprint();//TODO
     let results: Vec<String> = Vec::new();
     HttpResponse::Ok().json(results)
 }

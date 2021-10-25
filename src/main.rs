@@ -6,7 +6,7 @@ mod cli;
 mod api;
 mod benchmark;
 
-use observer_ward::{scan, strings_to_urls, read_file_to_target, update_web_fingerprint};
+use observer_ward::{scan, strings_to_urls, read_file_to_target, download_fingerprints_from_github};
 use api::{api_server};
 use cli::{WardArgs};
 use std::process;
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         targets.extend(read_file_to_target(config.file));
     }
     if config.update {
-        update_web_fingerprint().await;
+        download_fingerprints_from_github().await;
         process::exit(0);
     }
     let mut benchmarks = Benchmark::init();
