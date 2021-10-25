@@ -30,9 +30,10 @@ use std::{env, fmt, process};
 use url::Url;
 use ward::{check, RawData};
 use md5::{Digest, Md5};
+use std::sync::RwLock;
 
 //TODO 整理lib文件
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WebFingerPrint {
     path: String,
     name: String,
@@ -64,7 +65,7 @@ impl WebFingerPrint {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WebFingerPrintLib {
     index: Vec<WebFingerPrint>,
     special: Vec<WebFingerPrint>,
@@ -113,15 +114,15 @@ impl WebFingerPrintLib {
 }
 // 加载指纹库到常量，防止在文件系统反复加载
 lazy_static! {
-    static ref WEB_FINGERPRINT_LIB_DATA: WebFingerPrintLib = {
+    static ref WEB_FINGERPRINT_LIB_DATA: RwLock<WebFingerPrintLib> =  RwLock::new({
         let mut web_fingerprint_lib = WebFingerPrintLib::new();
         web_fingerprint_lib.init();
         web_fingerprint_lib
-    };
+    });
 }
-// pub fn update_fingerprint() {
-//     WEB_FINGERPRINT_LIB_DATA.lock().unwrap().init();
-// }
+pub fn update_fingerprint() {
+    WEB_FINGERPRINT_LIB_DATA.write().unwrap().init();
+}
 lazy_static! {
     static ref CONFIG: WardArgs = {
         let config = WardArgs::new();
@@ -439,7 +440,7 @@ pub async fn scan(url: String) -> WhatWebResult {
         //首页请求允许跳转
         for res in res_list {
             if let Ok(raw_data) = fetch_raw_data(res).await {
-                let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA, false).await;
+                let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned(), false).await;
                 for (k, v) in web_name_set {
                     what_web_name.insert(k);
                     what_web_result.priority = v;
@@ -453,13 +454,13 @@ pub async fn scan(url: String) -> WhatWebResult {
     };
     //如果首页识别不出来就跑特定请求
     if what_web_name.is_empty() && is_200 {
-        for special_wfp in WEB_FINGERPRINT_LIB_DATA.special.iter() {
+        for special_wfp in WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned().special.iter() {
             if let Ok(res_list) =
             index_fetch(&what_web_result.url.to_string(), Some(special_wfp)).await
             {
                 for res in res_list {
                     if let Ok(raw_data) = fetch_raw_data(res).await {
-                        let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA, true).await;
+                        let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned(), true).await;
                         for (k, v) in web_name_set {
                             what_web_name.insert(k);
                             what_web_result.priority = v;

@@ -1,6 +1,6 @@
 use actix_web::{web, App, HttpResponse, HttpServer};
 use serde::{Deserialize, Serialize};
-use observer_ward::{scan, WhatWebResult, download_fingerprints_from_github};
+use observer_ward::{scan, WhatWebResult, download_fingerprints_from_github, update_fingerprint};
 use futures::future::join_all;
 use colored::Colorize;
 use std::collections::{HashSet};
@@ -32,7 +32,7 @@ async fn update(web::Query(config): web::Query<ApiUpdate>) -> HttpResponse {
     if !config.is_local {
         download_fingerprints_from_github().await;
     }
-    // update_fingerprint();//TODO
+    update_fingerprint();//TODO
     let results: Vec<String> = Vec::new();
     HttpResponse::Ok().json(results)
 }
