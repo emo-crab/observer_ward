@@ -11,7 +11,7 @@ use mime::Mime;
 use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, LOCATION};
 use reqwest::redirect::Policy;
-use reqwest::{header, Proxy, Response};
+use reqwest::{header, Method, Proxy, Response};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -185,9 +185,11 @@ async fn send_requests(
     fingerprint: Option<&WebFingerPrint>,
 ) -> Result<Response, reqwest::Error> {
     let mut headers = header::HeaderMap::new();
+    let mut method: String = String::from("GET");
     let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36";
     headers.insert(header::USER_AGENT, header::HeaderValue::from_static(ua));
     if let Some(fingerprint) = fingerprint {
+        method = fingerprint.request_method.to_uppercase();
         if !fingerprint.request_headers.is_empty() {
             for (k, v) in fingerprint.request_headers.clone() {
                 headers.insert(
@@ -212,7 +214,7 @@ async fn send_requests(
                     .proxy(proxy_obj)
                     .build()
                     .unwrap()
-                    .get(url.as_ref())
+                    .request(Method::from_str(&method).unwrap_or(Method::GET), url.as_ref())
                     .send()
                     .await;
             }
@@ -222,7 +224,10 @@ async fn send_requests(
             }
         };
     }
-    return client.build().unwrap().get(url.as_ref()).send().await;
+    return client.build()
+        .unwrap()
+        .request(Method::from_str(&method).unwrap_or(Method::GET), url.as_ref())
+        .send().await;
 }
 
 fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
@@ -249,14 +254,10 @@ fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
     text.to_lowercase()
 }
 
-async fn fetch_raw_data(res: Response) -> Result<Arc<RawData>, WardError> {
+async fn fetch_raw_data(res: Response, is_index: bool) -> Result<Arc<RawData>, WardError> {
     let path: String = res.url().path().to_string();
     let url = res.url().join("/").unwrap();
     let status_code = res.status();
-    let mut is_index = false;
-    if let "/" = res.url().path() {
-        is_index = true;
-    };
     let headers = res.headers().clone();
     let base_url = res.url().clone();
     let text = match res.bytes().await {
@@ -264,7 +265,7 @@ async fn fetch_raw_data(res: Response) -> Result<Arc<RawData>, WardError> {
         Err(_) => String::from(""),
     };
     let mut favicon: HashMap<String, String> = HashMap::new();
-    if is_index && !status_code.is_server_error() {
+    if is_index && !status_code.is_server_error() && is_index {
         // 只有在首页的时候提取favicon图标链接
         favicon = find_favicon_tag(base_url, &text).await;
     }
@@ -439,7 +440,7 @@ pub async fn scan(url: String) -> WhatWebResult {
     if let Ok(res_list) = index_fetch(&url, None).await {
         //首页请求允许跳转
         for res in res_list {
-            if let Ok(raw_data) = fetch_raw_data(res).await {
+            if let Ok(raw_data) = fetch_raw_data(res, true).await {
                 let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned(), false).await;
                 for (k, v) in web_name_set {
                     what_web_name.insert(k);
@@ -459,7 +460,7 @@ pub async fn scan(url: String) -> WhatWebResult {
             index_fetch(&what_web_result.url.to_string(), Some(special_wfp)).await
             {
                 for res in res_list {
-                    if let Ok(raw_data) = fetch_raw_data(res).await {
+                    if let Ok(raw_data) = fetch_raw_data(res, false).await {
                         let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned(), true).await;
                         for (k, v) in web_name_set {
                             what_web_name.insert(k);

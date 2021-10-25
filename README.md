@@ -81,7 +81,7 @@ Result:
 
 ![image-20210821173531800](./doc/README.assets/image-20210821173531800.png)
 
-- 通过API接口热更新指纹：`http://127.0.0.1:8080/update`,请求方式为`GET`。
+- 通过API接口热更新指纹：`http://127.0.0.1:8080/update?is_local=false`,请求方式为`GET`,当参数`is_local`为`false`时从github更新指纹，当参数`is_local`为`true`时重新加载本地指纹，你可以从其他地方更新指纹库到本地。
 - API接口地址为`http://127.0.0.1:8080/what_web`，请求方式为`POST`，接受json数据结构如下：
 
 ```json
