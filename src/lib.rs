@@ -11,7 +11,7 @@ use mime::Mime;
 use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, LOCATION};
 use reqwest::redirect::Policy;
-use reqwest::{header, Method, Proxy, Response};
+use reqwest::{Body, header, Method, Proxy, Response};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -185,11 +185,13 @@ async fn send_requests(
     fingerprint: Option<&WebFingerPrint>,
 ) -> Result<Response, reqwest::Error> {
     let mut headers = header::HeaderMap::new();
-    let mut method: String = String::from("GET");
+    let mut method: Method = Method::GET;
+    let mut body_data = Body::from("");
     let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36";
     headers.insert(header::USER_AGENT, header::HeaderValue::from_static(ua));
     if let Some(fingerprint) = fingerprint {
-        method = fingerprint.request_method.to_uppercase();
+        method = Method::from_str(&fingerprint.request_method.to_uppercase()).unwrap_or(Method::GET);
+        body_data = Body::from(base64::decode(fingerprint.request_data.clone()).unwrap_or_default());
         if !fingerprint.request_headers.is_empty() {
             for (k, v) in fingerprint.request_headers.clone() {
                 headers.insert(
@@ -198,7 +200,9 @@ async fn send_requests(
                 );
             }
         }
-        url.set_path(fingerprint.path.as_str());
+        if fingerprint.path != "/" {
+            url.set_path(fingerprint.path.as_str());
+        }
     }
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
@@ -214,7 +218,8 @@ async fn send_requests(
                     .proxy(proxy_obj)
                     .build()
                     .unwrap()
-                    .request(Method::from_str(&method).unwrap_or(Method::GET), url.as_ref())
+                    .request(method, url.as_ref())
+                    .body(body_data)
                     .send()
                     .await;
             }
@@ -226,7 +231,8 @@ async fn send_requests(
     }
     return client.build()
         .unwrap()
-        .request(Method::from_str(&method).unwrap_or(Method::GET), url.as_ref())
+        .request(method, url.as_ref())
+        .body(body_data)
         .send().await;
 }
 
@@ -317,12 +323,8 @@ async fn find_favicon_tag(
         if let (Some(href), Some(rel)) = (link.value().attr("href"), link.value().attr("rel")) {
             if ["icon", "shortcut icon"].contains(&rel) {
                 let favicon_url = base_url.join(href).unwrap();
-                match get_favicon_hash(favicon_url.clone()).await {
-                    Ok(md5_mmh3) => {
-                        let md5_mmh3_hash = md5_mmh3;
-                        link_tags.insert(String::from(favicon_url.clone()), md5_mmh3_hash);
-                    }
-                    Err(_) => {}
+                if let Ok(favicon_md5) = get_favicon_hash(favicon_url.clone()).await {
+                    link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
                 };
             }
         }
@@ -330,12 +332,8 @@ async fn find_favicon_tag(
     // 补充默认路径
     let favicon_url = base_url.join("/favicon.ico").unwrap();
     if !link_tags.contains_key(&String::from(favicon_url.clone())) {
-        match get_favicon_hash(favicon_url.clone()).await {
-            Ok(md5_mmh3) => {
-                let md5_mmh3_hash = md5_mmh3;
-                link_tags.insert(String::from(favicon_url.clone()), md5_mmh3_hash);
-            }
-            Err(_) => {}
+        if let Ok(favicon_md5) = get_favicon_hash(favicon_url.clone()).await {
+            link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
         };
     }
     return link_tags;
@@ -374,13 +372,10 @@ async fn index_fetch(
         };
         loop {
             let mut next_url: Option<Url> = Option::None;
-            match send_requests(url, special_wfp).await {
-                Ok(res) => {
-                    next_url = get_next_url(&res);
-                    res_list.push(res);
-                    is_right_scheme = true;
-                }
-                Err(_) => {}
+            if let Ok(res) = send_requests(url, special_wfp).await {
+                next_url = get_next_url(&res);
+                res_list.push(res);
+                is_right_scheme = true;
             };
             match next_url.clone() {
                 Some(next_jump_url) => {
@@ -457,7 +452,7 @@ pub async fn scan(url: String) -> WhatWebResult {
     if what_web_name.is_empty() && is_200 {
         for special_wfp in WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned().special.iter() {
             if let Ok(res_list) =
-            index_fetch(&what_web_result.url.to_string(), Some(special_wfp)).await
+            index_fetch(&url, Some(special_wfp)).await
             {
                 for res in res_list {
                     if let Ok(raw_data) = fetch_raw_data(res, false).await {
