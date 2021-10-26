@@ -86,7 +86,7 @@ impl WebFingerPrintLib {
         self.special.clear();
         let self_path: PathBuf = env::current_exe().unwrap_or(PathBuf::new());
         let path = Path::new(&self_path).parent().unwrap_or(Path::new(""));
-        let mut file = match File::open(path.join("web_fingerprint_v2.json")) {
+        let mut file = match File::open(path.join("web_fingerprint_v3.json")) {
             Err(_) => {
                 println!("The fingerprint library cannot be found in the current directory!");
                 std::process::exit(0);
@@ -431,7 +431,6 @@ fn get_title(raw_data: &Arc<RawData>) -> String {
 pub async fn scan(url: String) -> WhatWebResult {
     let mut what_web_name: HashSet<String> = HashSet::new();
     let mut what_web_result: WhatWebResult = WhatWebResult::new(url.clone());
-    let mut is_200 = false;
     if let Ok(res_list) = index_fetch(&url, None).await {
         //首页请求允许跳转
         for res in res_list {
@@ -445,28 +444,24 @@ pub async fn scan(url: String) -> WhatWebResult {
                 what_web_result.title = get_title(&raw_data);
                 what_web_result.length = raw_data.text.len();
             }
-            is_200 = true;
         }
     };
-    //如果首页识别不出来就跑特定请求
-    if what_web_name.is_empty() && is_200 {
-        for special_wfp in WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned().special.iter() {
-            if let Ok(res_list) =
-            index_fetch(&url, Some(special_wfp)).await
-            {
-                for res in res_list {
-                    if let Ok(raw_data) = fetch_raw_data(res, false).await {
-                        let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned(), true).await;
-                        for (k, v) in web_name_set {
-                            what_web_name.insert(k);
-                            what_web_result.priority = v;
-                        }
+    for special_wfp in WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned().special.iter() {
+        if let Ok(res_list) =
+        index_fetch(&url, Some(special_wfp)).await
+        {
+            for res in res_list {
+                if let Ok(raw_data) = fetch_raw_data(res, false).await {
+                    let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned(), true).await;
+                    for (k, v) in web_name_set {
+                        what_web_name.insert(k);
+                        what_web_result.priority = v;
                     }
                 }
-                if !what_web_name.is_empty() {
-                    break;
-                }
             }
+            // if !what_web_name.is_empty() {
+            //     break;
+            // }
         }
     }
     if what_web_name.len() > 5 {
@@ -519,16 +514,16 @@ fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
 }
 
 pub async fn download_fingerprints_from_github() {
-    let update_url = "https://0x727.github.io/FingerprintHub/web_fingerprint_v2.json";
+    let update_url = "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json";
     match reqwest::get(update_url).await {
         Ok(response) => {
             let self_path: PathBuf = env::current_exe().unwrap_or(PathBuf::new());
             let path = Path::new(&self_path).parent().unwrap_or(Path::new(""));
-            let mut file = std::fs::File::create(path.join("web_fingerprint_v2.json")).unwrap();
+            let mut file = std::fs::File::create(path.join("web_fingerprint_v3.json")).unwrap();
             let mut content = Cursor::new(response.bytes().await.unwrap());
             std::io::copy(&mut content, &mut file).unwrap();
             println!(
-                "Complete fingerprint update: web_fingerprint_v2.json file size => {:?}",
+                "Complete fingerprint update: web_fingerprint_v3.json file size => {:?}",
                 file.metadata().unwrap().len()
             );
         }
