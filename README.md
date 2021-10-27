@@ -48,7 +48,7 @@ OPTIONS:
     -j, --json <JSON>        Export to the json file
     -s, --server <SERVER>    Start a web API service (127.0.0.1:8080)
     -t, --target <TARGET>    The target URL(s) (required, unless --stdin used)
-
+        --timeout <TIMEOUT>  Set request timeout. [default: 10]
 ```
 
 | 命令行参数    | 描述                                                         |
@@ -62,6 +62,7 @@ OPTIONS:
 | -j, --json    | 将识别结果导出json文件，接受一个文件路径                     |
 | -s, --server  | 开启api服务，接收要监听的IP和端口，例如：127.0.0.1:8080      |
 | -t, --target  | 识别单个目标                                                 |
+| --timeout     | 设置请求超时时间，默认10秒                                   |
 
 ### 开启API服务
 

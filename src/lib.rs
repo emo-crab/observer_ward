@@ -208,7 +208,7 @@ async fn send_requests(
         .danger_accept_invalid_certs(true)
         .default_headers(headers.clone())
         .redirect(Policy::none())
-        .timeout(Duration::new(10, 0));
+        .timeout(Duration::new(CONFIG.timeout, 0));
 
     if !CONFIG.proxy.is_empty() {
         match Url::parse(CONFIG.proxy.clone().as_str()) {

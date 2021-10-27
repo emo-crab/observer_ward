@@ -15,6 +15,7 @@ pub struct WardArgs {
     pub csv: String,
     pub json: String,
     pub proxy: String,
+    pub timeout: u64,
 }
 
 impl WardArgs {
@@ -69,6 +70,16 @@ impl WardArgs {
                         "Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)",
                     ),
             )
+            .arg(
+                Arg::with_name("timeout")
+                    .long("timeout")
+                    .takes_value(true)
+                    .default_value("10")
+                    .value_name("TIMEOUT")
+                    .help(
+                        "Set request timeout.",
+                    ),
+            )
             .arg(Arg::with_name("update")
                 .short("u")
                 .long("update")
@@ -83,6 +94,7 @@ impl WardArgs {
         let args = app.get_matches();
         let mut stdin: bool = false;
         let mut update: bool = false;
+        let mut req_timeout: u64 = 10;
         let mut target_url: String = String::new();
         let mut file_path: String = String::new();
         let mut csv_file_path: String = String::new();
@@ -113,6 +125,9 @@ impl WardArgs {
         if let Some(proxy) = args.value_of("proxy") {
             proxy_uri = proxy.to_string();
         };
+        if let Some(timeout) = args.value_of("timeout") {
+            req_timeout = timeout.parse().unwrap_or(10);
+        };
         WardArgs {
             target: target_url,
             stdin,
@@ -122,6 +137,7 @@ impl WardArgs {
             csv: csv_file_path,
             json: json_file_path,
             proxy: proxy_uri,
+            timeout: req_timeout,
         }
     }
 }
