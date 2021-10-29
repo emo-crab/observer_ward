@@ -16,7 +16,7 @@ serde = { version = "1.0.99", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.8"
 serde_derive = "1.0"
-reqwest = { version = "0.11.6", features = ["socks", "blocking"] }
+reqwest = { version = "0.10", features = ["socks", "blocking"] }
 tokio = { version = "0.2", features = ["full"] }
 futures = { version = "0.3", features = ["compat"] }
 url = { version = "2.1.1", features = ["serde"] }
