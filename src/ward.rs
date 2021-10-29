@@ -14,6 +14,7 @@ pub struct RawData {
     pub status_code: reqwest::StatusCode,
     pub text: String,
     pub favicon: HashMap<String, String>,
+    pub lang_set: HashSet<String>,
 }
 
 pub async fn check(raw_data: &Arc<RawData>, fingerprint_lib: &WebFingerPrintLib, is_special: bool) -> HashMap<String, u32> {

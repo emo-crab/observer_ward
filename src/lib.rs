@@ -275,6 +275,7 @@ async fn fetch_raw_data(res: Response, is_index: bool) -> Result<Arc<RawData>, W
         // 只有在首页的时候提取favicon图标链接
         favicon = find_favicon_tag(base_url, &text).await;
     }
+    let lang_set: HashSet<String> = get_lang(&headers);
     let raw_data = Arc::new(RawData {
         url,
         path,
@@ -282,6 +283,7 @@ async fn fetch_raw_data(res: Response, is_index: bool) -> Result<Arc<RawData>, W
         status_code,
         text,
         favicon,
+        lang_set,
     });
     Ok(raw_data)
 }
@@ -426,6 +428,20 @@ fn get_title(raw_data: &Arc<RawData>) -> String {
         return title;
     }
     return String::new();
+}
+
+fn get_lang(headers: &HeaderMap) -> HashSet<String> {
+    let headers = format!("{:?}", headers.clone());
+    let cookie_to_lang_map: HashMap<&str, &str> = HashMap::from_iter(
+        [("phpsessid", ".php"), ("jsessionid", ".jsp"), ("aspsession", ".asp"), ]
+    );
+    let mut lang_set: HashSet<String> = HashSet::new();
+    for (header_flag, lang) in cookie_to_lang_map.into_iter() {
+        if headers.contains(header_flag) {
+            lang_set.insert(lang.to_string());
+        }
+    }
+    return lang_set;
 }
 
 pub async fn scan(url: String) -> WhatWebResult {
