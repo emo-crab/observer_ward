@@ -9,6 +9,7 @@ use colored::Colorize;
 pub struct WardArgs {
     pub target: String,
     pub stdin: bool,
+    pub verify: String,
     pub file: String,
     pub update: bool,
     pub server_host_port: String,
@@ -80,6 +81,11 @@ impl WardArgs {
                         "Set request timeout.",
                     ),
             )
+            .arg(Arg::with_name("verify")
+                .long("verify")
+                .takes_value(true)
+                .help("Validate the specified yaml file")
+            )
             .arg(Arg::with_name("update")
                 .short("u")
                 .long("update")
@@ -93,6 +99,7 @@ impl WardArgs {
         }
         let args = app.get_matches();
         let mut stdin: bool = false;
+        let mut verify_path: String = String::new();
         let mut update: bool = false;
         let mut req_timeout: u64 = 10;
         let mut target_url: String = String::new();
@@ -116,6 +123,9 @@ impl WardArgs {
         if let Some(file) = args.value_of("file") {
             file_path = file.to_string();
         };
+        if let Some(verify) = args.value_of("verify") {
+            verify_path = verify.to_string();
+        };
         if let Some(file) = args.value_of("csv") {
             csv_file_path = file.to_string();
         };
@@ -133,6 +143,7 @@ impl WardArgs {
             stdin,
             file: file_path,
             update,
+            verify: verify_path,
             server_host_port,
             csv: csv_file_path,
             json: json_file_path,

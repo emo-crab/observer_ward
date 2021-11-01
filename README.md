@@ -49,6 +49,7 @@ OPTIONS:
     -s, --server <SERVER>    Start a web API service (127.0.0.1:8080)
     -t, --target <TARGET>    The target URL(s) (required, unless --stdin used)
         --timeout <TIMEOUT>  Set request timeout. [default: 10]
+        --verify <verify>      Validate the specified yaml file
 ```
 
 | 命令行参数    | 描述                                                         |
@@ -63,6 +64,7 @@ OPTIONS:
 | -s, --server  | 开启api服务，接收要监听的IP和端口，例如：127.0.0.1:8080      |
 | -t, --target  | 识别单个目标                                                 |
 | --timeout     | 设置请求超时时间，默认10秒                                   |
+| --verify      | 验证指定yaml文件里面的指纹规则                                   |
 
 ### 开启API服务
 
@@ -82,7 +84,10 @@ Result:
 
 ![image-20210821173531800](./doc/README.assets/image-20210821173531800.png)
 
-- 通过API接口热更新指纹：`http://127.0.0.1:8080/update?is_local=false`,请求方式为`GET`,当参数`is_local`为`false`时从github更新指纹，当参数`is_local`为`true`时重新加载本地指纹，你可以从其他地方更新指纹库到本地。
+-
+
+通过API接口热更新指纹：`http://127.0.0.1:8080/update?is_local=false`,请求方式为`GET`,当参数`is_local`为`false`时从github更新指纹，当参数`is_local`为`true`时重新加载本地指纹，你可以从其他地方更新指纹库到本地。
+
 - API接口地址为`http://127.0.0.1:8080/what_web`，请求方式为`POST`，接受json数据结构如下：
 
 ```json
@@ -98,11 +103,28 @@ Result:
 
 - 返回结果速度取决于本地服务与要识别目标的网络状况，提交多个时会等待全部目标识别完成后才会返回。
 
+### 验证指纹是否有效
+
+- `--verify`指定要验证的指纹yaml文件路径，`-t`指定要识别的目标。
+
+```bash
+➜  ~ ./observer_ward --verify verification.yaml -t https://httpbin.org
+[ https://httpbin.org | ["swagger"] | 9593 | httpbin.org ]
+
+高关注组件:
+
++---------------------+---------+--------+-------------+----------+
+| Url                 | Name    | Length | Title       | Priority |
++=====================+=========+========+=============+==========+
+| https://httpbin.org | swagger | 9593   | httpbin.org | 2        |
++---------------------+---------+--------+-------------+----------+
+```
+
 ### 单个目标识别
 
 ```bash
 ➜  ~ ./observer_ward -t https://httpbin.org
-[ https://httpbin.org | ["swagger"] | 9593 | httpbin.org |
+[ https://httpbin.org | ["swagger"] | 9593 | httpbin.org ]
 
 高关注组件:
 
@@ -137,7 +159,7 @@ Result:
 
 ```bash
 ➜  ~ ./observer_ward -t https://httpbin.org -j result.json
-[ https://httpbin.org/ | ["swagger"] | 9593 | httpbin.org |
+[ https://httpbin.org/ | ["swagger"] | 9593 | httpbin.org ]
 
 高关注组件:
 
@@ -154,7 +176,7 @@ Result:
 
 ```bash
 ➜  ~ ./observer_ward -t https://httpbin.org -c result.csv
-[ https://httpbin.org/ | ["swagger"] | 9593 | httpbin.org |
+[ https://httpbin.org/ | ["swagger"] | 9593 | httpbin.org ]
 
 高关注组件:
 
@@ -171,6 +193,7 @@ https://httpbin.org/,swagger,9593,httpbin.org,2
 ## 提交指纹
 
 -
+
 ObserverWard_0x727使用到的指纹规则全部来自[FingerprintHub](https://github.com/0x727/FingerprintHub)项目，如果需要获取指纹库和提交指纹规则，请查看[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
 
 ## 为ObserverWard_0x727做贡献
