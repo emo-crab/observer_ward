@@ -2,7 +2,7 @@ use futures::future::join_all;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::env;
-use crate::{WebFingerPrint, WebFingerPrintLib};
+use crate::{V3WebFingerPrint, WebFingerPrintLib};
 use url::Url;
 
 
@@ -44,7 +44,7 @@ pub async fn check(raw_data: &Arc<RawData>, fingerprint_lib: &WebFingerPrintLib,
     return web_name_set;
 }
 
-pub async fn what_web(raw_data: Arc<RawData>, fingerprint: &WebFingerPrint, is_favicon: bool) -> (bool, &WebFingerPrint) {
+pub async fn what_web(raw_data: Arc<RawData>, fingerprint: &V3WebFingerPrint, is_favicon: bool) -> (bool, &V3WebFingerPrint) {
     let mut default_result = (false, fingerprint);
     if is_favicon {
         let mut hash_set = HashSet::new();
@@ -52,17 +52,17 @@ pub async fn what_web(raw_data: Arc<RawData>, fingerprint: &WebFingerPrint, is_f
             hash_set.insert(value);
         }
         let mut fph_set = HashSet::new();
-        for fph in fingerprint.favicon_hash.iter() {
+        for fph in fingerprint.match_rules.favicon_hash.iter() {
             fph_set.insert(fph);
         }
         if hash_set.intersection(&fph_set).count() == 0 {
             return default_result;
         }
     } else {
-        if fingerprint.status_code != 0 && raw_data.status_code.as_u16() != fingerprint.status_code {
+        if fingerprint.match_rules.status_code != 0 && raw_data.status_code.as_u16() != fingerprint.match_rules.status_code {
             return default_result;
         }
-        for (k, v) in &fingerprint.headers {
+        for (k, v) in &fingerprint.match_rules.headers {
             if raw_data.headers.contains_key(k) {
                 let is_match = format!("{:?}", raw_data.headers).to_lowercase().find(&v.to_lowercase());
                 if is_match == None && v != "*" {
@@ -72,7 +72,7 @@ pub async fn what_web(raw_data: Arc<RawData>, fingerprint: &WebFingerPrint, is_f
                 return default_result;
             }
         }
-        for keyword in &fingerprint.keyword {
+        for keyword in &fingerprint.match_rules.keyword {
             if raw_data.text.find(&keyword.to_lowercase()) == None {
                 return default_result;
             }
