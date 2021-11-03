@@ -434,7 +434,10 @@ async fn find_favicon_tag(
 }
 lazy_static! {
     static ref RE_COMPILE_BY_JUMP: Vec<Regex> = {
-        let js_reg = vec![r#"[ |.|:]location\.href=['|"](?P<name>.*)['|"]"#, r#"<meta.*?http-equiv=.*?refresh.*?url=(?P<name>.*)['|"]>"#];
+        let js_reg = vec![
+            r#"(?im)[ |.|:]location\.href=['|"](?P<name>.*?)['|"]"#,
+            r#"(?im)window\.open\(['|"](?P<name>.*?)['|"]"#,
+            r#"(?im)<meta.*?http-equiv=.*?refresh.*?url=(?P<name>.*?)['|"]>"#];
         let re_list:Vec<Regex> = js_reg.iter().map(|reg|Regex::new(reg).unwrap()).collect();
         re_list
     };
@@ -476,7 +479,7 @@ async fn index_fetch(
                 .get(LOCATION)
                 .and_then(|location| location.to_str().ok())
                 .and_then(|location| url.join(location).ok());
-            if next_url.is_none() && is_index {
+            if next_url.is_none() && is_index && text.len() <= 1024 {
                 for reg in RE_COMPILE_BY_JUMP.iter() {
                     if let Some(x) = reg.captures(&text) {
                         next_url = Some(url.join(x.name("name").map_or("", |m| m.as_str())).unwrap());
