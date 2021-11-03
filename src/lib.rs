@@ -314,12 +314,13 @@ async fn send_requests(
         .body(body_data)
         .send().await;
 }
-
+lazy_static! {
+    static ref RE_COMPILE_BY_CHARSET: Regex = Regex::new(r#"(?im)charset="(.*?)"|charset=(.*?)""#).unwrap() ;
+}
 fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
     let (html, _, _) = UTF_8.decode(byte);
-    let charset_re = Regex::new(r#"(?im)charset="(.*?)"|charset=(.*?)""#).unwrap();
     let mut default_encoding = "utf-8";
-    for charset in charset_re.captures(&html) {
+    for charset in RE_COMPILE_BY_CHARSET.captures(&html) {
         for cs in charset.iter() {
             if let Some(c) = cs {
                 default_encoding = c.as_str();
@@ -350,7 +351,7 @@ async fn fetch_raw_data(res: Response, is_index: bool) -> Result<Arc<RawData>, W
         Err(_) => String::from(""),
     };
     let mut favicon: HashMap<String, String> = HashMap::new();
-    if is_index && !status_code.is_server_error() && is_index {
+    if is_index && !status_code.is_server_error() {
         // 只有在首页的时候提取favicon图标链接
         favicon = find_favicon_tag(base_url, &text).await;
     }
@@ -368,7 +369,13 @@ async fn fetch_raw_data(res: Response, is_index: bool) -> Result<Arc<RawData>, W
 }
 
 // favicon的URL到Hash
-pub async fn get_favicon_hash(url: Url) -> Result<String, WardError> {
+#[cached(
+type = "SizedCache<String, String>",
+create = "{ SizedCache::with_size(100) }",
+result = true,
+convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
+)]
+async fn get_favicon_hash(url: Url) -> Result<String, WardError> {
     let default_request = WebFingerPrintRequest {
         path: "/".to_string(),
         request_method: "get".to_string(),
@@ -425,7 +432,13 @@ async fn find_favicon_tag(
     }
     return link_tags;
 }
-
+lazy_static! {
+    static ref RE_COMPILE_BY_JUMP: Vec<Regex> = {
+        let js_reg = vec![r#"[ |.|:]location\.href=['|"](?P<name>.*)['|"]"#, r#"<meta.*?http-equiv=.*?refresh.*?url=(?P<name>.*)['|"]>"#];
+        let re_list:Vec<Regex> = js_reg.iter().map(|reg|Regex::new(reg).unwrap()).collect();
+        re_list
+    };
+}
 //首页请求
 #[cached(
 type = "SizedCache<String, Vec<Arc<RawData>>>",
@@ -438,6 +451,7 @@ async fn index_fetch(
     special_wfp: &WebFingerPrintRequest,
     is_index: bool,
 ) -> Result<Vec<Arc<RawData>>, WardError> {
+    let mut is_index = is_index;
     let mut raw_data_list: Vec<Arc<RawData>> = vec![];
     let schemes: [String; 2] = ["https://".to_string(), "http://".to_string()];
     for mut scheme in schemes {
@@ -457,21 +471,30 @@ async fn index_fetch(
                 return Err(WardError::Other(format!("{:?}", err)));
             }
         };
-        let get_next_url = |response: &Response| {
-            response
-                .headers()
+        let get_next_url = |headers: &HeaderMap, url: &Url, text: &String, is_index: bool| {
+            let mut next_url = headers
                 .get(LOCATION)
                 .and_then(|location| location.to_str().ok())
-                .and_then(|location| response.url().join(location).ok())
+                .and_then(|location| url.join(location).ok());
+            if next_url.is_none() && is_index {
+                for reg in RE_COMPILE_BY_JUMP.iter() {
+                    if let Some(x) = reg.captures(&text) {
+                        next_url = Some(url.join(x.name("name").map_or("", |m| m.as_str())).unwrap());
+                        break;
+                    }
+                }
+            }
+            return next_url;
         };
         loop {
             let mut next_url: Option<Url> = Option::None;
-            if let Ok(res) = send_requests(url, special_wfp).await {
-                next_url = get_next_url(&res);
+            if let Ok(res) = send_requests(url.clone(), special_wfp).await {
                 if let Ok(raw_data) = fetch_raw_data(res, is_index).await {
+                    next_url = get_next_url(&raw_data.headers, &url, &raw_data.text, is_index);
                     raw_data_list.push(raw_data);
                 };
                 is_right_scheme = true;
+                is_index = false;
             };
             match next_url.clone() {
                 Some(next_jump_url) => {
