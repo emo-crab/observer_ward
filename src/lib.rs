@@ -577,7 +577,9 @@ pub async fn scan(url: String) -> WhatWebResult {
                 what_web_result.priority = v;
             }
             what_web_result.url = String::from(raw_data.url.clone());
-            what_web_result.title = get_title(&raw_data);
+            if what_web_result.title.is_empty() {
+                what_web_result.title = get_title(&raw_data);
+            }
             what_web_result.length = raw_data.text.len();
         }
     };
