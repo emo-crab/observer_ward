@@ -460,7 +460,6 @@ async fn index_fetch(
     for mut scheme in schemes {
         //最大重定向跳转次数
         let mut max_redirect = 5;
-        let mut is_right_scheme: bool = false;
         let mut scheme_url = url_str.clone();
         if !url_str.to_lowercase().starts_with("http://")
             && !url_str.to_lowercase().starts_with("https://")
@@ -496,7 +495,6 @@ async fn index_fetch(
                     next_url = get_next_url(&raw_data.headers, &url, &raw_data.text, is_index);
                     raw_data_list.push(raw_data);
                 };
-                is_right_scheme = true;
                 is_index = false;
             };
             match next_url.clone() {
@@ -511,9 +509,6 @@ async fn index_fetch(
             if max_redirect == 0 {
                 break;
             }
-        }
-        if is_right_scheme {
-            break;
         }
     }
     return Ok(raw_data_list);
