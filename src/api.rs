@@ -1,10 +1,11 @@
 use actix_web::{web, App, HttpResponse, HttpServer};
 use serde::{Deserialize, Serialize};
-use observer_ward::{scan, WhatWebResult, download_fingerprints_from_github, update_fingerprint};
+use observer_ward::{scan, WhatWebResult, download_fingerprints_from_github};
 use futures::future::join_all;
 use colored::Colorize;
 use std::collections::{HashSet};
 use std::iter::FromIterator;
+use observer_ward::fingerprint::update_fingerprint;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ApiTargetList {

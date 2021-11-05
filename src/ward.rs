@@ -2,8 +2,8 @@ use futures::future::join_all;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::env;
-use crate::{V3WebFingerPrint, WebFingerPrintLib};
 use url::Url;
+use crate::fingerprint::{V3WebFingerPrint, WebFingerPrintLib};
 
 
 #[derive(Debug)]
