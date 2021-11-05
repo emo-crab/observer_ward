@@ -481,7 +481,12 @@ async fn index_fetch(
             if next_url.is_none() && is_index && text.len() <= 1024 {
                 for reg in RE_COMPILE_BY_JUMP.iter() {
                     if let Some(x) = reg.captures(&text) {
-                        next_url = Some(url.join(x.name("name").map_or("", |m| m.as_str())).unwrap());
+                        let u = x.name("name").map_or("", |m| m.as_str());
+                        if u.starts_with("http://") || u.starts_with("https://") {
+                            next_url = Some(Url::parse(u).unwrap_or(url.clone()));
+                            break;
+                        }
+                        next_url = Some(url.join(u).unwrap_or(url.clone()));
                         break;
                     }
                 }
