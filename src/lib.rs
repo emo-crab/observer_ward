@@ -453,19 +453,22 @@ async fn index_fetch(
     url_str: &String,
     special_wfp: &WebFingerPrintRequest,
     is_index: bool,
+    is_special: bool,
 ) -> Result<Vec<Arc<RawData>>, WardError> {
-    let mut is_index = is_index;
+    let mut is_index: bool = is_index;
+    let mut is_start_with_http: bool = true;
     let mut raw_data_list: Vec<Arc<RawData>> = vec![];
     let schemes: [String; 2] = ["https://".to_string(), "http://".to_string()];
     for mut scheme in schemes {
         //最大重定向跳转次数
-        let mut max_redirect = 5;
+        let mut max_redirect = 3;
         let mut scheme_url = url_str.clone();
         if !url_str.to_lowercase().starts_with("http://")
             && !url_str.to_lowercase().starts_with("https://")
         {
             scheme.push_str(url_str.as_str());
             scheme_url = scheme;
+            is_start_with_http = false;
         }
         let mut url = match Url::parse(scheme_url.as_str()) {
             Ok(url) => url,
@@ -502,6 +505,9 @@ async fn index_fetch(
                 };
                 is_index = false;
             };
+            if is_special {
+                break;
+            }
             match next_url.clone() {
                 Some(next_jump_url) => {
                     url = next_jump_url;
@@ -511,9 +517,12 @@ async fn index_fetch(
                 }
             }
             max_redirect -= 1;
-            if max_redirect == 0 {
+            if max_redirect <= 0 {
                 break;
             }
+        }
+        if is_start_with_http {
+            break;
         }
     }
     return Ok(raw_data_list);
@@ -573,7 +582,7 @@ pub async fn scan(url: String) -> WhatWebResult {
         request_headers: Default::default(),
         request_data: "".to_string(),
     };
-    if let Ok(raw_data_list) = index_fetch(&url, &default_request, true).await {
+    if let Ok(raw_data_list) = index_fetch(&url, &default_request, true, false).await {
         //首页请求允许跳转
         for raw_data in raw_data_list {
             let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned(), false).await;
@@ -589,7 +598,7 @@ pub async fn scan(url: String) -> WhatWebResult {
         }
     };
     for special_wfp in WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned().special.iter() {
-        if let Ok(raw_data_list) = index_fetch(&url, &special_wfp.request, false).await
+        if let Ok(raw_data_list) = index_fetch(&url, &special_wfp.request, false, true).await
         {
             for raw_data in raw_data_list {
                 let web_name_set = check(&raw_data, &WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned(), true).await;
