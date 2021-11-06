@@ -2,21 +2,22 @@ extern crate prettytable;
 extern crate reqwest;
 extern crate url;
 
-mod api;
-mod cli;
-mod nuclei;
-
-use api::api_server;
-use cli::WardArgs;
-use colored::Colorize;
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
-use observer_ward::{download_file_from_github, read_file_to_target, scan, strings_to_urls};
-use prettytable::{color, Attr, Cell, Row, Table};
 use std::fs::File;
 use std::io::{self, Read};
 use std::process;
 use std::thread;
+
+use colored::Colorize;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
+use prettytable::{color, Attr, Cell, Row, Table};
+
+use api::api_server;
+use cli::WardArgs;
+use observer_ward::{download_file_from_github, read_file_to_target, scan, strings_to_urls};
+
+mod api;
+mod cli;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -43,14 +44,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         download_file_from_github(
             "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
             "web_fingerprint_v3.json",
-        )
-        .await;
-        process::exit(0);
-    }
-    if config.update_plugins {
-        download_file_from_github(
-            "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
-            "plugins.zip",
         )
         .await;
         process::exit(0);
@@ -86,18 +79,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Cell::new("Length"),
             Cell::new("Title"),
             Cell::new("Priority"),
-            Cell::new("Plugins"),
         ]));
         for res in &results {
             let wwn: Vec<String> = res.what_web_name.iter().map(String::from).collect();
-            let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
             table.add_row(Row::new(vec![
                 Cell::new(&res.url.as_str()),
                 Cell::new(&wwn.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
                 Cell::new(&res.length.to_string()),
                 Cell::new(&textwrap::fill(res.title.as_str(), 40)),
                 Cell::new(&res.priority.to_string()),
-                Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
             ]));
         }
         if !config.csv.is_empty() {
@@ -111,19 +101,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Cell::new("Length"),
             Cell::new("Title"),
             Cell::new("Priority"),
-            Cell::new("Plugins"),
         ]));
         for res in &results {
             if res.priority > 0 {
                 let wwn: Vec<String> = res.what_web_name.iter().map(String::from).collect();
-                let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
                 table.add_row(Row::new(vec![
                     Cell::new(&res.url.as_str()),
                     Cell::new(&wwn.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
                     Cell::new(&res.length.to_string()),
                     Cell::new(&textwrap::fill(res.title.as_str(), 40)),
                     Cell::new(&res.priority.to_string()),
-                    Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
                 ]));
             }
         }
