@@ -4,9 +4,9 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
 use super::CONFIG;
 use super::WEB_FINGERPRINT_LIB_DATA;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VerifyWebFingerPrint {
@@ -83,7 +83,6 @@ pub struct WebFingerPrintLib {
     pub index: Vec<V3WebFingerPrint>,
     pub special: Vec<V3WebFingerPrint>,
     pub favicon: Vec<V3WebFingerPrint>,
-
 }
 
 impl WebFingerPrintLib {
@@ -108,7 +107,8 @@ impl WebFingerPrintLib {
             let mut data = String::new();
             file.read_to_string(&mut data).unwrap();
             let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
-            let verify_fingerprints: VerifyWebFingerPrint = serde_yaml::from_str(&data).expect("Bad Yaml");
+            let verify_fingerprints: VerifyWebFingerPrint =
+                serde_yaml::from_str(&data).expect("Bad Yaml");
             for mut verify_fingerprint in verify_fingerprints.fingerprint {
                 verify_fingerprint.name = verify_fingerprints.name.clone();
                 verify_fingerprint.priority = verify_fingerprints.priority.clone();
@@ -125,7 +125,8 @@ impl WebFingerPrintLib {
             };
             let mut data = String::new();
             file.read_to_string(&mut data).unwrap();
-            let web_fingerprint: Vec<WebFingerPrint> = serde_json::from_str(&data).expect("Bad Json");
+            let web_fingerprint: Vec<WebFingerPrint> =
+                serde_json::from_str(&data).expect("Bad Json");
             web_fingerprint
         };
     }

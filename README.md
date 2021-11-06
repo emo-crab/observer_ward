@@ -37,34 +37,40 @@ USAGE:
     observer_ward [FLAGS] [OPTIONS]
 
 FLAGS:
-    -h, --help       Prints help information
-        --stdin      Read url(s) from STDIN
-    -u, --update     Update web fingerprint
-    -V, --version    Prints version information
+    -h, --help                  Prints help information
+        --stdin                 Read url(s) from STDIN
+    -u, --update_fingerprint    Update web fingerprint
+        --update_plugins        Update nuclei plugins
+    -V, --version               Prints version information
 
 OPTIONS:
-    -c, --csv <CSV>          Export to the csv file
-    -f, --file <FILE>        Path to the file
-    -j, --json <JSON>        Export to the json file
-    -s, --server <SERVER>    Start a web API service (127.0.0.1:8080)
-    -t, --target <TARGET>    The target URL(s) (required, unless --stdin used)
-        --timeout <TIMEOUT>  Set request timeout. [default: 10]
-        --verify <verify>      Validate the specified yaml file
+    -c, --csv <CSV>                      Export to the csv file
+    -f, --file <FILE>                    Read the target from the file
+    -j, --json <JSON>                    Export to the json file
+        --plugins_path <plugins_path>    Calling plugins_path to detect vulnerabilities
+        --proxy <PROXY>                  Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)
+    -s, --server <SERVER>                Start a web API service (127.0.0.1:8080)
+    -t, --target <TARGET>                The target URL(s) (required, unless --stdin used)
+        --timeout <TIMEOUT>              Set request timeout. [default: 10]
+        --verify <verify>                Validate the specified yaml file
+
 ```
 
-| 命令行参数    | 描述                                                         |
-| ------------- | ------------------------------------------------------------ |
-| -h, --help    | 打印帮助信息                                                 |
-| --stdin       | 从标准输出获取要识别的目标                                   |
-| -u, --update  | 从远程[指纹库](https://github.com/0x727/FingerprintHub)更新最新指纹，也可以手动从[Github](https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json)下载 |
-| -V, --version | 打印版本                                                     |
-| -c, --csv     | 将识别结果导出csv文件，接受一个文件路径                      |
-| -f, --file    | 从文件里面读取要识别的目标                                   |
-| -j, --json    | 将识别结果导出json文件，接受一个文件路径                     |
-| -s, --server  | 开启api服务，接收要监听的IP和端口，例如：127.0.0.1:8080      |
-| -t, --target  | 识别单个目标                                                 |
-| --timeout     | 设置请求超时时间，默认10秒                                   |
-| --verify      | 验证指定yaml文件里面的指纹规则                                   |
+| 命令行参数       | 描述                                                         |
+| ---------------- | ------------------------------------------------------------ |
+| -h, --help       | 打印帮助信息                                                 |
+| --stdin          | 从标准输出获取要识别的目标                                   |
+| -u, --update     | 从远程[指纹库](https://github.com/0x727/FingerprintHub)更新最新指纹，也可以手动从[Github](https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json)下载 |
+| -V, --version    | 打印版本                                                     |
+| -c, --csv        | 将识别结果导出csv文件，接受一个文件路径                      |
+| -f, --file       | 从文件里面读取要识别的目标                                   |
+| -j, --json       | 将识别结果导出json文件，接受一个文件路径                     |
+| -s, --server     | 开启api服务，接收要监听的IP和端口，例如：127.0.0.1:8080      |
+| -t, --target     | 识别单个目标                                                 |
+| --timeout        | 设置请求超时时间，默认10秒                                   |
+| --verify         | 验证指定yaml文件里面的指纹规则                               |
+| --update_plugins | 从远程[指纹库](https://github.com/0x727/FingerprintHub)更新nuclei插件 |
+| --plugins_path   | 指定[指纹库](https://github.com/0x727/FingerprintHub)中的`plugins`路径，如果识别到的指纹存在插件目录会调用nucle检测 |
 
 ### 开启API服务
 
@@ -189,6 +195,10 @@ Result:
 Url,Name,Length,Title,Priority
 https://httpbin.org/,swagger,9593,httpbin.org,2
 ```
+
+### 调用Nuclei检测漏洞
+
+- 在[指纹库](https://github.com/0x727/FingerprintHub/tree/main/plugins)中已经对部分组件的插件进行了分类，如果识别到的组件在`plugins`目录下存在和组件同名的文件夹，会对目标调用Nuclei使用匹配到的插件进行检测，存在漏洞会输出到屏幕。
 
 ## 提交指纹
 

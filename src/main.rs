@@ -1,37 +1,34 @@
+extern crate prettytable;
 extern crate reqwest;
 extern crate url;
-extern crate prettytable;
 
-mod cli;
 mod api;
-mod benchmark;
+mod cli;
+mod nuclei;
 
-use observer_ward::{scan, strings_to_urls, read_file_to_target, download_fingerprints_from_github};
-use api::{api_server};
-use cli::{WardArgs};
-use std::process;
-use std::io::{self, Read};
-use std::thread;
+use api::api_server;
+use cli::WardArgs;
 use colored::Colorize;
-use prettytable::{Table, Cell, Row, Attr, color};
-use std::fs::File;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use benchmark::{Benchmark, NamedTimer};
-
-#[macro_use]
-extern crate log;
+use observer_ward::{download_file_from_github, read_file_to_target, scan, strings_to_urls};
+use prettytable::{color, Attr, Cell, Row, Table};
+use std::fs::File;
+use std::io::{self, Read};
+use std::process;
+use std::thread;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
     let config = WardArgs::new();
     let mut targets = vec![];
     if !config.server_host_port.is_empty() {
         let server_host_port: String = config.server_host_port;
         thread::spawn(|| {
             api_server(server_host_port).unwrap();
-        }).join().expect("Thread panicked")
+        })
+        .join()
+        .expect("Thread panicked")
     }
     if config.stdin {
         let mut buffer = String::new();
@@ -42,22 +39,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if !config.file.is_empty() {
         targets.extend(read_file_to_target(config.file));
     }
-    if config.update {
-        download_fingerprints_from_github().await;
+    if config.update_fingerprint {
+        download_file_from_github(
+            "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
+            "web_fingerprint_v3.json",
+        )
+        .await;
         process::exit(0);
     }
-    let mut benchmarks = Benchmark::init();
-    let mut observer_ward_bench = NamedTimer::start("ObserverWard");
+    if config.update_plugins {
+        download_file_from_github(
+            "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
+            "plugins.zip",
+        )
+        .await;
+        process::exit(0);
+    }
     if !targets.is_empty() {
         let mut worker = FuturesUnordered::new();
         let mut targets_iter = targets.iter();
         let mut results = vec![];
         for _ in 0..100 {
             match targets_iter.next() {
-                Some(target) => {
-                    worker.push(scan(target.to_string()))
+                Some(target) => worker.push(scan(target.to_string())),
+                None => {
+                    break;
                 }
-                None => { break; }
             }
         }
         while let Some(result) = worker.next().await {
@@ -73,35 +80,51 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             serde_json::to_writer(&File::create(config.json)?, &results)?
         }
         let mut table = Table::new();
-        table.set_titles(Row::new(vec![Cell::new("Url"), Cell::new("Name"), Cell::new("Length"), Cell::new("Title"), Cell::new("Priority")]));
+        table.set_titles(Row::new(vec![
+            Cell::new("Url"),
+            Cell::new("Name"),
+            Cell::new("Length"),
+            Cell::new("Title"),
+            Cell::new("Priority"),
+            Cell::new("Plugins"),
+        ]));
         for res in &results {
             let wwn: Vec<String> = res.what_web_name.iter().map(String::from).collect();
-            table.add_row(
-                Row::new(vec![
-                    Cell::new(&res.url.as_str()),
-                    Cell::new(&wwn.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
-                    Cell::new(&res.length.to_string()),
-                    Cell::new(&textwrap::fill(res.title.as_str(), 40)),
-                    Cell::new(&res.priority.to_string()),
-                ]));
+            let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
+            table.add_row(Row::new(vec![
+                Cell::new(&res.url.as_str()),
+                Cell::new(&wwn.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
+                Cell::new(&res.length.to_string()),
+                Cell::new(&textwrap::fill(res.title.as_str(), 40)),
+                Cell::new(&res.priority.to_string()),
+                Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
+            ]));
         }
         if !config.csv.is_empty() {
             let out = File::create(config.csv)?;
             table.to_csv(out)?;
         }
         let mut table = Table::new();
-        table.set_titles(Row::new(vec![Cell::new("Url"), Cell::new("Name"), Cell::new("Length"), Cell::new("Title"), Cell::new("Priority")]));
+        table.set_titles(Row::new(vec![
+            Cell::new("Url"),
+            Cell::new("Name"),
+            Cell::new("Length"),
+            Cell::new("Title"),
+            Cell::new("Priority"),
+            Cell::new("Plugins"),
+        ]));
         for res in &results {
             if res.priority > 0 {
                 let wwn: Vec<String> = res.what_web_name.iter().map(String::from).collect();
-                table.add_row(
-                    Row::new(vec![
-                        Cell::new(&res.url.as_str()),
-                        Cell::new(&wwn.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
-                        Cell::new(&res.length.to_string()),
-                        Cell::new(&textwrap::fill(res.title.as_str(), 40)),
-                        Cell::new(&res.priority.to_string()),
-                    ]));
+                let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
+                table.add_row(Row::new(vec![
+                    Cell::new(&res.url.as_str()),
+                    Cell::new(&wwn.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
+                    Cell::new(&res.length.to_string()),
+                    Cell::new(&textwrap::fill(res.title.as_str(), 40)),
+                    Cell::new(&res.priority.to_string()),
+                    Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
+                ]));
             }
         }
         if table.len() > 0 {
@@ -109,9 +132,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             table.printstd();
         }
     }
-    observer_ward_bench.end();
-    benchmarks.push(observer_ward_bench);
-    debug!("Benchmarks raw {:?}", benchmarks);
-    info!("{}", benchmarks.summary());
     Ok(())
 }

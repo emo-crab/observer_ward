@@ -1,9 +1,13 @@
 extern crate clap;
 
-use serde::{Deserialize, Serialize};
-use clap::{Arg, App};
-use std::{process, env};
+use std::path::Path;
+use std::{env, process};
+
+use clap::{App, Arg};
 use colored::Colorize;
+use serde::{Deserialize, Serialize};
+
+use crate::nuclei::has_nuclei_app;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WardArgs {
@@ -11,12 +15,14 @@ pub struct WardArgs {
     pub stdin: bool,
     pub verify: String,
     pub file: String,
-    pub update: bool,
+    pub update_fingerprint: bool,
     pub server_host_port: String,
     pub csv: String,
     pub json: String,
     pub proxy: String,
     pub timeout: u64,
+    pub plugins_path: String,
+    pub update_plugins: bool,
 }
 
 impl WardArgs {
@@ -63,7 +69,6 @@ impl WardArgs {
             )
             .arg(
                 Arg::with_name("proxy")
-                    .short("p")
                     .long("proxy")
                     .takes_value(true)
                     .value_name("PROXY")
@@ -84,11 +89,23 @@ impl WardArgs {
             .arg(Arg::with_name("verify")
                 .long("verify")
                 .takes_value(true)
+                .requires("target")
                 .help("Validate the specified yaml file")
             )
-            .arg(Arg::with_name("update")
+            .arg(Arg::with_name("plugins_path")
+                .long("plugins_path")
+                .requires("target")
+                .takes_value(true)
+                .help("Calling plugins_path to detect vulnerabilities")
+            )
+            .arg(Arg::with_name("update_plugins")
+                .long("update_plugins")
+                .takes_value(false)
+                .help("Update nuclei plugins")
+            )
+            .arg(Arg::with_name("update_fingerprint")
                 .short("u")
-                .long("update")
+                .long("update_fingerprint")
                 .takes_value(false)
                 .help("Update web fingerprint")
             );
@@ -100,7 +117,9 @@ impl WardArgs {
         let args = app.get_matches();
         let mut stdin: bool = false;
         let mut verify_path: String = String::new();
-        let mut update: bool = false;
+        let mut update_fingerprint: bool = false;
+        let mut update_plugins: bool = false;
+        let mut plugins_path: String = String::new();
         let mut req_timeout: u64 = 10;
         let mut target_url: String = String::new();
         let mut file_path: String = String::new();
@@ -111,8 +130,22 @@ impl WardArgs {
         if args.is_present("stdin") {
             stdin = true;
         }
-        if args.is_present("update") {
-            update = true;
+        if args.is_present("update_plugins") {
+            update_plugins = true;
+        }
+        if args.is_present("update_fingerprint") {
+            update_fingerprint = true;
+        }
+        if let Some(nuclei) = args.value_of("plugins_path") {
+            if !has_nuclei_app() {
+                println!("Please install plugins_path to the environment variable!");
+                process::exit(0);
+            }
+            plugins_path = nuclei.to_string();
+            if !Path::new(&plugins_path).exists() {
+                println!("The plug-in directory does not exist!");
+                process::exit(0);
+            }
         }
         if let Some(target) = args.value_of("target") {
             target_url = target.to_string();
@@ -142,13 +175,15 @@ impl WardArgs {
             target: target_url,
             stdin,
             file: file_path,
-            update,
+            update_plugins,
+            update_fingerprint,
             verify: verify_path,
             server_host_port,
             csv: csv_file_path,
             json: json_file_path,
             proxy: proxy_uri,
             timeout: req_timeout,
+            plugins_path,
         }
     }
 }

@@ -1,10 +1,9 @@
+use crate::fingerprint::{V3WebFingerPrint, WebFingerPrintLib};
 use futures::future::join_all;
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 use std::env;
+use std::sync::Arc;
 use url::Url;
-use crate::fingerprint::{V3WebFingerPrint, WebFingerPrintLib};
-
 
 #[derive(Debug)]
 pub struct RawData {
@@ -17,7 +16,11 @@ pub struct RawData {
     pub lang_set: HashSet<String>,
 }
 
-pub async fn check(raw_data: &Arc<RawData>, fingerprint_lib: &WebFingerPrintLib, is_special: bool) -> HashMap<String, u32> {
+pub async fn check(
+    raw_data: &Arc<RawData>,
+    fingerprint_lib: &WebFingerPrintLib,
+    is_special: bool,
+) -> HashMap<String, u32> {
     let mut futures = vec![];
     let mut web_name_set: HashMap<String, u32> = HashMap::new();
     if is_special {
@@ -38,13 +41,20 @@ pub async fn check(raw_data: &Arc<RawData>, fingerprint_lib: &WebFingerPrintLib,
     for res in results {
         let (is_match, match_web_fingerprint) = res;
         if is_match {
-            web_name_set.insert(match_web_fingerprint.name.clone(), match_web_fingerprint.priority.clone());
+            web_name_set.insert(
+                match_web_fingerprint.name.clone(),
+                match_web_fingerprint.priority.clone(),
+            );
         }
     }
     return web_name_set;
 }
 
-pub async fn what_web(raw_data: Arc<RawData>, fingerprint: &V3WebFingerPrint, is_favicon: bool) -> (bool, &V3WebFingerPrint) {
+pub async fn what_web(
+    raw_data: Arc<RawData>,
+    fingerprint: &V3WebFingerPrint,
+    is_favicon: bool,
+) -> (bool, &V3WebFingerPrint) {
     let mut default_result = (false, fingerprint);
     if is_favicon {
         let mut hash_set = HashSet::new();
@@ -59,12 +69,16 @@ pub async fn what_web(raw_data: Arc<RawData>, fingerprint: &V3WebFingerPrint, is
             return default_result;
         }
     } else {
-        if fingerprint.match_rules.status_code != 0 && raw_data.status_code.as_u16() != fingerprint.match_rules.status_code {
+        if fingerprint.match_rules.status_code != 0
+            && raw_data.status_code.as_u16() != fingerprint.match_rules.status_code
+        {
             return default_result;
         }
         for (k, v) in &fingerprint.match_rules.headers {
             if raw_data.headers.contains_key(k) {
-                let is_match = format!("{:?}", raw_data.headers).to_lowercase().find(&v.to_lowercase());
+                let is_match = format!("{:?}", raw_data.headers)
+                    .to_lowercase()
+                    .find(&v.to_lowercase());
                 if is_match == None && v != "*" {
                     return default_result;
                 }

@@ -1,24 +1,24 @@
-use serde::{Deserialize, Serialize};
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, LOCATION};
-use reqwest::redirect::Policy;
-use reqwest::{Body, header, Method, Proxy, Response};
-use encoding_rs::{Encoding, UTF_8};
-use mime::Mime;
-use regex::Regex;
-use url::Url;
-use scraper::{Html, Selector};
-use cached::proc_macro::cached;
-use cached::SizedCache;
-use std::{fmt, process};
-use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
-use std::str::FromStr;
-use std::time::Duration;
-use std::sync::Arc;
-use md5::{Digest, Md5};
 use super::CONFIG;
 use crate::fingerprint::WebFingerPrintRequest;
 use crate::ward::RawData;
+use cached::proc_macro::cached;
+use cached::SizedCache;
+use encoding_rs::{Encoding, UTF_8};
+use md5::{Digest, Md5};
+use mime::Mime;
+use regex::Regex;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, LOCATION};
+use reqwest::redirect::Policy;
+use reqwest::{header, Body, Method, Proxy, Response};
+use scraper::{Html, Selector};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
+use std::str::FromStr;
+use std::sync::Arc;
+use std::time::Duration;
+use std::{fmt, process};
+use url::Url;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum WardError {
@@ -76,10 +76,12 @@ async fn send_requests(
     fingerprint: &WebFingerPrintRequest,
 ) -> Result<Response, reqwest::Error> {
     let mut headers = header::HeaderMap::new();
-    let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36";
+    let ua = "Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0";
     headers.insert(header::USER_AGENT, header::HeaderValue::from_static(ua));
-    let method = Method::from_str(&fingerprint.request_method.to_uppercase()).unwrap_or(Method::GET);
-    let body_data = Body::from(base64::decode(fingerprint.request_data.clone()).unwrap_or_default());
+    let method =
+        Method::from_str(&fingerprint.request_method.to_uppercase()).unwrap_or(Method::GET);
+    let body_data =
+        Body::from(base64::decode(fingerprint.request_data.clone()).unwrap_or_default());
     if !fingerprint.request_headers.is_empty() {
         for (k, v) in fingerprint.request_headers.clone() {
             headers.insert(
@@ -117,14 +119,17 @@ async fn send_requests(
             }
         };
     }
-    return client.build()
+    return client
+        .build()
         .unwrap()
         .request(method, url.as_ref())
         .body(body_data)
-        .send().await;
+        .send()
+        .await;
 }
 lazy_static! {
-    static ref RE_COMPILE_BY_CHARSET: Regex = Regex::new(r#"(?im)charset="(.*?)"|charset=(.*?)""#).unwrap() ;
+    static ref RE_COMPILE_BY_CHARSET: Regex =
+        Regex::new(r#"(?im)charset="(.*?)"|charset=(.*?)""#).unwrap();
 }
 fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
     let (html, _, _) = UTF_8.decode(byte);
@@ -179,10 +184,10 @@ async fn fetch_raw_data(res: Response, is_index: bool) -> Result<Arc<RawData>, W
 
 // favicon的URL到Hash
 #[cached(
-type = "SizedCache<String, String>",
-create = "{ SizedCache::with_size(100) }",
-result = true,
-convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
+    type = "SizedCache<String, String>",
+    create = "{ SizedCache::with_size(100) }",
+    result = true,
+    convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
 )]
 async fn get_favicon_hash(url: Url) -> Result<String, WardError> {
     let default_request = WebFingerPrintRequest {
@@ -207,17 +212,12 @@ async fn get_favicon_hash(url: Url) -> Result<String, WardError> {
             let favicon_md5: String = format!("{:x}", (&result));
             Ok(favicon_md5)
         }
-        Err(err) => {
-            Err(WardError::Fetch(format!("{}", err)))
-        }
+        Err(err) => Err(WardError::Fetch(format!("{}", err))),
     }
 }
 
 // 从HTML标签中提取favicon的链接
-async fn find_favicon_tag(
-    base_url: reqwest::Url,
-    text: &String,
-) -> HashMap<String, String> {
+async fn find_favicon_tag(base_url: reqwest::Url, text: &String) -> HashMap<String, String> {
     let parsed_html = Html::parse_fragment(&text);
     let selector = Selector::parse("link").unwrap();
     let mut link_tags = HashMap::new();
@@ -241,22 +241,24 @@ async fn find_favicon_tag(
     }
     return link_tags;
 }
+// 支持部分正文跳转
 lazy_static! {
     static ref RE_COMPILE_BY_JUMP: Vec<Regex> = {
         let js_reg = vec![
             r#"(?im)[ |.|:]location\.href=['|"](?P<name>.*?)['|"]"#,
             r#"(?im)window\.open\(['|"](?P<name>.*?)['|"]"#,
-            r#"(?im)<meta.*?http-equiv=.*?refresh.*?url=(?P<name>.*?)['|"]>"#];
-        let re_list:Vec<Regex> = js_reg.iter().map(|reg|Regex::new(reg).unwrap()).collect();
+            r#"(?im)<meta.*?http-equiv=.*?refresh.*?url=(?P<name>.*?)['|"]>"#,
+        ];
+        let re_list: Vec<Regex> = js_reg.iter().map(|reg| Regex::new(reg).unwrap()).collect();
         re_list
     };
 }
-//首页请求
+// 首页请求
 #[cached(
-type = "SizedCache<String, Vec<Arc<RawData>>>",
-create = "{ SizedCache::with_size(100) }",
-result = true,
-convert = r#"{ format!("{}{:?}", url_str.to_owned(), special_wfp) }"#
+    type = "SizedCache<String, Vec<Arc<RawData>>>",
+    create = "{ SizedCache::with_size(100) }",
+    result = true,
+    convert = r#"{ format!("{}{:?}", url_str.to_owned(), special_wfp) }"#
 )]
 pub async fn index_fetch(
     url_str: &String,
@@ -285,6 +287,7 @@ pub async fn index_fetch(
                 return Err(WardError::Other(format!("{:?}", err)));
             }
         };
+        // 在请求头和正文里匹配下一跳URL
         let get_next_url = |headers: &HeaderMap, url: &Url, text: &String, is_index: bool| {
             let mut next_url = headers
                 .get(LOCATION)
@@ -330,6 +333,7 @@ pub async fn index_fetch(
                 break;
             }
         }
+        // 已经有协议的没必要请求两次
         if is_start_with_http {
             break;
         }
@@ -347,11 +351,14 @@ pub fn get_title(raw_data: &Arc<RawData>) -> String {
     return String::new();
 }
 
+//TODO 根据首页请求得到该网站的开发语言，减少特殊请求，避免java的站请求php后缀的
 fn get_lang(headers: &HeaderMap) -> HashSet<String> {
     let headers = format!("{:?}", headers.clone());
-    let cookie_to_lang_map: HashMap<&str, &str> = HashMap::from_iter(
-        [("phpsessid", ".php"), ("jsessionid", ".jsp"), ("aspsession", ".asp"), ]
-    );
+    let cookie_to_lang_map: HashMap<&str, &str> = HashMap::from_iter([
+        ("phpsessid", ".php"),
+        ("jsessionid", ".jsp"),
+        ("aspsession", ".asp"),
+    ]);
     let mut lang_set: HashSet<String> = HashSet::new();
     for (header_flag, lang) in cookie_to_lang_map.into_iter() {
         if headers.contains(header_flag) {
