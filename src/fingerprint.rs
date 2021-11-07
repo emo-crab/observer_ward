@@ -108,7 +108,7 @@ impl WebFingerPrintLib {
             file.read_to_string(&mut data).unwrap();
             let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
             let verify_fingerprints: VerifyWebFingerPrint =
-                serde_yaml::from_str(&data).expect("Bad Yaml");
+                serde_yaml::from_str(&data).expect("BAD YAML");
             for mut verify_fingerprint in verify_fingerprints.fingerprint {
                 verify_fingerprint.name = verify_fingerprints.name.clone();
                 verify_fingerprint.priority = verify_fingerprints.priority.clone();
@@ -126,7 +126,7 @@ impl WebFingerPrintLib {
             let mut data = String::new();
             file.read_to_string(&mut data).unwrap();
             let web_fingerprint: Vec<WebFingerPrint> =
-                serde_json::from_str(&data).expect("Bad Json");
+                serde_json::from_str(&data).expect("BAD JSON");
             web_fingerprint
         };
     }

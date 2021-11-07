@@ -38,5 +38,6 @@ regex = { version = "1.3.1", default-features = false, features = ["std"] }
 mime = "0.3.16"
 md-5 = "0.9.1"
 base64 = "0.13.0"
+csv = "1.1.6"
 [target.'cfg(target_os="windows")'.build-dependencies]
 winres = "0.1"

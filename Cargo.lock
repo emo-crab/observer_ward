@@ -1787,6 +1787,7 @@ dependencies = [
  "cached",
  "clap",
  "colored",
+ "csv",
  "encoding_rs",
  "env_logger",
  "futures 0.3.16",

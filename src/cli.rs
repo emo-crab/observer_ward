@@ -1,6 +1,8 @@
 extern crate clap;
 
 use std::{env, process};
+use std::path::Path;
+use std::process::{Command, Stdio};
 
 use clap::{App, Arg};
 use colored::Colorize;
@@ -18,6 +20,8 @@ pub struct WardArgs {
     pub json: String,
     pub proxy: String,
     pub timeout: u64,
+    pub plugins_path: String,
+    pub update_plugins: bool,
 }
 
 impl WardArgs {
@@ -54,13 +58,13 @@ impl WardArgs {
                 .short("c")
                 .long("csv")
                 .value_name("CSV")
-                .help("Export to the csv file")
+                .help("Export to the csv file or Import form the csv file")
             )
             .arg(Arg::with_name("json")
                 .short("j")
                 .long("json")
                 .value_name("JSON")
-                .help("Export to the json file")
+                .help("Export to the json file or Import form the json file")
             )
             .arg(
                 Arg::with_name("proxy")
@@ -77,14 +81,23 @@ impl WardArgs {
                     .takes_value(true)
                     .default_value("10")
                     .value_name("TIMEOUT")
-                    .help(
-                        "Set request timeout.",
-                    ),
+                    .help("Set request timeout."),
             )
             .arg(Arg::with_name("verify")
                 .long("verify")
                 .takes_value(true)
+                .requires("target")
                 .help("Validate the specified yaml file")
+            )
+            .arg(Arg::with_name("plugins_path")
+                .long("plugins_path")
+                .takes_value(true)
+                .help("Calling plugins_path to detect vulnerabilities")
+            )
+            .arg(Arg::with_name("update_plugins")
+                .long("update_plugins")
+                .takes_value(false)
+                .help("Update nuclei plugins")
             )
             .arg(Arg::with_name("update_fingerprint")
                 .short("u")
@@ -101,6 +114,8 @@ impl WardArgs {
         let mut stdin: bool = false;
         let mut verify_path: String = String::new();
         let mut update_fingerprint: bool = false;
+        let mut update_plugins: bool = false;
+        let mut plugins_path: String = String::new();
         let mut req_timeout: u64 = 10;
         let mut target_url: String = String::new();
         let mut file_path: String = String::new();
@@ -111,8 +126,22 @@ impl WardArgs {
         if args.is_present("stdin") {
             stdin = true;
         }
+        if args.is_present("update_plugins") {
+            update_plugins = true;
+        }
         if args.is_present("update_fingerprint") {
             update_fingerprint = true;
+        }
+        if let Some(nuclei) = args.value_of("plugins_path") {
+            if !has_nuclei_app() {
+                println!("Please install plugins_path to the environment variable!");
+                process::exit(0);
+            }
+            plugins_path = nuclei.to_string();
+            if !Path::new(&plugins_path).exists() {
+                println!("The plug-in directory does not exist!");
+                process::exit(0);
+            }
         }
         if let Some(target) = args.value_of("target") {
             target_url = target.to_string();
@@ -142,6 +171,7 @@ impl WardArgs {
             target: target_url,
             stdin,
             file: file_path,
+            update_plugins,
             update_fingerprint,
             verify: verify_path,
             server_host_port,
@@ -149,6 +179,7 @@ impl WardArgs {
             json: json_file_path,
             proxy: proxy_uri,
             timeout: req_timeout,
+            plugins_path,
         }
     }
 }
@@ -167,3 +198,31 @@ Community based web fingerprint analysis tool."#;
  ---------------------------------------------"#;
     println!("{}", info.yellow());
 }
+
+// https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct Template {
+    pub template_id: String,
+}
+
+pub fn has_nuclei_app() -> bool {
+    return if cfg!(target_os = "windows") {
+        Command::new("nuclei.exe")
+            .args(["-version"])
+            .stdin(Stdio::null())
+            .output()
+            .is_ok()
+    } else {
+        Command::new("nuclei")
+            .args(["-version"])
+            .stdin(Stdio::null())
+            .output()
+            .is_ok()
+    };
+}
+
+
+// .requires("plugins_path") 使用当前参数时必须要plugins_path参数才可以
+// .required_if("other_arg", "value") 如果参数other_arg的值为value时当前参数是必须的
+// .required_unless_one(&["cfg", "dbg"]) 除非已经有了cfg参数，不然当前这个参数是必须的
+// .required_unless() 同上
