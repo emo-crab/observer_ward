@@ -262,7 +262,7 @@ pub async fn get_plugins_by_nuclei(w: &WhatWebResult) -> WhatWebResult {
     let mut plugins_set: HashSet<String> = HashSet::new();
     let mut exist_plugins: Vec<String> = Vec::new();
     for name in wwr.what_web_name.iter() {
-        let plugins_name_path = Path::new(&CONFIG.plugins_path).join(name);
+        let plugins_name_path = Path::new(&CONFIG.plugins).join(name);
         if plugins_name_path.exists() {
             if let Some(p_path) = plugins_name_path.to_str() {
                 exist_plugins.push(p_path.to_string())
@@ -273,7 +273,7 @@ pub async fn get_plugins_by_nuclei(w: &WhatWebResult) -> WhatWebResult {
         return wwr;
     }
     let mut command_line = Command::new("nuclei");
-    command_line.args(["-u", &wwr.url, "-no-color", "-timeout", &(CONFIG.timeout+5).to_string()]);
+    command_line.args(["-u", &wwr.url, "-no-color", "-timeout", &(CONFIG.timeout + 5).to_string()]);
     for p in exist_plugins.iter() {
         command_line.args(["-t", p]);
     }
@@ -290,6 +290,7 @@ pub async fn get_plugins_by_nuclei(w: &WhatWebResult) -> WhatWebResult {
         }
     }
     wwr.plugins = plugins_set;
+    wwr.priority = wwr.priority + 1;
     return wwr;
 }
 

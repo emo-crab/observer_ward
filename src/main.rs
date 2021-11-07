@@ -77,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         print_results_and_save(config.json.clone(), config.csv.clone(), results, false);
     }
-    if !config.plugins_path.is_empty() && (!config.csv.is_empty() || !config.json.is_empty()) {
+    if !config.plugins.is_empty() && (!config.csv.is_empty() || !config.json.is_empty()) {
         let wwr_results: Vec<WhatWebResult> = read_results_file();
         let mut worker = FuturesUnordered::new();
         let mut wwr_results_iter = wwr_results.iter();

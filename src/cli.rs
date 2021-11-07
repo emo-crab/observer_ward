@@ -20,7 +20,7 @@ pub struct WardArgs {
     pub json: String,
     pub proxy: String,
     pub timeout: u64,
-    pub plugins_path: String,
+    pub plugins: String,
     pub update_plugins: bool,
 }
 
@@ -89,10 +89,10 @@ impl WardArgs {
                 .requires("target")
                 .help("Validate the specified yaml file")
             )
-            .arg(Arg::with_name("plugins_path")
-                .long("plugins_path")
+            .arg(Arg::with_name("plugins")
+                .long("plugins")
                 .takes_value(true)
-                .help("Calling plugins_path to detect vulnerabilities")
+                .help("Calling plugins to detect vulnerabilities")
             )
             .arg(Arg::with_name("update_plugins")
                 .long("update_plugins")
@@ -115,7 +115,7 @@ impl WardArgs {
         let mut verify_path: String = String::new();
         let mut update_fingerprint: bool = false;
         let mut update_plugins: bool = false;
-        let mut plugins_path: String = String::new();
+        let mut plugins: String = String::new();
         let mut req_timeout: u64 = 10;
         let mut target_url: String = String::new();
         let mut file_path: String = String::new();
@@ -132,13 +132,13 @@ impl WardArgs {
         if args.is_present("update_fingerprint") {
             update_fingerprint = true;
         }
-        if let Some(nuclei) = args.value_of("plugins_path") {
+        if let Some(nuclei) = args.value_of("plugins") {
             if !has_nuclei_app() {
-                println!("Please install plugins_path to the environment variable!");
+                println!("Please install plugins to the environment variable!");
                 process::exit(0);
             }
-            plugins_path = nuclei.to_string();
-            if !Path::new(&plugins_path).exists() {
+            plugins = nuclei.to_string();
+            if !Path::new(&plugins).exists() {
                 println!("The plug-in directory does not exist!");
                 process::exit(0);
             }
@@ -179,7 +179,7 @@ impl WardArgs {
             json: json_file_path,
             proxy: proxy_uri,
             timeout: req_timeout,
-            plugins_path,
+            plugins,
         }
     }
 }
@@ -222,7 +222,7 @@ pub fn has_nuclei_app() -> bool {
 }
 
 
-// .requires("plugins_path") 使用当前参数时必须要plugins_path参数才可以
+// .requires("plugins") 使用当前参数时必须要plugins_path参数才可以
 // .required_if("other_arg", "value") 如果参数other_arg的值为value时当前参数是必须的
 // .required_unless_one(&["cfg", "dbg"]) 除非已经有了cfg参数，不然当前这个参数是必须的
 // .required_unless() 同上

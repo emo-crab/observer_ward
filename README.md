@@ -47,7 +47,7 @@ OPTIONS:
     -c, --csv <CSV>                      Export to the csv file or Import form the csv file
     -f, --file <FILE>                    Read the target from the file
     -j, --json <JSON>                    Export to the json file or Import form the json file
-        --plugins_path <plugins_path>    Calling plugins_path to detect vulnerabilities
+        --plugins <plugins>              Calling plugins to detect vulnerabilities
         --proxy <PROXY>                  Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)
     -s, --server <SERVER>                Start a web API service (127.0.0.1:8080)
     -t, --target <TARGET>                The target URL(s) (required, unless --stdin used)
@@ -209,7 +209,7 @@ Important technology:
 | https://www.example.com/     | spring-framework      | 114    |                       | 3        |
 +------------------------------+-----------------------+--------+-----------------------+----------+
 
-➜  ~ ./observer_ward  --plugins_path 0x272/FingerprintHub/plugins --json results.json 
+➜  ~ ./observer_ward  --plugins 0x272/FingerprintHub/plugins --json results.json 
 Important technology:
 +------------------------------+-----------------------+--------+-----------------------+----------+--------------------------+
 | Url                          | Name                  | Length | Title                 | Priority | Plugins                  |
