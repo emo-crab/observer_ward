@@ -40,33 +40,22 @@ FLAGS:
     -h, --help                  Prints help information
         --stdin                 Read url(s) from STDIN
     -u, --update_fingerprint    Update web fingerprint
+        --update_plugins        Update nuclei plugins
     -V, --version               Prints version information
 
 OPTIONS:
-    -c, --csv <CSV>                      Export to the csv file
+    -c, --csv <CSV>                      Export to the csv file or Import form the csv file
     -f, --file <FILE>                    Read the target from the file
-    -j, --json <JSON>                    Export to the json file
+    -j, --json <JSON>                    Export to the json file or Import form the json file
+        --plugins_path <plugins_path>    Calling plugins_path to detect vulnerabilities
         --proxy <PROXY>                  Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)
     -s, --server <SERVER>                Start a web API service (127.0.0.1:8080)
     -t, --target <TARGET>                The target URL(s) (required, unless --stdin used)
         --timeout <TIMEOUT>              Set request timeout. [default: 10]
         --verify <verify>                Validate the specified yaml file
 
-```
 
-| 命令行参数    | 描述                                                         |
-| ------------- | ------------------------------------------------------------ |
-| -h, --help    | 打印帮助信息                                                 |
-| --stdin       | 从标准输出获取要识别的目标                                   |
-| -u, --update  | 从远程[指纹库](https://github.com/0x727/FingerprintHub)更新最新指纹，也可以手动从[Github](https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json)下载 |
-| -V, --version | 打印版本                                                     |
-| -c, --csv     | 将识别结果导出csv文件，接受一个文件路径                      |
-| -f, --file    | 从文件里面读取要识别的目标                                   |
-| -j, --json    | 将识别结果导出json文件，接受一个文件路径                     |
-| -s, --server  | 开启api服务，接收要监听的IP和端口，例如：127.0.0.1:8080      |
-| -t, --target  | 识别单个目标                                                 |
-| --timeout     | 设置请求超时时间，默认10秒                                   |
-| --verify      | 验证指定yaml文件里面的指纹规则                               |
+```
 
 ### 开启API服务
 
@@ -190,6 +179,60 @@ Result:
 ➜  ~ cat result.csv 
 Url,Name,Length,Title,Priority
 https://httpbin.org/,swagger,9593,httpbin.org,2
+```
+### 调用Nuclei检测漏洞
+
+- 在[指纹库](https://github.com/0x727/FingerprintHub/tree/main/plugins)中已经对部分组件的插件进行了分类，如果识别到的组件在`plugins`目录下存在和组件同名的文件夹，会对目标调用Nuclei使用匹配到的插件进行检测，存在漏洞会输出到屏幕。
+- 因为经过测试在指纹识别过程中同时调用nuclei检测漏洞会影响Web指纹识别的效果，也会拉长识别的时间，所以选择识别完Web指纹后将结果保存到文件，再解析文件调用nuclei检测。
+- 目前支持将Web指纹识别的结果保存为`json`和`csv`格式，所以只能解析这两种格式。
+
+```bash
+➜  ~ ./observer_ward  -f target.txt -j results.json
+[ https://www.example.com/ | ["安网科技-智能路由系统"] | 6847 | 安网科技-智能路由系统 ] 
+[ https://www.example.com/ | ["spring-framework"] | 114 |  ]
+[ https://www.example.com/ | ["apache-solr"] | 13592 | solr admin ]
+[ https://www.example.com/ | ["gitlab"] | 51751 | sign in · gitlab ]
+[ https://www.example.com/ | ["huawei-auth-server", "huawei-vpn"] | 25286 | user login ]                                                                                  
+Important technology:                                                                                                                                                         
++------------------------------+-----------------------+--------+-----------------------+----------+
+| Url                          | Name                  | Length | Title                 | Priority |
++==============================+=======================+========+=======================+==========+ 
+| https://www.example.com/     | apache-solr           | 13592  | solr admin            | 5        |
++------------------------------+-----------------------+--------+-----------------------+----------+ 
+| https://www.example.com/     | 安网科技-智能路由系统    | 6847   | 安网科技-智能路由系统     | 4        |
++------------------------------+-----------------------+--------+-----------------------+----------+
+| https://www.example.com/     | gitlab                | 51751  | sign in · gitlab      | 4        |
++------------------------------+-----------------------+--------+-----------------------+----------+ 
+| https://www.example.com/     | huawei-auth-server    | 25286  | user login            | 4        |
+|                              | huawei-vpn            |        |                       |          |
++------------------------------+-----------------------+--------+-----------------------+----------+
+| https://www.example.com/     | spring-framework      | 114    |                       | 3        |
++------------------------------+-----------------------+--------+-----------------------+----------+
+
+➜  ~ ./observer_ward  --plugins_path 0x272/FingerprintHub/plugins --json results.json 
+Important technology:
++------------------------------+-----------------------+--------+-----------------------+----------+--------------------------+
+| Url                          | Name                  | Length | Title                 | Priority | Plugins                  |
++==============================+=======================+========+=======================+==========+==========================+
+| https://www.example.com/     | 安网科技-智能路由系统    | 6847   | 安网科技-智能路由系统     | 4        |                          |
++------------------------------+-----------------------+--------+-----------------------+----------+--------------------------+
+| https://www.example.com/     | huawei-vpn            | 25286  | user login            | 4        |                          |
+|                              | huawei-auth-server    |        |                       |          |                          |
++------------------------------+-----------------------+--------+-----------------------+----------+--------------------------+
+| https://www.example.com/     | gitlab                | 51751  | sign in · gitlab      | 4        | CVE-2021-22205           |
+|                              |                       |        |                       |          | gitlab-public-repos      |
+|                              |                       |        |                       |          | gitlab-api-user-enum     |
+|                              |                       |        |                       |          | gitlab-graphql-user-enum |
+|                              |                       |        |                       |          | CVE-2020-26413           |
++------------------------------+-----------------------+--------+-----------------------+----------+--------------------------+
+| https://www.example.com/     | apache-solr           | 13592  | solr admin            | 5        | CVE-2021-27905           |
++------------------------------+-----------------------+--------+-----------------------+----------+--------------------------+
+| https://www.example.com/     | spring-framework      | 114    |                       | 3        | springboot-trace         |
+|                              |                       |        |                       |          | springboot-metrics       |
+|                              |                       |        |                       |          | springboot-env           |
+|                              |                       |        |                       |          | springboot-health        |
++------------------------------+-----------------------+--------+-----------------------+----------+--------------------------+
+
 ```
 
 ## 提交指纹
