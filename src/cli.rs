@@ -1,8 +1,8 @@
 extern crate clap;
 
-use std::{env, process};
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::{env, process};
 
 use clap::{App, Arg};
 use colored::Colorize;
@@ -66,8 +66,7 @@ impl WardArgs {
                 .value_name("JSON")
                 .help("Export to the json file or Import form the json file")
             )
-            .arg(
-                Arg::with_name("proxy")
+            .arg(Arg::with_name("proxy")
                     .long("proxy")
                     .takes_value(true)
                     .value_name("PROXY")
@@ -75,8 +74,7 @@ impl WardArgs {
                         "Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)",
                     ),
             )
-            .arg(
-                Arg::with_name("timeout")
+            .arg(Arg::with_name("timeout")
                     .long("timeout")
                     .takes_value(true)
                     .default_value("10")
@@ -220,9 +218,3 @@ pub fn has_nuclei_app() -> bool {
             .is_ok()
     };
 }
-
-
-// .requires("plugins") 使用当前参数时必须要plugins_path参数才可以
-// .required_if("other_arg", "value") 如果参数other_arg的值为value时当前参数是必须的
-// .required_unless_one(&["cfg", "dbg"]) 除非已经有了cfg参数，不然当前这个参数是必须的
-// .required_unless() 同上

@@ -5,8 +5,8 @@ use std::collections::HashSet;
 use std::env;
 use std::fmt;
 use std::fs::File;
-use std::io::{self, BufRead, Read};
 use std::io::Cursor;
+use std::io::{self, BufRead, Read};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
@@ -82,7 +82,8 @@ pub async fn scan(url: String) -> WhatWebResult {
                 &raw_data,
                 &WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned(),
                 false,
-            ).await;
+            )
+            .await;
             for (k, v) in web_name_set {
                 what_web_name.insert(k);
                 what_web_result.priority = v;
@@ -108,7 +109,8 @@ pub async fn scan(url: String) -> WhatWebResult {
                     &raw_data,
                     &WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned(),
                     true,
-                ).await;
+                )
+                .await;
                 for (k, v) in web_name_set {
                     what_web_name.insert(k);
                     what_web_result.priority = v;
@@ -158,8 +160,8 @@ pub fn read_file_to_target(file_path: &String) -> HashSet<String> {
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-    where
-        P: AsRef<Path>,
+where
+    P: AsRef<Path>,
 {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
@@ -229,7 +231,8 @@ pub fn read_results_file() -> Vec<WhatWebResult> {
     if !CONFIG.csv.is_empty() {
         let rdr = Reader::from_path(&CONFIG.csv).expect("BAD CSV");
         let iter: DeserializeRecordsIntoIter<File, RowWhatWebResult> = rdr.into_deserialize();
-        let wwr: Vec<WhatWebResult> = iter.filter_map(Result::ok)
+        let wwr: Vec<WhatWebResult> = iter
+            .filter_map(Result::ok)
             .map(|w| WhatWebResult {
                 url: w.url,
                 what_web_name: w.what_web_name,
@@ -273,7 +276,17 @@ pub async fn get_plugins_by_nuclei(w: &WhatWebResult) -> WhatWebResult {
         return wwr;
     }
     let mut command_line = Command::new("nuclei");
-    command_line.args(["-u", &wwr.url, "-no-color", "-timeout", &(CONFIG.timeout + 5).to_string()]);
+    command_line.args([
+        "-u",
+        &wwr.url,
+        "-no-color",
+        "-timeout",
+        &(CONFIG.timeout + 5).to_string(),
+    ]);
+    command_line.args([
+        "-H",
+        "Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0",
+    ]);
     for p in exist_plugins.iter() {
         command_line.args(["-t", p]);
     }
@@ -290,13 +303,15 @@ pub async fn get_plugins_by_nuclei(w: &WhatWebResult) -> WhatWebResult {
         }
     }
     wwr.plugins = plugins_set;
-    wwr.priority = wwr.priority + 1;
+    if !wwr.plugins.is_empty() {
+        wwr.priority = wwr.priority + 1;
+    }
     return wwr;
 }
 
 fn string_to_hashset<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Error>
-    where
-        D: Deserializer<'de>,
+where
+    D: Deserializer<'de>,
 {
     struct StringOrVec(PhantomData<HashSet<String>>);
     impl<'de> de::Visitor<'de> for StringOrVec {
@@ -305,18 +320,19 @@ fn string_to_hashset<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Erro
             formatter.write_str("string or list of strings")
         }
         fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: de::Error,
+        where
+            E: de::Error,
         {
-            let name: Vec<String> = value.split_terminator('\n')
+            let name: Vec<String> = value
+                .split_terminator('\n')
                 .map(|s| s.to_string())
                 .collect();
             Ok(HashSet::from_iter(name))
         }
 
         fn visit_seq<S>(self, visitor: S) -> Result<Self::Value, S::Error>
-            where
-                S: de::SeqAccess<'de>,
+        where
+            S: de::SeqAccess<'de>,
         {
             Deserialize::deserialize(de::value::SeqAccessDeserializer::new(visitor))
         }
