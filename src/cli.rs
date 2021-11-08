@@ -5,8 +5,9 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 use clap::{App, Arg};
-use colored::Colorize;
 use serde::{Deserialize, Serialize};
+
+use crate::print_color;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WardArgs {
@@ -200,12 +201,12 @@ fn print_opening() {
  \ \__/".~\_\  \ \_\ \_\  \ \_\ \_\  \ \____-
   \/_/   \/_/   \/_/\/_/   \/_/ /_/   \/____/
 Community based web fingerprint analysis tool."#;
-    println!("{}", s.green());
+    print_color(s.to_string(),true);
     let info = r#"______________________________________________
 : https://github.com/0x727/FingerprintHub    :
 : https://github.com/0x727/ObserverWard_0x727:
  ---------------------------------------------"#;
-    println!("{}", info.yellow());
+    print_color(info.to_string(),true);
 }
 
 // https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip

@@ -13,7 +13,6 @@ use std::path::{Path, PathBuf};
 use std::str;
 use std::sync::RwLock;
 
-use colored::Colorize;
 use csv::{DeserializeRecordsIntoIter, Reader};
 use serde::{de, Deserialize, Deserializer, Serialize};
 use tokio::process::Command;
@@ -126,13 +125,10 @@ pub async fn scan(url: String) -> WhatWebResult {
     what_web_result.what_web_name = what_web_name.clone();
     let color_web_name: Vec<String> = what_web_name.iter().map(String::from).collect();
     if !what_web_name.is_empty() {
-        println!(
-            "[ {} | {} | {} | {} ]",
-            what_web_result.url,
-            format!("{:?}", color_web_name).red(),
-            what_web_result.length,
-            what_web_result.title,
-        );
+        print!("[ {} |", what_web_result.url);
+        print_color(format!("{:?}", color_web_name), false);
+        println!(" | {} | {} ]", what_web_result.length,
+                 what_web_result.title);
     } else {
         println!(
             "[ {} | {:?} | {} | {} ]",
@@ -362,4 +358,14 @@ fn string_to_hashset<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Erro
         }
     }
     deserializer.deserialize_any(StringOrVec(PhantomData))
+}
+
+pub fn print_color(mut string: String, nl: bool) {
+    if nl {
+        string.push('\n')
+    }
+    let mut t = term::stdout().unwrap();
+    t.fg(term::color::GREEN).unwrap();
+    write!(t, "{}", string).unwrap();
+    t.reset().unwrap();
 }

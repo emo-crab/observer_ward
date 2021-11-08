@@ -1,5 +1,6 @@
 extern crate prettytable;
 extern crate reqwest;
+extern crate term;
 extern crate url;
 
 use std::fs::File;
@@ -7,14 +8,13 @@ use std::io::{self, Read};
 use std::process;
 use std::thread;
 
-use colored::Colorize;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use prettytable::{Attr, Cell, color, Row, Table};
 
 use api::api_server;
 use cli::WardArgs;
-use observer_ward::{download_file_from_github, get_plugins_by_nuclei, read_file_to_target, read_results_file, scan, strings_to_urls, update_self, WhatWebResult};
+use observer_ward::{download_file_from_github, get_plugins_by_nuclei, print_color, read_file_to_target, read_results_file, scan, strings_to_urls, update_self, WhatWebResult};
 
 mod api;
 mod cli;
@@ -173,7 +173,7 @@ fn print_results_and_save(
         }
     }
     if table.len() > 0 {
-        println!("{}", "Important technology:".red());
+        print_color("Important technology:\n".to_string(), true);
         table.printstd();
     }
 }
