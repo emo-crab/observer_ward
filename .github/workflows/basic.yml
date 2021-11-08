@@ -50,16 +50,29 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: i686-pc-windows-msvc
           default: true
           override: true
-
-      - name: Build
-        run: cargo build --all --release
+      - name: Set up the Windows environment
+        shell: bash
+        run: |
+          choco install llvm openssl upx
+          echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" >>$GITHUB_ENV
+          echo "RUSTFLAGS=-C target-feature=+crt-static" >>$GITHUB_ENV
+      - name: build rust release
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --target=i686-pc-windows-msvc --release --all-features
+      - name: Upx the Windows binary
+        shell: bash
+        run: |
+          upx -9 target/i686-pc-windows-msvc/release/observer_ward.exe
       - name: Upload binary to release
         uses: svenstaro/upload-release-action@v1-release
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: target/release/observer_ward.exe
+          file: target/i686-pc-windows-msvc/release/observer_ward.exe
           asset_name: observer_ward.exe
           tag: default
           overwrite: true

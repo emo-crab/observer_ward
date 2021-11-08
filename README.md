@@ -56,7 +56,12 @@ OPTIONS:
 
 
 ```
-
+### 更新指纹
+- 使用`-u`参数从指纹库中更新指纹，也可以自己从[指纹库项目](https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json)下载到当前目录。
+```bash
+➜  ~ ./observer_ward_amd64 -u    
+Complete web_fingerprint_v3.json update: web_fingerprint_v3.json file size => 949222
+```
 ### 开启API服务
 
 ```bash

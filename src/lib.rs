@@ -5,8 +5,8 @@ use std::collections::HashSet;
 use std::env;
 use std::fmt;
 use std::fs::File;
-use std::io::Cursor;
 use std::io::{self, BufRead, Read};
+use std::io::Cursor;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
@@ -83,7 +83,7 @@ pub async fn scan(url: String) -> WhatWebResult {
                 &WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned(),
                 false,
             )
-            .await;
+                .await;
             for (k, v) in web_name_set {
                 what_web_name.insert(k);
                 what_web_result.priority = v;
@@ -110,7 +110,7 @@ pub async fn scan(url: String) -> WhatWebResult {
                     &WEB_FINGERPRINT_LIB_DATA.read().unwrap().to_owned(),
                     true,
                 )
-                .await;
+                    .await;
                 for (k, v) in web_name_set {
                     what_web_name.insert(k);
                     what_web_result.priority = v;
@@ -160,8 +160,8 @@ pub fn read_file_to_target(file_path: &String) -> HashSet<String> {
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where
-    P: AsRef<Path>,
+    where
+        P: AsRef<Path>,
 {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
@@ -189,6 +189,30 @@ pub async fn download_file_from_github(update_url: &str, filename: &str) {
             );
         }
     };
+}
+
+pub async fn update_self() {
+    let mut base_url = String::from("https://github.com/0x727/ObserverWard_0x727/releases/download/default/");
+    if cfg!(target_os = "windows") {
+        base_url.push_str("observer_ward.exe");
+        download_file_from_github(
+            &base_url,
+            "update_observer_ward.exe",
+        ).await;
+    } else if cfg!(target_os = "linux") {
+        base_url.push_str("observer_ward_amd64");
+        download_file_from_github(
+            &base_url,
+            "update_observer_ward_amd64",
+        ).await;
+    } else if cfg!(target_os = "macos") {
+        base_url.push_str("observer_ward_darwin");
+        download_file_from_github(
+            &base_url,
+            "update_observer_ward_darwin",
+        ).await;
+    };
+    println!("Please rename the file starting with update");
 }
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
@@ -310,8 +334,8 @@ pub async fn get_plugins_by_nuclei(w: &WhatWebResult) -> WhatWebResult {
 }
 
 fn string_to_hashset<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Error>
-where
-    D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
 {
     struct StringOrVec(PhantomData<HashSet<String>>);
     impl<'de> de::Visitor<'de> for StringOrVec {
@@ -320,8 +344,8 @@ where
             formatter.write_str("string or list of strings")
         }
         fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-        where
-            E: de::Error,
+            where
+                E: de::Error,
         {
             let name: Vec<String> = value
                 .split_terminator('\n')
@@ -331,8 +355,8 @@ where
         }
 
         fn visit_seq<S>(self, visitor: S) -> Result<Self::Value, S::Error>
-        where
-            S: de::SeqAccess<'de>,
+            where
+                S: de::SeqAccess<'de>,
         {
             Deserialize::deserialize(de::value::SeqAccessDeserializer::new(visitor))
         }

@@ -10,14 +10,11 @@ use std::thread;
 use colored::Colorize;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use prettytable::{color, Attr, Cell, Row, Table};
+use prettytable::{Attr, Cell, color, Row, Table};
 
 use api::api_server;
 use cli::WardArgs;
-use observer_ward::{
-    download_file_from_github, get_plugins_by_nuclei, read_file_to_target, read_results_file, scan,
-    strings_to_urls, WhatWebResult,
-};
+use observer_ward::{download_file_from_github, get_plugins_by_nuclei, read_file_to_target, read_results_file, scan, strings_to_urls, update_self, WhatWebResult};
 
 mod api;
 mod cli;
@@ -31,8 +28,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         thread::spawn(|| {
             api_server(server_host_port).unwrap();
         })
-        .join()
-        .expect("API service startup failed")
+            .join()
+            .expect("API service startup failed")
     }
     if config.stdin {
         let mut buffer = String::new();
@@ -48,7 +45,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
             "web_fingerprint_v3.json",
         )
-        .await;
+            .await;
+        process::exit(0);
+    }
+    if config.update_self {
+        update_self().await;
         process::exit(0);
     }
     if config.update_plugins {
@@ -56,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
             "plugins.zip",
         )
-        .await;
+            .await;
         process::exit(0);
     }
     if !targets.is_empty() {

@@ -4,9 +4,10 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use serde::{Deserialize, Serialize};
+
 use super::CONFIG;
 use super::WEB_FINGERPRINT_LIB_DATA;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VerifyWebFingerPrint {
@@ -119,6 +120,7 @@ impl WebFingerPrintLib {
             let mut file = match File::open(path.join("web_fingerprint_v3.json")) {
                 Err(_) => {
                     println!("The fingerprint library cannot be found in the current directory!");
+                    println!("Update fingerprint library with `-u` parameter!");
                     std::process::exit(0);
                 }
                 Ok(file) => file,

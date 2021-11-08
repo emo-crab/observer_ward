@@ -1,8 +1,8 @@
 extern crate clap;
 
+use std::{env, process};
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::{env, process};
 
 use clap::{App, Arg};
 use colored::Colorize;
@@ -22,6 +22,7 @@ pub struct WardArgs {
     pub timeout: u64,
     pub plugins: String,
     pub update_plugins: bool,
+    pub update_self: bool,
 }
 
 impl WardArgs {
@@ -67,19 +68,19 @@ impl WardArgs {
                 .help("Export to the json file or Import form the json file")
             )
             .arg(Arg::with_name("proxy")
-                    .long("proxy")
-                    .takes_value(true)
-                    .value_name("PROXY")
-                    .help(
-                        "Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)",
-                    ),
+                     .long("proxy")
+                     .takes_value(true)
+                     .value_name("PROXY")
+                     .help(
+                         "Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)",
+                     ),
             )
             .arg(Arg::with_name("timeout")
-                    .long("timeout")
-                    .takes_value(true)
-                    .default_value("10")
-                    .value_name("TIMEOUT")
-                    .help("Set request timeout."),
+                     .long("timeout")
+                     .takes_value(true)
+                     .default_value("10")
+                     .value_name("TIMEOUT")
+                     .help("Set request timeout."),
             )
             .arg(Arg::with_name("verify")
                 .long("verify")
@@ -97,6 +98,11 @@ impl WardArgs {
                 .takes_value(false)
                 .help("Update nuclei plugins")
             )
+            .arg(Arg::with_name("update_self")
+                .long("update_self")
+                .takes_value(false)
+                .help("Update self")
+            )
             .arg(Arg::with_name("update_fingerprint")
                 .short("u")
                 .long("update_fingerprint")
@@ -110,6 +116,7 @@ impl WardArgs {
         }
         let args = app.get_matches();
         let mut stdin: bool = false;
+        let mut update_self: bool = false;
         let mut verify_path: String = String::new();
         let mut update_fingerprint: bool = false;
         let mut update_plugins: bool = false;
@@ -126,6 +133,9 @@ impl WardArgs {
         }
         if args.is_present("update_plugins") {
             update_plugins = true;
+        }
+        if args.is_present("update_self") {
+            update_self = true;
         }
         if args.is_present("update_fingerprint") {
             update_fingerprint = true;
@@ -178,6 +188,7 @@ impl WardArgs {
             proxy: proxy_uri,
             timeout: req_timeout,
             plugins,
+            update_self,
         }
     }
 }
