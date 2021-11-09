@@ -95,15 +95,15 @@ jobs:
       - name: Cache
         uses: Swatinem/rust-cache@v1
       - name: Build for mac
-      run: |
-        cargo build --target=x86_64-apple-darwin --release --all-features
-        strip target/x86_64-apple-darwin/release/observer_ward
-        mv target/x86_64-apple-darwin/release/observer_ward target/x86_64-apple-darwin/release/observer_ward_darwin
-        - name: Upload binary to release
-          uses: svenstaro/upload-release-action@v1-release
-          with:
-            repo_token: ${{ secrets.GITHUB_TOKEN }}
-            file: target/x86_64-apple-darwin/release/observer_ward_darwin
-            asset_name: observer_ward_darwin
-            tag: default
-            overwrite: true
+        run: |
+          cargo build --target=x86_64-apple-darwin --release --all-features
+          strip target/x86_64-apple-darwin/release/observer_ward
+          mv target/x86_64-apple-darwin/release/observer_ward target/x86_64-apple-darwin/release/observer_ward_darwin
+          - name: Upload binary to release
+            uses: svenstaro/upload-release-action@v1-release
+            with:
+              repo_token: ${{ secrets.GITHUB_TOKEN }}
+              file: target/x86_64-apple-darwin/release/observer_ward_darwin
+              asset_name: observer_ward_darwin
+              tag: default
+              overwrite: true
