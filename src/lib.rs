@@ -363,8 +363,11 @@ pub fn print_color(mut string: String, color: Color, nl: bool) {
     if nl {
         string.push('\n')
     }
-    let mut t = term::stdout().unwrap();
-    t.fg(color).unwrap();
-    write!(t, "{}", string).unwrap();
-    t.reset().unwrap();
+    if let Some(mut t) = term::stdout() {
+        t.fg(color).unwrap();
+        write!(t, "{}", string).unwrap();
+        t.reset().unwrap();
+    } else {
+        print!("{}", string);
+    };
 }
