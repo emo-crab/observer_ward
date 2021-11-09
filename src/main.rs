@@ -10,11 +10,14 @@ use std::thread;
 
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use prettytable::{Attr, Cell, color, Row, Table};
+use prettytable::{color, Attr, Cell, Row, Table};
 
 use api::api_server;
 use cli::WardArgs;
-use observer_ward::{download_file_from_github, get_plugins_by_nuclei, print_color, read_file_to_target, read_results_file, scan, strings_to_urls, update_self, WhatWebResult};
+use observer_ward::{
+    download_file_from_github, get_plugins_by_nuclei, print_color, read_file_to_target,
+    read_results_file, scan, strings_to_urls, update_self, WhatWebResult,
+};
 
 mod api;
 mod cli;
@@ -28,8 +31,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         thread::spawn(|| {
             api_server(server_host_port).unwrap();
         })
-            .join()
-            .expect("API service startup failed")
+        .join()
+        .expect("API service startup failed")
     }
     if config.stdin {
         let mut buffer = String::new();
@@ -45,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
             "web_fingerprint_v3.json",
         )
-            .await;
+        .await;
         process::exit(0);
     }
     if config.update_self {
@@ -57,7 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
             "plugins.zip",
         )
-            .await;
+        .await;
         process::exit(0);
     }
     if !targets.is_empty() {
@@ -145,7 +148,7 @@ fn print_results_and_save(
         ];
         if has_plugins {
             let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
-            rows.push(Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)))
+            rows.push(Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::RED)))
         }
         table.add_row(Row::new(rows));
     }
@@ -167,13 +170,17 @@ fn print_results_and_save(
             ];
             if has_plugins {
                 let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
-                rows.push(Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)))
+                rows.push(Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::RED)))
             }
             table.add_row(Row::new(rows));
         }
     }
     if table.len() > 0 {
-        print_color("Important technology:\n".to_string(), true);
+        print_color(
+            "Important technology:\n".to_string(),
+            term::color::YELLOW,
+            true,
+        );
         table.printstd();
     }
 }

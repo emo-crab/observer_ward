@@ -1,12 +1,12 @@
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-use actix_web::{App, HttpResponse, HttpServer, web};
+use actix_web::{web, App, HttpResponse, HttpServer};
 use futures::future::join_all;
 use serde::{Deserialize, Serialize};
 
-use observer_ward::{download_file_from_github, print_color, scan, WhatWebResult};
 use observer_ward::fingerprint::update_fingerprint;
+use observer_ward::{download_file_from_github, print_color, scan, WhatWebResult};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ApiTargetList {
@@ -36,7 +36,7 @@ async fn update(web::Query(config): web::Query<ApiUpdate>) -> HttpResponse {
             "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
             "web_fingerprint_v3.json",
         )
-            .await;
+        .await;
     }
     update_fingerprint();
     let results: Vec<String> = Vec::new();
@@ -57,16 +57,16 @@ pub async fn api_server(server_host_port: String) -> std::io::Result<()> {
     let result = r#"[{"url":"https://httpbin.org/","what_web_name":["swagger"],"priority":2,"length":9593,"title":"httpbin.org"}]"#;
 
     print!("Instructions:\n");
-    print_color(api_doc, true);
+    print_color(api_doc, term::color::BRIGHT_GREEN, true);
     println!("Result:");
-    print_color(result.to_string(), true);
+    print_color(result.to_string(), term::color::GREEN, true);
     HttpServer::new(|| {
         App::new()
             .data(web::JsonConfig::default().limit(4096))
             .service(web::resource("/what_web").route(web::post().to(index)))
             .service(web::resource("/update").route(web::get().to(update)))
     })
-        .bind(server_host_port)?
-        .run()
-        .await
+    .bind(server_host_port)?
+    .run()
+    .await
 }

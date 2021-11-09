@@ -1,8 +1,8 @@
 extern crate clap;
 
-use std::{env, process};
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::{env, process};
 
 use clap::{App, Arg};
 use serde::{Deserialize, Serialize};
@@ -201,12 +201,12 @@ fn print_opening() {
  \ \__/".~\_\  \ \_\ \_\  \ \_\ \_\  \ \____-
   \/_/   \/_/   \/_/\/_/   \/_/ /_/   \/____/
 Community based web fingerprint analysis tool."#;
-    print_color(s.to_string(),true);
+    print_color(s.to_string(), term::color::GREEN, true);
     let info = r#"______________________________________________
 : https://github.com/0x727/FingerprintHub    :
 : https://github.com/0x727/ObserverWard_0x727:
  ---------------------------------------------"#;
-    print_color(info.to_string(),true);
+    print_color(info.to_string(), term::color::YELLOW, true);
 }
 
 // https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip
