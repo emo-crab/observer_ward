@@ -19,7 +19,8 @@ jobs:
           target: x86_64-unknown-linux-musl
           default: true
           override: true
-
+      - name: Cache
+      	uses: Swatinem/rust-cache@v1
       - name: Build
         run: |
           sudo apt-get install upx-ucl -y
@@ -59,6 +60,8 @@ jobs:
           choco install llvm openssl upx
           echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" >>$GITHUB_ENV
           echo "RUSTFLAGS=-C target-feature=+crt-static" >>$GITHUB_ENV
+      - name: Cache
+      	uses: Swatinem/rust-cache@v1
       - name: build rust release
         uses: actions-rs/cargo@v1
         with:
@@ -89,6 +92,8 @@ jobs:
           target: x86_64-apple-darwin
           default: true
           override: true
+      - name: Cache
+      	uses: Swatinem/rust-cache@v1
       - name: Build for mac
         run: |
           cargo build --target=x86_64-apple-darwin --release --all-features
