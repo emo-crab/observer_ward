@@ -24,6 +24,8 @@ cargo build --target  x86_64-unknown-linux-musl --release --all-features
 
 ### 2. 下载二进制安装
 
+- 因为前期更新比较频繁，没有使用tags发布版本，每次更新代码都会自动重新编译发布到`default`版本，所以`default`永远是最新的版本。
+- 看到是前几天发布的不要犹豫，下载就是最新的。
 - [发行版本](https://github.com/0x727/ObserverWard_0x727/releases)下载页面。
 
 ## 使用方法
@@ -53,15 +55,17 @@ OPTIONS:
     -t, --target <TARGET>                The target URL(s) (required, unless --stdin used)
         --timeout <TIMEOUT>              Set request timeout. [default: 10]
         --verify <verify>                Validate the specified yaml file
-
-
 ```
+
 ### 更新指纹
+
 - 使用`-u`参数从指纹库中更新指纹，也可以自己从[指纹库项目](https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json)下载到当前目录。
+
 ```bash
 ➜  ~ ./observer_ward_amd64 -u    
 Complete web_fingerprint_v3.json update: web_fingerprint_v3.json file size => 949222
 ```
+
 ### 开启API服务
 
 ```bash
@@ -185,7 +189,14 @@ Result:
 Url,Name,Length,Title,Priority
 https://httpbin.org/,swagger,9593,httpbin.org,2
 ```
+
 ### 调用Nuclei检测漏洞
+
+- 如果需要使用`Nuclei`检测漏洞，需要首先安装`Nuclei`到当前目录，或者是加入环境变量里面，让`observe_ward`可以正常调用。
+- 再下载[指纹库中的插件](https://github.com/0x727/FingerprintHub/tree/main/plugins)到当前目录下，或者使用`----update_plugins`插件。
+- 如图：
+
+![image-20210821130602444](./doc/README.assets/1785643368.jpg)
 
 - 在[指纹库](https://github.com/0x727/FingerprintHub/tree/main/plugins)中已经对部分组件的插件进行了分类，如果识别到的组件在`plugins`目录下存在和组件同名的文件夹，会对目标调用Nuclei使用匹配到的插件进行检测，存在漏洞会输出到屏幕。
 - 因为经过测试在指纹识别过程中同时调用nuclei检测漏洞会影响Web指纹识别的效果，也会拉长识别的时间，所以选择识别完Web指纹后将结果保存到文件，再解析文件调用nuclei检测。
@@ -240,11 +251,15 @@ Important technology:
 
 ```
 
+- 识别完指纹后一起使用`nuclei`检测漏洞
+
+```bash
+➜  ~ ./observer_ward_amd64 -f target.txt --json result.json --plugins 0x727/FingerprintHub/plugins
+```
+
 ## 提交指纹
 
--
-
-ObserverWard_0x727使用到的指纹规则全部来自[FingerprintHub](https://github.com/0x727/FingerprintHub)项目，如果需要获取指纹库和提交指纹规则，请查看[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
+- ObserverWard_0x727使用到的指纹规则全部来自[FingerprintHub](https://github.com/0x727/FingerprintHub)项目，如果需要获取指纹库和提交指纹规则，请查看[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
 
 ## 为ObserverWard_0x727做贡献
 

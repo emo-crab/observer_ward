@@ -143,7 +143,7 @@ impl WardArgs {
         }
         if let Some(nuclei) = args.value_of("plugins") {
             if !has_nuclei_app() {
-                println!("Please install plugins to the environment variable!");
+                println!("Please install nuclei to the environment variable!");
                 process::exit(0);
             }
             plugins = nuclei.to_string();
