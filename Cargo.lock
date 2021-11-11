@@ -1785,6 +1785,7 @@ dependencies = [
 name = "observer_ward"
 version = "0.1.0"
 dependencies = [
+ "actix-http",
  "actix-service",
  "actix-web",
  "async-std",

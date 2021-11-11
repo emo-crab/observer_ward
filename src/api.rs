@@ -74,6 +74,7 @@ pub async fn api_server(server_host_port: String) -> std::io::Result<()> {
             .service(web::resource("/what_web").route(web::post().to(index)))
             .service(web::resource("/update").route(web::get().to(update)))
     })
+    .keep_alive(actix_http::KeepAlive::Disabled)
     .bind(server_host_port)?
     .run()
     .await;
