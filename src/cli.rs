@@ -24,6 +24,7 @@ pub struct WardArgs {
     pub plugins: String,
     pub update_plugins: bool,
     pub update_self: bool,
+    pub daemon: bool,
 }
 
 impl WardArgs {
@@ -48,6 +49,12 @@ impl WardArgs {
                 .long("stdin")
                 .takes_value(false)
                 .help("Read url(s) from STDIN")
+                .conflicts_with("url")
+            )
+            .arg(Arg::with_name("daemon")
+                .long("daemon")
+                .takes_value(false)
+                .help("API background service")
                 .conflicts_with("url")
             )
             .arg(Arg::with_name("file")
@@ -117,6 +124,7 @@ impl WardArgs {
         }
         let args = app.get_matches();
         let mut stdin: bool = false;
+        let mut daemon: bool = false;
         let mut update_self: bool = false;
         let mut verify_path: String = String::new();
         let mut update_fingerprint: bool = false;
@@ -134,6 +142,9 @@ impl WardArgs {
         }
         if args.is_present("update_plugins") {
             update_plugins = true;
+        }
+        if args.is_present("daemon") {
+            daemon = true;
         }
         if args.is_present("update_self") {
             update_self = true;
@@ -190,6 +201,7 @@ impl WardArgs {
             timeout: req_timeout,
             plugins,
             update_self,
+            daemon,
         }
     }
 }

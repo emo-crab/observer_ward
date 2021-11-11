@@ -2,22 +2,20 @@ extern crate prettytable;
 extern crate reqwest;
 extern crate term;
 extern crate url;
-
 use std::fs::File;
 use std::io::{self, Read};
 use std::process;
-use std::thread;
 
+use cli::WardArgs;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
-use prettytable::{color, Attr, Cell, Row, Table};
-
-use api::api_server;
-use cli::WardArgs;
 use observer_ward::{
     download_file_from_github, get_plugins_by_nuclei, print_color, read_file_to_target,
     read_results_file, scan, strings_to_urls, update_self, WhatWebResult,
 };
+use prettytable::{color, Attr, Cell, Row, Table};
+
+use crate::api::run_server;
 
 mod api;
 mod cli;
@@ -27,12 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = WardArgs::new();
     let mut targets = vec![];
     if !config.server_host_port.is_empty() {
-        let server_host_port: String = config.server_host_port;
-        thread::spawn(|| {
-            api_server(server_host_port).unwrap();
-        })
-        .join()
-        .expect("API service startup failed")
+        run_server(config.server_host_port, config.daemon);
     }
     if config.stdin {
         let mut buffer = String::new();

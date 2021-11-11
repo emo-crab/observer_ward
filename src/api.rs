@@ -1,7 +1,15 @@
+#[cfg(not(target_os = "windows"))]
+extern crate daemonize;
+
 use std::collections::HashSet;
+#[cfg(not(target_os = "windows"))]
+use std::fs::File;
 use std::iter::FromIterator;
+use std::thread;
 
 use actix_web::{web, App, HttpResponse, HttpServer};
+#[cfg(not(target_os = "windows"))]
+use daemonize::Daemonize;
 use futures::future::join_all;
 use serde::{Deserialize, Serialize};
 
@@ -60,7 +68,7 @@ pub async fn api_server(server_host_port: String) -> std::io::Result<()> {
     print_color(api_doc, term::color::BRIGHT_GREEN, true);
     println!("Result:");
     print_color(result.to_string(), term::color::GREEN, true);
-    HttpServer::new(|| {
+    let http_server = HttpServer::new(|| {
         App::new()
             .data(web::JsonConfig::default().limit(4096))
             .service(web::resource("/what_web").route(web::post().to(index)))
@@ -68,5 +76,48 @@ pub async fn api_server(server_host_port: String) -> std::io::Result<()> {
     })
     .bind(server_host_port)?
     .run()
-    .await
+    .await;
+    return http_server;
+}
+
+pub fn run_server(server_host_port: String, is_daemon: bool) {
+    if is_daemon {
+        background();
+    }
+    let server_host_port: String = server_host_port;
+    thread::spawn(|| {
+        api_server(server_host_port).unwrap();
+    })
+    .join()
+    .expect("API service startup failed")
+}
+
+#[cfg(not(target_os = "windows"))]
+fn background() {
+    let stdout = File::create("/tmp/observer_ward.out").unwrap();
+    let stderr = File::create("/tmp/observer_ward.err").unwrap();
+
+    let daemonize = Daemonize::new()
+        .pid_file("/tmp/observer_ward.pid") // Every method except `new` and `start`
+        .chown_pid_file(false) // is optional, see `Daemonize` documentation
+        .working_directory("/tmp") // for default behaviour.
+        .user("nobody")
+        .group("daemon") // Group name
+        .umask(0o777) // Set umask, `0o027` by default.
+        .stdout(stdout) // Redirect stdout to `/tmp/observer_ward.out`.
+        .stderr(stderr) // Redirect stderr to `/tmp/observer_ward.err`.
+        .exit_action(|| println!("Executed before master process exits"))
+        .privileged_action(|| "Executed before drop privileges");
+    match daemonize.start() {
+        Ok(_) => println!("Success, daemonized"),
+        Err(e) => eprintln!("Error, {}", e),
+    }
+}
+#[cfg(target_os = "windows")]
+fn background() {
+    print_color(
+        "Windows does not support background services".to_string(),
+        term::color::GREEN,
+        true,
+    );
 }

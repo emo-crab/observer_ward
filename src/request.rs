@@ -1,6 +1,10 @@
-use super::CONFIG;
-use crate::fingerprint::WebFingerPrintRequest;
-use crate::ward::RawData;
+use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
+use std::str::FromStr;
+use std::sync::Arc;
+use std::time::Duration;
+use std::{fmt, process};
+
 use cached::proc_macro::cached;
 use cached::SizedCache;
 use encoding_rs::{Encoding, UTF_8};
@@ -12,13 +16,12 @@ use reqwest::redirect::Policy;
 use reqwest::{header, Body, Method, Proxy, Response};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::Duration;
-use std::{fmt, process};
 use url::Url;
+
+use crate::fingerprint::WebFingerPrintRequest;
+use crate::ward::RawData;
+
+use super::CONFIG;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum WardError {
@@ -245,7 +248,7 @@ async fn find_favicon_tag(base_url: reqwest::Url, text: &String) -> HashMap<Stri
 lazy_static! {
     static ref RE_COMPILE_BY_JUMP: Vec<Regex> = {
         let js_reg = vec![
-            r#"(?im)[ |.|:]location\.href=['|"](?P<name>.*?)['|"]"#,
+            r#"(?im)[ |.|:]location\.href.*?=.*?['|"](?P<name>.*?)['|"]"#,
             r#"(?im)window\.open\(['|"](?P<name>.*?)['|"]"#,
             r#"(?im)<meta.*?http-equiv=.*?refresh.*?url=(?P<name>.*?)['|"]>"#,
         ];

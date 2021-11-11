@@ -39,22 +39,25 @@ USAGE:
     observer_ward [FLAGS] [OPTIONS]
 
 FLAGS:
+        --daemon                API background service
     -h, --help                  Prints help information
         --stdin                 Read url(s) from STDIN
     -u, --update_fingerprint    Update web fingerprint
         --update_plugins        Update nuclei plugins
+        --update_self           Update self
     -V, --version               Prints version information
 
 OPTIONS:
-    -c, --csv <CSV>                      Export to the csv file or Import form the csv file
-    -f, --file <FILE>                    Read the target from the file
-    -j, --json <JSON>                    Export to the json file or Import form the json file
-        --plugins <plugins>              Calling plugins to detect vulnerabilities
-        --proxy <PROXY>                  Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)
-    -s, --server <SERVER>                Start a web API service (127.0.0.1:8080)
-    -t, --target <TARGET>                The target URL(s) (required, unless --stdin used)
-        --timeout <TIMEOUT>              Set request timeout. [default: 10]
-        --verify <verify>                Validate the specified yaml file
+    -c, --csv <CSV>            Export to the csv file or Import form the csv file
+    -f, --file <FILE>          Read the target from the file
+    -j, --json <JSON>          Export to the json file or Import form the json file
+        --plugins <plugins>    Calling plugins to detect vulnerabilities
+        --proxy <PROXY>        Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)
+    -s, --server <SERVER>      Start a web API service (127.0.0.1:8080)
+    -t, --target <TARGET>      The target URL(s) (required, unless --stdin used)
+        --timeout <TIMEOUT>    Set request timeout. [default: 10]
+        --verify <verify>      Validate the specified yaml file
+
 ```
 
 ### 更新指纹
@@ -67,7 +70,7 @@ Complete web_fingerprint_v3.json update: web_fingerprint_v3.json file size => 94
 ```
 
 ### 开启API服务
-
+- `--daemon`参数可以在后台运行**Window系统不支持**。
 ```bash
 ➜  ~ ./observer_ward -s 127.0.0.1:8080
 API service has been started:http://127.0.0.1:8080/what_web
@@ -193,7 +196,7 @@ https://httpbin.org/,swagger,9593,httpbin.org,2
 ### 调用Nuclei检测漏洞
 
 - 如果需要使用`Nuclei`检测漏洞，需要首先安装`Nuclei`到当前目录，或者是加入环境变量里面，让`observe_ward`可以正常调用。
-- 再下载[指纹库中的插件](https://github.com/0x727/FingerprintHub/tree/main/plugins)到当前目录下，或者使用`----update_plugins`插件。
+- 再下载[指纹库中的插件](https://github.com/0x727/FingerprintHub/tree/main/plugins)到当前目录下，或者使用`--update_plugins`插件。
 - 如图：
 
 ![image-20210821130602444](./doc/README.assets/1785643368.jpg)
