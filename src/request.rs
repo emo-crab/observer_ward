@@ -228,9 +228,10 @@ async fn find_favicon_tag(base_url: reqwest::Url, text: &String) -> HashMap<Stri
     for link in path_list.into_iter() {
         if let (Some(href), Some(rel)) = (link.value().attr("href"), link.value().attr("rel")) {
             if ["icon", "shortcut icon"].contains(&rel) {
-                let favicon_url = base_url.join(href).unwrap();
-                if let Ok(favicon_md5) = get_favicon_hash(favicon_url.clone()).await {
-                    link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
+                if let Ok(favicon_url) = base_url.join(href) {
+                    if let Ok(favicon_md5) = get_favicon_hash(favicon_url.clone()).await {
+                        link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
+                    };
                 };
             }
         }
