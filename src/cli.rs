@@ -93,7 +93,7 @@ impl WardArgs {
             .arg(Arg::with_name("verify")
                 .long("verify")
                 .takes_value(true)
-                .requires("target")
+                .required_unless_one(&["target", "file"])
                 .help("Validate the specified yaml file")
             )
             .arg(Arg::with_name("plugins")
