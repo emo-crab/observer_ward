@@ -96,33 +96,26 @@ async fn send_requests(
     if fingerprint.path != "/" {
         url.set_path(fingerprint.path.as_str());
     }
-
     let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
         .default_headers(headers.clone())
         .redirect(Policy::none())
         .timeout(Duration::new(CONFIG.timeout, 0));
-
     if !CONFIG.proxy.is_empty() {
-        match Url::parse(CONFIG.proxy.clone().as_str()) {
-            Ok(proxy_uri) => {
-                let proxy_obj = Proxy::all(proxy_uri).unwrap();
-                return client
-                    .proxy(proxy_obj)
-                    .build()
-                    .unwrap()
-                    .request(method, url.as_ref())
-                    .body(body_data)
-                    .send()
-                    .await;
-            }
-            Err(_) => {
-                println!("Invalid Proxy Uri");
-                process::exit(0);
-            }
-        };
+        if let Err(_err) = Url::parse(CONFIG.proxy.clone().as_str()) {
+            println!("Invalid Proxy Uri");
+            process::exit(0);
+        }
     }
+    let proxy_obj = Proxy::custom(move |_| {
+        if let Ok(proxy_uri) = Url::parse(CONFIG.proxy.clone().as_str()) {
+            Some(proxy_uri.clone())
+        } else {
+            None
+        }
+    });
     return client
+        .proxy(proxy_obj)
         .build()
         .unwrap()
         .request(method, url.as_ref())

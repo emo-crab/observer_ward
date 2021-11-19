@@ -2,7 +2,6 @@
 extern crate lazy_static;
 
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::fmt;
 use std::fs::File;
 use std::io::Cursor;
@@ -12,11 +11,14 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::str;
 use std::sync::RwLock;
+use std::{env, process};
 
 use csv::{DeserializeRecordsIntoIter, Reader};
+use reqwest::Proxy;
 use serde::{de, Deserialize, Deserializer, Serialize};
 use term::color::Color;
 use tokio::process::Command;
+use url::Url;
 
 use cli::WardArgs;
 use fingerprint::{WebFingerPrintLib, WebFingerPrintRequest};
@@ -167,7 +169,21 @@ where
 }
 
 pub async fn download_file_from_github(update_url: &str, filename: &str) {
-    match reqwest::get(update_url).await {
+    if !CONFIG.proxy.is_empty() {
+        if let Err(_err) = Url::parse(CONFIG.proxy.clone().as_str()) {
+            println!("Invalid Proxy Uri");
+            process::exit(0);
+        }
+    }
+    let proxy_obj = Proxy::custom(move |_| {
+        if let Ok(proxy_uri) = Url::parse(CONFIG.proxy.clone().as_str()) {
+            Some(proxy_uri.clone())
+        } else {
+            None
+        }
+    });
+    let client = reqwest::Client::builder().proxy(proxy_obj);
+    match client.build().unwrap().get(update_url).send().await {
         Ok(response) => {
             let self_path: PathBuf = env::current_exe().unwrap_or(PathBuf::new());
             let path = Path::new(&self_path).parent().unwrap_or(Path::new(""));
