@@ -52,6 +52,7 @@ pub struct WhatWebResult {
     pub priority: u32,
     pub length: usize,
     pub title: String,
+    pub status_code: u16,
     pub plugins: HashSet<String>,
 }
 
@@ -62,6 +63,7 @@ impl WhatWebResult {
             what_web_name: HashSet::new(),
             priority: 0,
             length: 0,
+            status_code: 0,
             title: String::new(),
             plugins: HashSet::new(),
         }
@@ -96,6 +98,10 @@ pub async fn scan(url: String) -> WhatWebResult {
                 what_web_result.priority = what_web_result.priority + 1;
             }
             what_web_result.length = raw_data.text.len();
+            what_web_result.status_code = raw_data.status_code.as_u16();
+            if raw_data.status_code.is_success() {
+                what_web_result.priority = what_web_result.priority + 1;
+            }
         }
     };
     for special_wfp in WEB_FINGERPRINT_LIB_DATA
@@ -127,17 +133,26 @@ pub async fn scan(url: String) -> WhatWebResult {
     }
     what_web_result.what_web_name = what_web_name.clone();
     let color_web_name: Vec<String> = what_web_name.iter().map(String::from).collect();
+    let status_code =
+        reqwest::StatusCode::from_u16(what_web_result.status_code).unwrap_or_default();
     if !what_web_name.is_empty() {
         print!("[ {} |", what_web_result.url);
         print_color(format!("{:?}", color_web_name), term::color::GREEN, false);
-        println!(
-            " | {} | {} ]",
-            what_web_result.length, what_web_result.title
-        );
+        print!(" | {} | ", what_web_result.length);
+        if status_code.is_success() {
+            print_color(format!("{:?}", status_code), term::color::GREEN, false);
+        } else {
+            print_color(format!("{:?}", status_code), term::color::RED, false);
+        }
+        println!(" | {} ]", what_web_result.title);
     } else {
         println!(
-            "[ {} | {:?} | {} | {} ]",
-            what_web_result.url, color_web_name, what_web_result.length, what_web_result.title,
+            "[ {} | {:?} | {} | {} | {} ]",
+            what_web_result.url,
+            color_web_name,
+            what_web_result.length,
+            what_web_result.status_code,
+            what_web_result.title,
         );
     }
     what_web_result
@@ -233,6 +248,8 @@ pub struct RowWhatWebResult {
     pub priority: u32,
     #[serde(rename = "Length")]
     pub length: usize,
+    #[serde(rename = "StatusCode")]
+    pub status_code: u16,
     #[serde(rename = "Title")]
     pub title: String,
     #[serde(rename = "Plugins")]
@@ -264,12 +281,13 @@ pub fn read_results_file() -> Vec<WhatWebResult> {
         let iter: DeserializeRecordsIntoIter<File, RowWhatWebResult> = rdr.into_deserialize();
         let wwr: Vec<WhatWebResult> = iter
             .filter_map(Result::ok)
-            .map(|w| WhatWebResult {
+            .map(|w: RowWhatWebResult| WhatWebResult {
                 url: w.url,
                 what_web_name: w.what_web_name,
                 priority: w.priority,
                 length: w.length,
                 title: w.title,
+                status_code: w.status_code,
                 plugins: w.plugins,
             })
             .collect();

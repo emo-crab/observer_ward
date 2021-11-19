@@ -2,18 +2,20 @@ extern crate prettytable;
 extern crate reqwest;
 extern crate term;
 extern crate url;
+
 use std::fs::File;
 use std::io::{self, Read};
 use std::process;
 
-use cli::WardArgs;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use prettytable::{color, Attr, Cell, Row, Table};
+
+use cli::WardArgs;
 use observer_ward::{
     download_file_from_github, get_plugins_by_nuclei, print_color, read_file_to_target,
     read_results_file, scan, strings_to_urls, update_self, WhatWebResult,
 };
-use prettytable::{color, Attr, Cell, Row, Table};
 
 use crate::api::run_server;
 
@@ -60,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut worker = FuturesUnordered::new();
         let mut targets_iter = targets.iter();
         let mut results = vec![];
-        for _ in 0..100 {
+        for _ in 0..config.thread.clone() {
             match targets_iter.next() {
                 Some(target) => worker.push(scan(target.to_string())),
                 None => {
@@ -123,6 +125,7 @@ fn print_results_and_save(
         Cell::new("Url"),
         Cell::new("Name"),
         Cell::new("Length"),
+        Cell::new("StatusCode"),
         Cell::new("Title"),
         Cell::new("Priority"),
     ];
@@ -132,10 +135,16 @@ fn print_results_and_save(
     table.set_titles(Row::new(headers.clone()));
     for res in &results {
         let wwn: Vec<String> = res.what_web_name.iter().map(String::from).collect();
+        let status_code = reqwest::StatusCode::from_u16(res.status_code).unwrap_or_default();
+        let mut status_code_color = Attr::ForegroundColor(color::RED);
+        if status_code.is_success() {
+            status_code_color = Attr::ForegroundColor(color::GREEN);
+        }
         let mut rows = vec![
             Cell::new(&res.url.as_str()),
             Cell::new(&wwn.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
             Cell::new(&res.length.to_string()),
+            Cell::new(&res.status_code.to_string()).with_style(status_code_color),
             Cell::new(&textwrap::fill(res.title.as_str(), 40)),
             Cell::new(&res.priority.to_string()),
         ];
@@ -152,21 +161,25 @@ fn print_results_and_save(
     let mut table = Table::new();
     table.set_titles(Row::new(headers.clone()));
     for res in &results {
-        if res.priority > 0 {
-            let wwn: Vec<String> = res.what_web_name.iter().map(String::from).collect();
-            let mut rows = vec![
-                Cell::new(&res.url.as_str()),
-                Cell::new(&wwn.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
-                Cell::new(&res.length.to_string()),
-                Cell::new(&textwrap::fill(res.title.as_str(), 40)),
-                Cell::new(&res.priority.to_string()),
-            ];
-            if has_plugins {
-                let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
-                rows.push(Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::RED)))
-            }
-            table.add_row(Row::new(rows));
+        let wwn: Vec<String> = res.what_web_name.iter().map(String::from).collect();
+        let status_code = reqwest::StatusCode::from_u16(res.status_code).unwrap_or_default();
+        let mut status_code_color = Attr::ForegroundColor(color::RED);
+        if status_code.is_success() {
+            status_code_color = Attr::ForegroundColor(color::GREEN);
         }
+        let mut rows = vec![
+            Cell::new(&res.url.as_str()),
+            Cell::new(&wwn.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
+            Cell::new(&res.length.to_string()),
+            Cell::new(&res.status_code.to_string()).with_style(status_code_color),
+            Cell::new(&textwrap::fill(res.title.as_str(), 40)),
+            Cell::new(&res.priority.to_string()),
+        ];
+        if has_plugins {
+            let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
+            rows.push(Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::RED)))
+        }
+        table.add_row(Row::new(rows));
     }
     if table.len() > 0 {
         print_color(

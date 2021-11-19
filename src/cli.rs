@@ -25,6 +25,7 @@ pub struct WardArgs {
     pub update_plugins: bool,
     pub update_self: bool,
     pub daemon: bool,
+    pub thread: u32,
 }
 
 impl WardArgs {
@@ -98,6 +99,14 @@ impl WardArgs {
                     .help("Set request timeout."),
             )
             .arg(
+                Arg::with_name("thread")
+                    .long("thread")
+                    .takes_value(true)
+                    .default_value("100")
+                    .value_name("THREAD")
+                    .help("Number of concurrent threads."),
+            )
+            .arg(
                 Arg::with_name("verify")
                     .long("verify")
                     .takes_value(true)
@@ -142,6 +151,7 @@ impl WardArgs {
         let mut update_plugins: bool = false;
         let mut plugins: String = String::new();
         let mut req_timeout: u64 = 10;
+        let mut req_thread: u32 = 100;
         let mut target_url: String = String::new();
         let mut file_path: String = String::new();
         let mut csv_file_path: String = String::new();
@@ -198,6 +208,9 @@ impl WardArgs {
         if let Some(timeout) = args.value_of("timeout") {
             req_timeout = timeout.parse().unwrap_or(10);
         };
+        if let Some(thread) = args.value_of("thread") {
+            req_thread = thread.parse().unwrap_or(100);
+        };
         WardArgs {
             target: target_url,
             stdin,
@@ -213,6 +226,7 @@ impl WardArgs {
             plugins,
             update_self,
             daemon,
+            thread: req_thread,
         }
     }
 }
