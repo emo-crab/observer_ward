@@ -33,89 +33,100 @@ impl WardArgs {
             .version("0.0.1")
             // .about("about: Community based web fingerprint analysis tool.")
             .author("author: Kali-Team")
-            .arg(Arg::with_name("target")
-                     .short("t")
-                     .long("target")
-                     .value_name("TARGET")
-                     .help("The target URL(s) (required, unless --stdin used)"),
+            .arg(
+                Arg::with_name("target")
+                    .short("t")
+                    .long("target")
+                    .value_name("TARGET")
+                    .help("The target URL(s) (required, unless --stdin used)"),
             )
-            .arg(Arg::with_name("server")
-                     .short("s")
-                     .long("server")
-                     .value_name("SERVER")
-                     .help("Start a web API service (127.0.0.1:8080)"),
+            .arg(
+                Arg::with_name("server")
+                    .short("s")
+                    .long("server")
+                    .value_name("SERVER")
+                    .help("Start a web API service (127.0.0.1:8080)"),
             )
-            .arg(Arg::with_name("stdin")
-                .long("stdin")
-                .takes_value(false)
-                .help("Read url(s) from STDIN")
-                .conflicts_with("url")
+            .arg(
+                Arg::with_name("stdin")
+                    .long("stdin")
+                    .takes_value(false)
+                    .help("Read url(s) from STDIN")
+                    .conflicts_with("url"),
             )
-            .arg(Arg::with_name("daemon")
-                .long("daemon")
-                .takes_value(false)
-                .help("API background service")
-                .conflicts_with("url")
+            .arg(
+                Arg::with_name("daemon")
+                    .long("daemon")
+                    .takes_value(false)
+                    .help("API background service")
+                    .conflicts_with("url"),
             )
-            .arg(Arg::with_name("file")
-                .short("f")
-                .long("file")
-                .value_name("FILE")
-                .help("Read the target from the file")
+            .arg(
+                Arg::with_name("file")
+                    .short("f")
+                    .long("file")
+                    .value_name("FILE")
+                    .help("Read the target from the file"),
             )
-            .arg(Arg::with_name("csv")
-                .short("c")
-                .long("csv")
-                .value_name("CSV")
-                .help("Export to the csv file or Import form the csv file")
+            .arg(
+                Arg::with_name("csv")
+                    .short("c")
+                    .long("csv")
+                    .value_name("CSV")
+                    .help("Export to the csv file or Import form the csv file"),
             )
-            .arg(Arg::with_name("json")
-                .short("j")
-                .long("json")
-                .value_name("JSON")
-                .help("Export to the json file or Import form the json file")
+            .arg(
+                Arg::with_name("json")
+                    .short("j")
+                    .long("json")
+                    .value_name("JSON")
+                    .help("Export to the json file or Import form the json file"),
             )
-            .arg(Arg::with_name("proxy")
-                     .long("proxy")
-                     .takes_value(true)
-                     .value_name("PROXY")
-                     .help(
-                         "Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)",
-                     ),
+            .arg(
+                Arg::with_name("proxy")
+                    .long("proxy")
+                    .takes_value(true)
+                    .value_name("PROXY")
+                    .help("Proxy to use for requests (ex: [http(s)|socks5(h)]://host:port)"),
             )
-            .arg(Arg::with_name("timeout")
-                     .long("timeout")
-                     .takes_value(true)
-                     .default_value("10")
-                     .value_name("TIMEOUT")
-                     .help("Set request timeout."),
+            .arg(
+                Arg::with_name("timeout")
+                    .long("timeout")
+                    .takes_value(true)
+                    .default_value("10")
+                    .value_name("TIMEOUT")
+                    .help("Set request timeout."),
             )
-            .arg(Arg::with_name("verify")
-                .long("verify")
-                .takes_value(true)
-                .required_unless_one(&["target", "file"])
-                .help("Validate the specified yaml file")
+            .arg(
+                Arg::with_name("verify")
+                    .long("verify")
+                    .takes_value(true)
+                    .help("Validate the specified yaml file"),
             )
-            .arg(Arg::with_name("plugins")
-                .long("plugins")
-                .takes_value(true)
-                .help("Calling plugins to detect vulnerabilities")
+            .arg(
+                Arg::with_name("plugins")
+                    .long("plugins")
+                    .takes_value(true)
+                    .help("Calling plugins to detect vulnerabilities"),
             )
-            .arg(Arg::with_name("update_plugins")
-                .long("update_plugins")
-                .takes_value(false)
-                .help("Update nuclei plugins")
+            .arg(
+                Arg::with_name("update_plugins")
+                    .long("update_plugins")
+                    .takes_value(false)
+                    .help("Update nuclei plugins"),
             )
-            .arg(Arg::with_name("update_self")
-                .long("update_self")
-                .takes_value(false)
-                .help("Update self")
+            .arg(
+                Arg::with_name("update_self")
+                    .long("update_self")
+                    .takes_value(false)
+                    .help("Update self"),
             )
-            .arg(Arg::with_name("update_fingerprint")
-                .short("u")
-                .long("update_fingerprint")
-                .takes_value(false)
-                .help("Update web fingerprint")
+            .arg(
+                Arg::with_name("update_fingerprint")
+                    .short("u")
+                    .long("update_fingerprint")
+                    .takes_value(false)
+                    .help("Update web fingerprint"),
             );
         if env::args().len() == 1 {
             print_opening();

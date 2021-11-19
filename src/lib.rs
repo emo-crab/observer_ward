@@ -118,7 +118,7 @@ pub async fn scan(url: String) -> WhatWebResult {
             }
         }
     }
-    if what_web_name.len() > 5 {
+    if what_web_name.len() > 10 {
         let count = what_web_name.len();
         what_web_name.clear();
         what_web_name.insert(format!("Honeypot 蜜罐{}", count));
