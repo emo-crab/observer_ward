@@ -26,7 +26,7 @@ jobs:
           sudo apt-get install upx-ucl -y
           sudo apt-get install musl-tools -y
           sudo apt-get install pkg-config libssl-dev -y
-          cargo build --target=x86_64-unknown-linux-musl --release --all-features
+          cargo build --target=x86_64-unknown-linux-musl --release
           strip target/x86_64-unknown-linux-musl/release/observer_ward
           upx --best --lzma target/x86_64-unknown-linux-musl/release/observer_ward
           mv target/x86_64-unknown-linux-musl/release/observer_ward target/x86_64-unknown-linux-musl/release/observer_ward_amd64
@@ -66,7 +66,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --target=i686-pc-windows-msvc --release --all-features
+          args: --target=i686-pc-windows-msvc --release
       - name: Upx the Windows binary
         shell: bash
         run: |
@@ -96,7 +96,7 @@ jobs:
         uses: Swatinem/rust-cache@v1
       - name: Build for mac
         run: |
-          cargo build --target=x86_64-apple-darwin --release --all-features
+          cargo build --target=x86_64-apple-darwin --release
           strip target/x86_64-apple-darwin/release/observer_ward
           mv target/x86_64-apple-darwin/release/observer_ward target/x86_64-apple-darwin/release/observer_ward_darwin
       - name: Upload binary to release

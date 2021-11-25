@@ -4,13 +4,22 @@ version = "0.1.0"
 authors = ["Kali-Team <root@kali-team.cn>"]
 edition = "2018"
 description = "Identifies technologies used on a web page."
-license = "MIT OR Apache-2.0"
+license = "MIT"
+include = ["LICENSE", "Cargo.toml", "src/**/*.rs"]
+[workspace]
+members = [".", "nuclei_rs"]
 [profile.release]
 lto = true
 opt-level = "z"
 codegen-units = 1
 panic = "abort"
+[profile.release.package.nuclei_rs]
+opt-level = "z"
+codegen-units = 1
+[features]
+nuclei_rs = ["observer_ward_nuclei_rs"]
 [dependencies]
+walkdir = "2"
 cached = "0.26.2"
 openssl = { version = "0.10", features = ["vendored"] }
 serde = { version = "1.0.99", features = ["derive"] }
@@ -40,7 +49,22 @@ mime = "0.3.16"
 md-5 = "0.9.1"
 base64 = "0.13.0"
 csv = "1.1.6"
+observer_ward_nuclei_rs = { path = "nuclei_rs", optional = true, default-features = false, package = "nuclei_rs" }
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 daemonize = "0.4.1"
 [target.'cfg(target_os="windows")'.build-dependencies]
 winres = "0.1"
+
+[patch.crates-io]
+# REDOX START, Uncommment when you want to compile/check with redoxer
+# REDOX END
+[profile.dev.package."*"]
+opt-level = 3
+[profile.test]
+opt-level = 3
+lto = "thin"
+
+[profile.bench]
+lto = true
+codegen-units = 1
+opt-level = 3

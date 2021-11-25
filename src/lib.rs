@@ -17,12 +17,17 @@ use csv::{DeserializeRecordsIntoIter, Reader};
 use reqwest::Proxy;
 use serde::{de, Deserialize, Deserializer, Serialize};
 use term::color::Color;
+#[cfg(not(feature = "observer_ward_nuclei_rs"))]
 use tokio::process::Command;
 use url::Url;
 
 use cli::WardArgs;
 use fingerprint::{WebFingerPrintLib, WebFingerPrintRequest};
+#[cfg(feature = "observer_ward_nuclei_rs")]
+use observer_ward_nuclei_rs::NucleiTemplate;
 use request::{get_title, index_fetch};
+#[cfg(feature = "observer_ward_nuclei_rs")]
+use walkdir::WalkDir;
 use ward::check;
 
 mod cli;
@@ -297,7 +302,7 @@ pub fn read_results_file() -> Vec<WhatWebResult> {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct Template {
+struct TemplateResult {
     #[serde(rename = "template-id")]
     pub template_id: String,
     #[serde(rename = "matched-at")]
@@ -305,7 +310,65 @@ struct Template {
     #[serde(default)]
     pub meta: HashMap<String, String>,
 }
+#[cfg(feature = "observer_ward_nuclei_rs")]
+fn run_nuclei_rs_to(p: &String, target: String) -> HashSet<String> {
+    let mut plugins_set: HashSet<String> = HashSet::new();
+    for entry in WalkDir::new(p)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let f_name = entry.file_name().to_string_lossy();
 
+        if f_name.ends_with(".yaml") && f_name != "tags.yaml" {
+            let mut file = match File::open(entry.path()) {
+                Err(_) => {
+                    return plugins_set;
+                }
+                Ok(file) => file,
+            };
+            let mut data = String::new();
+            file.read_to_string(&mut data).unwrap();
+            let template: NucleiTemplate = serde_yaml::from_str(&data).unwrap();
+            if !template.requests.is_empty() {
+                for mut request in template.requests.into_iter() {
+                    if request.execute_request(target.clone()) {
+                        plugins_set.insert(template.id.clone());
+                    };
+                }
+            }
+        }
+    }
+    return plugins_set;
+}
+#[cfg(feature = "observer_ward_nuclei_rs")]
+pub async fn get_plugins_by_nuclei(w: &WhatWebResult) -> WhatWebResult {
+    let mut wwr = w.clone();
+    let mut plugins_set: HashSet<String> = HashSet::new();
+    let mut exist_plugins: Vec<String> = Vec::new();
+    for name in wwr.what_web_name.iter() {
+        let plugins_name_path = Path::new(&CONFIG.plugins).join(name);
+        if plugins_name_path.exists() {
+            if let Some(p_path) = plugins_name_path.to_str() {
+                exist_plugins.push(p_path.to_string())
+            }
+        }
+    }
+    if exist_plugins.is_empty() {
+        return wwr;
+    }
+    for p in exist_plugins.iter() {
+        let plugins = run_nuclei_rs_to(p, wwr.url.clone());
+        plugins_set.extend(plugins);
+    }
+    wwr.plugins = plugins_set;
+    if !wwr.plugins.is_empty() {
+        wwr.priority = wwr.priority + 1;
+    }
+    return wwr;
+}
+
+#[cfg(not(feature = "observer_ward_nuclei_rs"))]
 pub async fn get_plugins_by_nuclei(w: &WhatWebResult) -> WhatWebResult {
     let mut wwr = w.clone();
     let mut plugins_set: HashSet<String> = HashSet::new();
@@ -344,7 +407,7 @@ pub async fn get_plugins_by_nuclei(w: &WhatWebResult) -> WhatWebResult {
             .map(|s| s.to_string())
             .collect();
         for line in templates_output.iter() {
-            let template: Template = serde_json::from_str(&line).unwrap();
+            let template: TemplateResult = serde_json::from_str(&line).unwrap();
             print_color(
                 format!("[{}]", template.template_id),
                 term::color::RED,
