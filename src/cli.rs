@@ -16,7 +16,6 @@ pub struct WardArgs {
     pub verify: String,
     pub file: String,
     pub update_fingerprint: bool,
-    pub server_host_port: String,
     pub csv: String,
     pub json: String,
     pub proxy: String,
@@ -24,7 +23,6 @@ pub struct WardArgs {
     pub plugins: String,
     pub update_plugins: bool,
     pub update_self: bool,
-    pub daemon: bool,
     pub thread: u32,
     pub ip: String,
 }
@@ -60,13 +58,6 @@ impl WardArgs {
                     .long("stdin")
                     .takes_value(false)
                     .help("Read url(s) from STDIN")
-                    .conflicts_with("url"),
-            )
-            .arg(
-                Arg::with_name("daemon")
-                    .long("daemon")
-                    .takes_value(false)
-                    .help("API background service")
                     .conflicts_with("url"),
             )
             .arg(
@@ -151,7 +142,6 @@ impl WardArgs {
         }
         let args = app.get_matches();
         let mut stdin: bool = false;
-        let mut daemon: bool = false;
         let mut update_self: bool = false;
         let mut verify_path: String = String::new();
         let mut ips: String = String::new();
@@ -165,15 +155,11 @@ impl WardArgs {
         let mut csv_file_path: String = String::new();
         let mut json_file_path: String = String::new();
         let mut proxy_uri: String = String::new();
-        let mut server_host_port: String = String::new();
         if args.is_present("stdin") {
             stdin = true;
         }
         if args.is_present("update_plugins") {
             update_plugins = true;
-        }
-        if args.is_present("daemon") {
-            daemon = true;
         }
         if args.is_present("update_self") {
             update_self = true;
@@ -197,9 +183,6 @@ impl WardArgs {
         };
         if let Some(ip) = args.value_of("ip") {
             ips = ip.to_string();
-        };
-        if let Some(server) = args.value_of("server") {
-            server_host_port = server.to_string();
         };
         if let Some(file) = args.value_of("file") {
             file_path = file.to_string();
@@ -229,14 +212,12 @@ impl WardArgs {
             update_plugins,
             update_fingerprint,
             verify: verify_path,
-            server_host_port,
             csv: csv_file_path,
             json: json_file_path,
             proxy: proxy_uri,
             timeout: req_timeout,
             plugins,
             update_self,
-            daemon,
             thread: req_thread,
             ip: ips,
         }

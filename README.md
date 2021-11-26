@@ -1,6 +1,6 @@
 ![logo](./doc/images/logo.png)
 
-[English](./README_EN.md) | [中文简体](./README.md)
+[中文简体](./README.md)
 
 # ObserverWard_0x727
 
@@ -10,7 +10,7 @@
 | 团队 | [0x727](https://github.com/0x727) 未来一段时间将陆续开源工具 |
 | 定位 | 社区化[指纹库](https://github.com/0x727/FingerprintHub)识别工具。 |
 | 语言 | Rust |
-| 功能 | 命令行，API服务Web指纹识别工具 |
+| 功能 | 命令行Web指纹识别工具 |
 
 ### 1. 源码手动安装
 
@@ -39,7 +39,6 @@ USAGE:
     observer_ward [FLAGS] [OPTIONS]
 
 FLAGS:
-        --daemon                API background service
     -h, --help                  Prints help information
         --stdin                 Read url(s) from STDIN
     -u, --update_fingerprint    Update web fingerprint
@@ -50,11 +49,13 @@ FLAGS:
 OPTIONS:
     -c, --csv <CSV>            Export to the csv file or Import form the csv file
     -f, --file <FILE>          Read the target from the file
+        --ip <IP>              The target ip (ex: [127.0.0.1|192.168.1.0/24])
     -j, --json <JSON>          Export to the json file or Import form the json file
         --plugins <plugins>    Calling plugins to detect vulnerabilities
-        --proxy <PROXY>        Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)
+        --proxy <PROXY>        Proxy to use for requests (ex: [http(s)|socks5(h)]://host:port)
     -s, --server <SERVER>      Start a web API service (127.0.0.1:8080)
     -t, --target <TARGET>      The target URL(s) (required, unless --stdin used)
+        --thread <THREAD>      Number of concurrent threads. [default: 100]
         --timeout <TIMEOUT>    Set request timeout. [default: 10]
         --verify <verify>      Validate the specified yaml file
 
@@ -68,43 +69,6 @@ OPTIONS:
 ➜  ~ ./observer_ward_amd64 -u    
 Complete web_fingerprint_v3.json update: web_fingerprint_v3.json file size => 949222
 ```
-
-### 开启API服务
-- `--daemon`参数可以在后台运行**Window系统不支持**。
-```bash
-➜  ~ ./observer_ward -s 127.0.0.1:8080
-API service has been started:http://127.0.0.1:8080/what_web
-Instructions:
-curl --request POST \
-  --url http://127.0.0.1:8080/what_web \
-  --header 'Content-Type: application/json' \
-  --data '{"targets":["https://httpbin.org/"]}'
-Result:
-[{"url":"https://httpbin.org/","what_web_name":["swagger"],"priority":2,"length":9593,"title":"httpbin.org"}]
-```
-
-- 服务开启后会在提供的IP和端口上开启Web指纹识别的API服务。
-
-![image-20210821173531800](./doc/README.assets/image-20210821173531800.png)
-
--
-
-通过API接口热更新指纹：`http://127.0.0.1:8080/update?is_local=false`,请求方式为`GET`,当参数`is_local`为`false`时从github更新指纹，当参数`is_local`为`true`时重新加载本地指纹，你可以从其他地方更新指纹库到本地。
-
-- API接口地址为`http://127.0.0.1:8080/what_web`，请求方式为`POST`，接受json数据结构如下：
-
-```json
-{
-  "targets": [
-    "https://gitea.com/",
-    "https://httpbin.org"
-  ]
-}
-```
-
-![image-20210821173903713](./doc/README.assets/image-20210821173903713.png)
-
-- 返回结果速度取决于本地服务与要识别目标的网络状况，提交多个时会等待全部目标识别完成后才会返回。
 
 ### 验证指纹是否有效
 

@@ -12,19 +12,12 @@ use observer_ward::{
     read_results_file, scan, strings_to_urls, update_self, WhatWebResult,
 };
 use observer_ward_target_input::ip_port::ip_cidr_to_host_port;
-
-use crate::api::run_server;
-
-mod api;
 mod cli;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = WardArgs::new();
     let mut targets = vec![];
-    if !config.server_host_port.is_empty() {
-        run_server(config.server_host_port, config.daemon);
-    }
     if config.stdin {
         let mut buffer = String::new();
         io::stdin().read_to_string(&mut buffer)?;
