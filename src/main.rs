@@ -1,8 +1,3 @@
-extern crate prettytable;
-extern crate reqwest;
-extern crate term;
-extern crate url;
-
 use std::fs::File;
 use std::io::{self, Read};
 use std::process;
@@ -16,6 +11,7 @@ use observer_ward::{
     download_file_from_github, get_plugins_by_nuclei, print_color, read_file_to_target,
     read_results_file, scan, strings_to_urls, update_self, WhatWebResult,
 };
+use observer_ward_target_input::ip_port::ip_cidr_to_host_port;
 
 use crate::api::run_server;
 
@@ -37,6 +33,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         targets.push(String::from(&config.target));
     } else if !config.file.is_empty() {
         targets.extend(read_file_to_target(&config.file));
+    } else if !config.ip.is_empty() {
+        targets.extend(ip_cidr_to_host_port(&config.ip).await);
     }
     if config.update_fingerprint {
         download_file_from_github(

@@ -7,7 +7,7 @@ description = "Identifies technologies used on a web page."
 license = "MIT"
 include = ["LICENSE", "Cargo.toml", "src/**/*.rs"]
 [workspace]
-members = [".", "nuclei_rs"]
+members = [".", "nuclei_rs", "target_input"]
 [profile.release]
 lto = true
 opt-level = "z"
@@ -40,16 +40,15 @@ actix-service = "1.0.0"
 prettytable-rs = "^0.8"
 actix-http = "2.2.0"
 textwrap = "0.14"
-async-std = "1.7.0"
 log = "0.4.0"
-env_logger = "0.8.4"
 encoding_rs = "0.8.28"
-regex = { version = "1.3.1", default-features = false, features = ["std", "unicode"] }
+regex = { version = "1.4.5", default-features = false, features = ["std", "unicode"] }
 mime = "0.3.16"
 md-5 = "0.9.1"
 base64 = "0.13.0"
 csv = "1.1.6"
 observer_ward_nuclei_rs = { path = "nuclei_rs", optional = true, default-features = false, package = "nuclei_rs" }
+observer_ward_target_input = { path = "target_input", package = "target_input" }
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 daemonize = "0.4.1"
 [target.'cfg(target_os="windows")'.build-dependencies]

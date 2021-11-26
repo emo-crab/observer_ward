@@ -26,6 +26,7 @@ pub struct WardArgs {
     pub update_self: bool,
     pub daemon: bool,
     pub thread: u32,
+    pub ip: String,
 }
 
 impl WardArgs {
@@ -40,6 +41,12 @@ impl WardArgs {
                     .long("target")
                     .value_name("TARGET")
                     .help("The target URL(s) (required, unless --stdin used)"),
+            )
+            .arg(
+                Arg::with_name("ip")
+                    .long("ip")
+                    .value_name("IP")
+                    .help("The target ip (ex: [127.0.0.1|192.168.1.0/24])"),
             )
             .arg(
                 Arg::with_name("server")
@@ -147,6 +154,7 @@ impl WardArgs {
         let mut daemon: bool = false;
         let mut update_self: bool = false;
         let mut verify_path: String = String::new();
+        let mut ips: String = String::new();
         let mut update_fingerprint: bool = false;
         let mut update_plugins: bool = false;
         let mut plugins: String = String::new();
@@ -186,6 +194,9 @@ impl WardArgs {
         }
         if let Some(target) = args.value_of("target") {
             target_url = target.to_string();
+        };
+        if let Some(ip) = args.value_of("ip") {
+            ips = ip.to_string();
         };
         if let Some(server) = args.value_of("server") {
             server_host_port = server.to_string();
@@ -227,6 +238,7 @@ impl WardArgs {
             update_self,
             daemon,
             thread: req_thread,
+            ip: ips,
         }
     }
 }
