@@ -188,10 +188,10 @@ async fn fetch_raw_data(res: Response, is_index: bool) -> Result<Arc<RawData>, W
 )]
 async fn get_favicon_hash(url: Url) -> Result<String, WardError> {
     let default_request = WebFingerPrintRequest {
-        path: "/".to_string(),
-        request_method: "get".to_string(),
+        path: String::from("/"),
+        request_method: String::from("get"),
         request_headers: Default::default(),
-        request_data: "".to_string(),
+        request_data: String::new(),
     };
     match send_requests(url, &default_request).await {
         Ok(res) => {
@@ -267,7 +267,7 @@ pub async fn index_fetch(
     let mut is_index: bool = is_index;
     let mut is_start_with_http: bool = true;
     let mut raw_data_list: Vec<Arc<RawData>> = vec![];
-    let schemes: [String; 2] = ["https://".to_string(), "http://".to_string()];
+    let schemes: [String; 2] = [String::from("https://"), String::from("http://")];
     for mut scheme in schemes {
         //最大重定向跳转次数
         let mut max_redirect = 3;

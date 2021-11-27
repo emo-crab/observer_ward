@@ -4,7 +4,7 @@ use std::iter::FromIterator;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::requests::{ResponseRaw, string_to_is_and};
+use crate::requests::{string_to_is_and, ResponseRaw};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Matcher {
@@ -155,12 +155,12 @@ impl Matcher {
 impl Matcher {
     fn get_matcher_type(&self) -> MatcherTypes {
         let mut matcher_type: HashMap<String, MatcherTypes> = HashMap::from_iter([
-            ("status".to_string(), MatcherTypes::StatusMatcher),
-            ("size".to_string(), MatcherTypes::SizeMatcher),
-            ("word".to_string(), MatcherTypes::WordsMatcher),
-            ("regex".to_string(), MatcherTypes::RegexMatcher),
-            ("binary".to_string(), MatcherTypes::BinaryMatcher),
-            ("dsl".to_string(), MatcherTypes::DSLMatcher),
+            (String::from("status"), MatcherTypes::StatusMatcher),
+            (String::from("size"), MatcherTypes::SizeMatcher),
+            (String::from("word"), MatcherTypes::WordsMatcher),
+            (String::from("regex"), MatcherTypes::RegexMatcher),
+            (String::from("binary"), MatcherTypes::BinaryMatcher),
+            (String::from("dsl"), MatcherTypes::DSLMatcher),
         ]);
         let mt = matcher_type
             .remove(&self.match_type)
@@ -237,10 +237,10 @@ pub struct Extractor {
 impl Extractor {
     fn get_extractor_type(&self) -> ExtractorType {
         let mut extractor_type: HashMap<String, ExtractorType> = HashMap::from_iter([
-            ("regex".to_string(), ExtractorType::RegexExtractor),
-            ("kval".to_string(), ExtractorType::KValExtractor),
-            ("xpath".to_string(), ExtractorType::XPathExtractor),
-            ("json".to_string(), ExtractorType::JSONExtractor),
+            (String::from("regex"), ExtractorType::RegexExtractor),
+            (String::from("kval"), ExtractorType::KValExtractor),
+            (String::from("xpath"), ExtractorType::XPathExtractor),
+            (String::from("json"), ExtractorType::JSONExtractor),
         ]);
         let et = extractor_type
             .remove(&self.ext_type)

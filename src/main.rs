@@ -169,7 +169,7 @@ fn print_results_and_save(
     }
     if table.len() > 0 {
         print_color(
-            "Important technology:\n".to_string(),
+            String::from("Important technology:\n"),
             term::color::YELLOW,
             true,
         );

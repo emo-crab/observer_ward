@@ -213,9 +213,11 @@ impl BuildRequest {
                 .split_whitespace()
                 .map(|s| s.to_string())
                 .collect();
-            let method_string: String =
-                method_path.get(0).unwrap_or(&"get".to_string()).to_string();
-            let path = method_path.get(1).unwrap_or(&"/".to_string()).to_string();
+            let method_string: String = method_path
+                .get(0)
+                .unwrap_or(&String::from("get"))
+                .to_string();
+            let path = method_path.get(1).unwrap_or(&String::from("/")).to_string();
             req_url = target.join(&path).unwrap_or(req_url);
             if let Ok(m) = Method::from_str(&method_string.to_uppercase()) {
                 method = m;

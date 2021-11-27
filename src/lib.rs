@@ -81,10 +81,10 @@ pub async fn scan(url: String) -> WhatWebResult {
     let mut what_web_name: HashSet<String> = HashSet::new();
     let mut what_web_result: WhatWebResult = WhatWebResult::new(url.clone());
     let default_request = WebFingerPrintRequest {
-        path: "/".to_string(),
-        request_method: "get".to_string(),
+        path: String::from("/"),
+        request_method: String::from("get"),
         request_headers: Default::default(),
-        request_data: "".to_string(),
+        request_data: String::new(),
     };
     if let Ok(raw_data_list) = index_fetch(&url, &default_request, true, false).await {
         //首页请求允许跳转
