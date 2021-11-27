@@ -20,14 +20,14 @@ use term::color::Color;
 #[cfg(not(feature = "observer_ward_nuclei_rs"))]
 use tokio::process::Command;
 use url::Url;
+#[cfg(feature = "observer_ward_nuclei_rs")]
+use walkdir::WalkDir;
 
 use cli::WardArgs;
 use fingerprint::{WebFingerPrintLib, WebFingerPrintRequest};
 #[cfg(feature = "observer_ward_nuclei_rs")]
 use observer_ward_nuclei_rs::NucleiTemplate;
 use request::{get_title, index_fetch};
-#[cfg(feature = "observer_ward_nuclei_rs")]
-use walkdir::WalkDir;
 use ward::check;
 
 mod cli;
@@ -53,11 +53,13 @@ lazy_static! {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WhatWebResult {
     pub url: String,
+    #[serde(deserialize_with = "string_to_hashset")]
     pub what_web_name: HashSet<String>,
     pub priority: u32,
     pub length: usize,
     pub title: String,
     pub status_code: u16,
+    #[serde(default)]
     pub plugins: HashSet<String>,
 }
 
@@ -190,13 +192,13 @@ where
 
 pub async fn download_file_from_github(update_url: &str, filename: &str) {
     if !CONFIG.proxy.is_empty() {
-        if let Err(_err) = Url::parse(CONFIG.proxy.clone().as_str()) {
+        if let Err(_err) = Url::parse(&CONFIG.proxy) {
             println!("Invalid Proxy Uri");
             process::exit(0);
         }
     }
     let proxy_obj = Proxy::custom(move |_| {
-        if let Ok(proxy_uri) = Url::parse(CONFIG.proxy.clone().as_str()) {
+        if let Ok(proxy_uri) = Url::parse(&CONFIG.proxy) {
             Some(proxy_uri.clone())
         } else {
             None
@@ -242,26 +244,6 @@ pub async fn update_self() {
     println!("Please rename the file starting with update");
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub struct RowWhatWebResult {
-    #[serde(rename = "Url")]
-    pub url: String,
-    #[serde(rename = "Name")]
-    #[serde(deserialize_with = "string_to_hashset")]
-    pub what_web_name: HashSet<String>,
-    #[serde(rename = "Priority")]
-    pub priority: u32,
-    #[serde(rename = "Length")]
-    pub length: usize,
-    #[serde(rename = "StatusCode")]
-    pub status_code: u16,
-    #[serde(rename = "Title")]
-    pub title: String,
-    #[serde(rename = "Plugins")]
-    #[serde(default)]
-    pub plugins: HashSet<String>,
-}
-
 pub fn read_results_file() -> Vec<WhatWebResult> {
     let mut results: Vec<WhatWebResult> = Vec::new();
     let read_file_data = |path: &String| {
@@ -283,19 +265,8 @@ pub fn read_results_file() -> Vec<WhatWebResult> {
     }
     if !CONFIG.csv.is_empty() {
         let rdr = Reader::from_path(&CONFIG.csv).expect("BAD CSV");
-        let iter: DeserializeRecordsIntoIter<File, RowWhatWebResult> = rdr.into_deserialize();
-        let wwr: Vec<WhatWebResult> = iter
-            .filter_map(Result::ok)
-            .map(|w: RowWhatWebResult| WhatWebResult {
-                url: w.url,
-                what_web_name: w.what_web_name,
-                priority: w.priority,
-                length: w.length,
-                title: w.title,
-                status_code: w.status_code,
-                plugins: w.plugins,
-            })
-            .collect();
+        let iter: DeserializeRecordsIntoIter<File, WhatWebResult> = rdr.into_deserialize();
+        let wwr: Vec<WhatWebResult> = iter.filter_map(Result::ok).collect();
         results.extend(wwr);
     }
     results
@@ -429,8 +400,8 @@ fn string_to_hashset<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Erro
 where
     D: Deserializer<'de>,
 {
-    struct StringOrVec(PhantomData<HashSet<String>>);
-    impl<'de> de::Visitor<'de> for StringOrVec {
+    struct StringToHashSet(PhantomData<HashSet<String>>);
+    impl<'de> de::Visitor<'de> for StringToHashSet {
         type Value = HashSet<String>;
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
             formatter.write_str("string or list of strings")
@@ -445,7 +416,6 @@ where
                 .collect();
             Ok(HashSet::from_iter(name))
         }
-
         fn visit_seq<S>(self, visitor: S) -> Result<Self::Value, S::Error>
         where
             S: de::SeqAccess<'de>,
@@ -453,7 +423,7 @@ where
             Deserialize::deserialize(de::value::SeqAccessDeserializer::new(visitor))
         }
     }
-    deserializer.deserialize_any(StringOrVec(PhantomData))
+    deserializer.deserialize_any(StringToHashSet(PhantomData))
 }
 
 pub fn print_color(mut string: String, color: Color, nl: bool) {

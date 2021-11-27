@@ -53,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut worker = FuturesUnordered::new();
         let mut targets_iter = targets.iter();
         let mut results = vec![];
-        for _ in 0..config.thread.clone() {
+        for _ in 0..config.thread {
             match targets_iter.next() {
                 Some(target) => worker.push(scan(target.to_string())),
                 None => {
@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if results.len() < 2000 {
             results.sort_by(|a, b| b.priority.cmp(&a.priority));
         }
-        print_results_and_save(config.json.clone(), config.csv.clone(), results, false);
+        print_results_and_save(&config.json, &config.csv, results, false);
     }
     if !config.plugins.is_empty() && (!config.csv.is_empty() || !config.json.is_empty()) {
         let wwr_results: Vec<WhatWebResult> = read_results_file();
@@ -91,19 +91,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 worker.push(get_plugins_by_nuclei(wwr));
             }
         }
-        print_results_and_save(
-            config.json.clone(),
-            config.csv.clone(),
-            plugins_results,
-            true,
-        );
+        print_results_and_save(&config.json, &config.csv, plugins_results, true);
     }
     Ok(())
 }
 
 fn print_results_and_save(
-    json: String,
-    csv: String,
+    json: &String,
+    csv: &String,
     results: Vec<WhatWebResult>,
     has_plugins: bool,
 ) {
@@ -113,15 +108,15 @@ fn print_results_and_save(
     }
     let mut table = Table::new();
     let mut headers = vec![
-        Cell::new("Url"),
-        Cell::new("Name"),
-        Cell::new("Length"),
-        Cell::new("StatusCode"),
-        Cell::new("Title"),
-        Cell::new("Priority"),
+        Cell::new("url"),
+        Cell::new("what_web_name"),
+        Cell::new("length"),
+        Cell::new("status_code"),
+        Cell::new("title"),
+        Cell::new("priority"),
     ];
     if has_plugins {
-        headers.push(Cell::new("Plugins"))
+        headers.push(Cell::new("plugins"))
     }
     table.set_titles(Row::new(headers.clone()));
     for res in &results {
