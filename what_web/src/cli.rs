@@ -99,7 +99,7 @@ impl WardArgs {
                 Arg::with_name("thread")
                     .long("thread")
                     .takes_value(true)
-                    .default_value("512")
+                    .default_value("100")
                     .value_name("THREAD")
                     .help("Number of concurrent threads."),
             )
@@ -150,7 +150,7 @@ impl WardArgs {
         let mut plugins: String = String::new();
         let mut agent_uuid: String = String::new();
         let mut req_timeout: u64 = 10;
-        let mut req_thread: u32 = 512;
+        let mut req_thread: u32 = 100;
         let mut target_url: String = String::new();
         let mut file_path: String = String::new();
         let mut csv_file_path: String = String::new();
