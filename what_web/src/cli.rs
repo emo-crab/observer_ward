@@ -1,13 +1,11 @@
 extern crate clap;
 
 use std::path::Path;
+use std::process;
 use std::process::{Command, Stdio};
-use std::{env, process};
 
 use clap::{App, Arg};
 use serde::{Deserialize, Serialize};
-
-use crate::print_color;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WardArgs {
@@ -25,11 +23,12 @@ pub struct WardArgs {
     pub update_self: bool,
     pub thread: u32,
     pub ip: String,
+    pub uuid: String,
 }
 
 impl WardArgs {
     pub fn new() -> Self {
-        let mut app = App::new("ObserverWard")
+        let app = App::new("ObserverWard")
             .version("0.0.1")
             // .about("about: Community based web fingerprint analysis tool.")
             .author("author: Kali-Team")
@@ -100,7 +99,7 @@ impl WardArgs {
                 Arg::with_name("thread")
                     .long("thread")
                     .takes_value(true)
-                    .default_value("100")
+                    .default_value("512")
                     .value_name("THREAD")
                     .help("Number of concurrent threads."),
             )
@@ -109,6 +108,12 @@ impl WardArgs {
                     .long("verify")
                     .takes_value(true)
                     .help("Validate the specified yaml file"),
+            )
+            .arg(
+                Arg::with_name("uuid")
+                    .long("uuid")
+                    .takes_value(true)
+                    .help("UUID"),
             )
             .arg(
                 Arg::with_name("plugins")
@@ -135,11 +140,6 @@ impl WardArgs {
                     .takes_value(false)
                     .help("Update web fingerprint"),
             );
-        if env::args().len() == 1 {
-            print_opening();
-            app.print_long_help().unwrap();
-            process::exit(0);
-        }
         let args = app.get_matches();
         let mut stdin: bool = false;
         let mut update_self: bool = false;
@@ -148,8 +148,9 @@ impl WardArgs {
         let mut update_fingerprint: bool = false;
         let mut update_plugins: bool = false;
         let mut plugins: String = String::new();
+        let mut agent_uuid: String = String::new();
         let mut req_timeout: u64 = 10;
-        let mut req_thread: u32 = 100;
+        let mut req_thread: u32 = 512;
         let mut target_url: String = String::new();
         let mut file_path: String = String::new();
         let mut csv_file_path: String = String::new();
@@ -174,12 +175,15 @@ impl WardArgs {
             }
             plugins = nuclei.to_string();
             if !Path::new(&plugins).exists() {
-                println!("The plug-in directory does not exist!");
+                println!("The plugins directory does not exist!");
                 process::exit(0);
             }
         }
         if let Some(target) = args.value_of("target") {
             target_url = target.to_string();
+        };
+        if let Some(uuid) = args.value_of("uuid") {
+            agent_uuid = uuid.to_string();
         };
         if let Some(ip) = args.value_of("ip") {
             ips = ip.to_string();
@@ -220,23 +224,9 @@ impl WardArgs {
             update_self,
             thread: req_thread,
             ip: ips,
+            uuid: agent_uuid,
         }
     }
-}
-
-fn print_opening() {
-    let s = r#" __     __     ______     ______     _____
-/\ \  _ \ \   /\  __ \   /\  == \   /\  __-.
-\ \ \/ ".\ \  \ \  __ \  \ \  __<   \ \ \/\ \
- \ \__/".~\_\  \ \_\ \_\  \ \_\ \_\  \ \____-
-  \/_/   \/_/   \/_/\/_/   \/_/ /_/   \/____/
-Community based web fingerprint analysis tool."#;
-    print_color(s.to_string(), term::color::GREEN, true);
-    let info = r#"______________________________________________
-: https://github.com/0x727/FingerprintHub    :
-: https://github.com/0x727/ObserverWard_0x727:
- ---------------------------------------------"#;
-    print_color(info.to_string(), term::color::YELLOW, true);
 }
 
 // https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip

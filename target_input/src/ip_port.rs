@@ -117,18 +117,18 @@ impl PortScan {
 
     async fn run(&mut self) {
         for ipv4_cidr in self.ip_rang.clone() {
-            let mut futures = FuturesUnordered::new();
+            let mut futures_e = FuturesUnordered::new();
             let mut socket_iterator = ipv4_cidr.iter_as_ipv4_addr().into_iter();
             for _ in 0..16 {
                 if let Some(socket) = socket_iterator.next() {
-                    futures.push(exec_ping(socket.to_string()));
+                    futures_e.push(exec_ping(socket.to_string()));
                 } else {
                     break;
                 }
             }
-            while let Some(result) = futures.next().await {
+            while let Some(result) = futures_e.next().await {
                 if let Some(socket) = socket_iterator.next() {
-                    futures.push(exec_ping(socket.to_string()));
+                    futures_e.push(exec_ping(socket.to_string()));
                 }
                 if let Some(host) = result {
                     self.scan_port_open(IpAddr::from_str(host.as_str()).unwrap())

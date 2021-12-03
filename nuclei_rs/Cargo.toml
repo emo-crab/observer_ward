@@ -12,7 +12,7 @@ serde_json = "1.0"
 serde_yaml = "0.8"
 walkdir = "2"
 serde_derive = "1.0"
-reqwest = { version = "0.10", features = ["cookies", "socks", "blocking", "gzip"] }
+reqwest = { version = "0.11.6", features = ["rustls-tls","cookies", "socks", "blocking", "gzip", "json"] }
 regex = { version = "1.4.5", default-features = false, features = ["std", "unicode"] }
 mime = "0.3.16"
 md-5 = "0.9.1"

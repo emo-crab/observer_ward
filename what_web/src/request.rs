@@ -1,5 +1,4 @@
-use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -20,8 +19,6 @@ use url::Url;
 
 use crate::fingerprint::WebFingerPrintRequest;
 use crate::ward::RawData;
-
-use super::CONFIG;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum WardError {
@@ -77,6 +74,8 @@ impl From<url::ParseError> for WardError {
 async fn send_requests(
     mut url: Url,
     fingerprint: &WebFingerPrintRequest,
+    timeout: u64,
+    proxy: &String,
 ) -> Result<Response, reqwest::Error> {
     let mut headers = header::HeaderMap::new();
     let ua = "Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0";
@@ -97,19 +96,21 @@ async fn send_requests(
         url.set_path(fingerprint.path.as_str());
     }
     let client = reqwest::Client::builder()
+        .pool_max_idle_per_host(0)
         .danger_accept_invalid_certs(true)
         .default_headers(headers.clone())
         .redirect(Policy::none())
         .cookie_store(true)
-        .timeout(Duration::new(CONFIG.timeout, 0));
-    if !CONFIG.proxy.is_empty() {
-        if let Err(_err) = Url::parse(CONFIG.proxy.clone().as_str()) {
+        .timeout(Duration::new(timeout, 0));
+    let proxy_url = proxy.clone();
+    if !proxy_url.is_empty() {
+        if let Err(_err) = Url::parse(&proxy_url) {
             println!("Invalid Proxy Uri");
             process::exit(0);
         }
     }
     let proxy_obj = Proxy::custom(move |_| {
-        if let Ok(proxy_uri) = Url::parse(CONFIG.proxy.clone().as_str()) {
+        if let Ok(proxy_uri) = Url::parse(&proxy_url) {
             Some(proxy_uri.clone())
         } else {
             None
@@ -151,7 +152,12 @@ fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
     text.to_lowercase()
 }
 
-async fn fetch_raw_data(res: Response, is_index: bool) -> Result<Arc<RawData>, WardError> {
+async fn fetch_raw_data(
+    res: Response,
+    is_index: bool,
+    timeout: u64,
+    proxy: &String,
+) -> Result<Arc<RawData>, WardError> {
     let path: String = res.url().path().to_string();
     let url = res.url().join("/").unwrap();
     let status_code = res.status();
@@ -164,9 +170,8 @@ async fn fetch_raw_data(res: Response, is_index: bool) -> Result<Arc<RawData>, W
     let mut favicon: HashMap<String, String> = HashMap::new();
     if is_index && !status_code.is_server_error() {
         // 只有在首页的时候提取favicon图标链接
-        favicon = find_favicon_tag(base_url, &text).await;
+        favicon = find_favicon_tag(base_url, &text, timeout, proxy).await;
     }
-    let lang_set: HashSet<String> = get_lang(&headers);
     let raw_data = Arc::new(RawData {
         url,
         path,
@@ -174,7 +179,6 @@ async fn fetch_raw_data(res: Response, is_index: bool) -> Result<Arc<RawData>, W
         status_code,
         text,
         favicon,
-        lang_set,
     });
     Ok(raw_data)
 }
@@ -186,14 +190,14 @@ async fn fetch_raw_data(res: Response, is_index: bool) -> Result<Arc<RawData>, W
     result = true,
     convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
 )]
-async fn get_favicon_hash(url: Url) -> Result<String, WardError> {
+async fn get_favicon_hash(url: Url, timeout: u64, proxy: &String) -> Result<String, WardError> {
     let default_request = WebFingerPrintRequest {
         path: String::from("/"),
         request_method: String::from("get"),
         request_headers: Default::default(),
         request_data: String::new(),
     };
-    match send_requests(url, &default_request).await {
+    match send_requests(url, &default_request, timeout, proxy).await {
         Ok(res) => {
             let status_code = res.status();
             if !res.status().is_success() {
@@ -214,7 +218,12 @@ async fn get_favicon_hash(url: Url) -> Result<String, WardError> {
 }
 
 // 从HTML标签中提取favicon的链接
-async fn find_favicon_tag(base_url: reqwest::Url, text: &String) -> HashMap<String, String> {
+async fn find_favicon_tag(
+    base_url: reqwest::Url,
+    text: &String,
+    timeout: u64,
+    proxy: &String,
+) -> HashMap<String, String> {
     let parsed_html = Html::parse_fragment(&text);
     let selector = Selector::parse("link").unwrap();
     let mut link_tags = HashMap::new();
@@ -223,7 +232,9 @@ async fn find_favicon_tag(base_url: reqwest::Url, text: &String) -> HashMap<Stri
         if let (Some(href), Some(rel)) = (link.value().attr("href"), link.value().attr("rel")) {
             if ["icon", "shortcut icon"].contains(&rel) {
                 if let Ok(favicon_url) = base_url.join(href) {
-                    if let Ok(favicon_md5) = get_favicon_hash(favicon_url.clone()).await {
+                    if let Ok(favicon_md5) =
+                        get_favicon_hash(favicon_url.clone(), timeout, proxy).await
+                    {
                         link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
                     };
                 };
@@ -233,7 +244,7 @@ async fn find_favicon_tag(base_url: reqwest::Url, text: &String) -> HashMap<Stri
     // 补充默认路径
     let favicon_url = base_url.join("/favicon.ico").unwrap();
     if !link_tags.contains_key(&String::from(favicon_url.clone())) {
-        if let Ok(favicon_md5) = get_favicon_hash(favicon_url.clone()).await {
+        if let Ok(favicon_md5) = get_favicon_hash(favicon_url.clone(), timeout, proxy).await {
             link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
         };
     }
@@ -251,6 +262,16 @@ lazy_static! {
         re_list
     };
 }
+
+pub fn get_title(raw_data: &Arc<RawData>) -> String {
+    let parsed_html = Html::parse_fragment(&raw_data.text);
+    let selector = Selector::parse("title").unwrap();
+    for title in parsed_html.select(&selector).into_iter() {
+        let title: String = title.inner_html().trim().to_string();
+        return title;
+    }
+    return String::new();
+}
 // 首页请求
 #[cached(
     type = "SizedCache<String, Vec<Arc<RawData>>>",
@@ -263,6 +284,8 @@ pub async fn index_fetch(
     special_wfp: &WebFingerPrintRequest,
     is_index: bool,
     is_special: bool,
+    timeout: u64,
+    proxy: &String,
 ) -> Result<Vec<Arc<RawData>>, WardError> {
     let mut is_index: bool = is_index;
     let mut is_start_with_http: bool = true;
@@ -308,8 +331,8 @@ pub async fn index_fetch(
         };
         loop {
             let mut next_url: Option<Url> = Option::None;
-            if let Ok(res) = send_requests(url.clone(), special_wfp).await {
-                if let Ok(raw_data) = fetch_raw_data(res, is_index).await {
+            if let Ok(res) = send_requests(url.clone(), special_wfp, timeout, proxy).await {
+                if let Ok(raw_data) = fetch_raw_data(res, is_index, timeout, proxy).await {
                     next_url = get_next_url(&raw_data.headers, &url, &raw_data.text, is_index);
                     raw_data_list.push(raw_data);
                 };
@@ -337,31 +360,4 @@ pub async fn index_fetch(
         }
     }
     return Ok(raw_data_list);
-}
-
-pub fn get_title(raw_data: &Arc<RawData>) -> String {
-    let parsed_html = Html::parse_fragment(&raw_data.text);
-    let selector = Selector::parse("title").unwrap();
-    for title in parsed_html.select(&selector).into_iter() {
-        let title: String = title.inner_html().trim().to_string();
-        return title;
-    }
-    return String::new();
-}
-
-//TODO 根据首页请求得到该网站的开发语言，减少特殊请求，避免java的站请求php后缀的
-fn get_lang(headers: &HeaderMap) -> HashSet<String> {
-    let headers = format!("{:?}", headers.clone());
-    let cookie_to_lang_map: HashMap<&str, &str> = HashMap::from_iter([
-        ("phpsessid", ".php"),
-        ("jsessionid", ".jsp"),
-        ("aspsession", ".asp"),
-    ]);
-    let mut lang_set: HashSet<String> = HashSet::new();
-    for (header_flag, lang) in cookie_to_lang_map.into_iter() {
-        if headers.contains(header_flag) {
-            lang_set.insert(lang.to_string());
-        }
-    }
-    return lang_set;
 }

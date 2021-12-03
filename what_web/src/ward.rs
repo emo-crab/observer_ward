@@ -13,7 +13,6 @@ pub struct RawData {
     pub status_code: reqwest::StatusCode,
     pub text: String,
     pub favicon: HashMap<String, String>,
-    pub lang_set: HashSet<String>,
 }
 
 pub async fn check(
@@ -21,23 +20,23 @@ pub async fn check(
     fingerprint_lib: &WebFingerPrintLib,
     is_special: bool,
 ) -> HashMap<String, u32> {
-    let mut futures = vec![];
+    let mut futures_e = vec![];
     let mut web_name_set: HashMap<String, u32> = HashMap::new();
     if is_special {
         for fingerprint in fingerprint_lib.special.iter() {
-            futures.push(what_web(raw_data.clone(), fingerprint, false));
+            futures_e.push(what_web(raw_data.clone(), fingerprint, false));
         }
     } else {
         for fingerprint in fingerprint_lib.index.iter() {
-            futures.push(what_web(raw_data.clone(), fingerprint, false));
+            futures_e.push(what_web(raw_data.clone(), fingerprint, false));
         }
     }
     if !raw_data.favicon.is_empty() {
         for fingerprint in fingerprint_lib.favicon.iter() {
-            futures.push(what_web(raw_data.clone(), fingerprint, true));
+            futures_e.push(what_web(raw_data.clone(), fingerprint, true));
         }
     }
-    let results = join_all(futures).await;
+    let results = join_all(futures_e).await;
     for res in results {
         let (is_match, match_web_fingerprint) = res;
         if is_match {
