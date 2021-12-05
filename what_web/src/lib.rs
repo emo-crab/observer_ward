@@ -30,7 +30,6 @@ use request::{get_title, index_fetch};
 use ward::check;
 
 use crate::fingerprint::WebFingerPrint;
-use crate::ward::RawData;
 
 pub mod cli;
 pub mod fingerprint;
@@ -50,8 +49,6 @@ pub struct WhatWebResult {
     pub plugins: HashSet<String>,
     #[serde(skip)]
     pub template_result: Vec<TemplateResult>,
-    #[serde(skip)]
-    pub raw_data: Vec<Arc<RawData>>,
 }
 
 impl WhatWebResult {
@@ -65,7 +62,6 @@ impl WhatWebResult {
             title: String::new(),
             plugins: HashSet::new(),
             template_result: vec![],
-            raw_data: vec![],
         }
     }
 }
@@ -363,7 +359,6 @@ impl WhatWeb {
         {
             //首页请求允许跳转
             for raw_data in raw_data_list {
-                what_web_result.raw_data.push(raw_data.clone());
                 let web_name_set = check(
                     &raw_data,
                     &self.fingerprint.read().unwrap().to_owned(),

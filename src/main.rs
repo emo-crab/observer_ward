@@ -67,8 +67,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         while let Some(result) = worker.next().await {
-            print_what_web(result.clone());
-            results.push(result);
+            if result.status_code != 0 {
+                print_what_web(result.clone());
+                results.push(result);
+            }
             if let Some(target) = targets_iter.next() {
                 worker.push(what_web_ins.scan(target.to_string()));
             }

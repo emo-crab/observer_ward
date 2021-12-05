@@ -100,7 +100,6 @@ async fn send_requests(
         .danger_accept_invalid_certs(true)
         .default_headers(headers.clone())
         .redirect(Policy::none())
-        .cookie_store(true)
         .timeout(Duration::new(timeout, 0));
     let proxy_url = proxy.clone();
     if !proxy_url.is_empty() {
