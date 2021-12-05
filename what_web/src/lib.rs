@@ -45,6 +45,7 @@ pub struct WhatWebResult {
     pub length: usize,
     pub title: String,
     pub status_code: u16,
+    pub is_web: bool,
     #[serde(default)]
     pub plugins: HashSet<String>,
     #[serde(skip)]
@@ -62,6 +63,7 @@ impl WhatWebResult {
             title: String::new(),
             plugins: HashSet::new(),
             template_result: vec![],
+            is_web: true,
         }
     }
 }
@@ -357,6 +359,9 @@ impl WhatWeb {
         )
         .await
         {
+            if raw_data_list.is_empty() {
+                what_web_result.is_web = false;
+            }
             //首页请求允许跳转
             for raw_data in raw_data_list {
                 let web_name_set = check(
@@ -385,6 +390,10 @@ impl WhatWeb {
                 }
             }
         };
+        // 在首页请求时不是Web也没必要跑特殊请求了
+        if !what_web_result.is_web {
+            return what_web_result;
+        }
         for special_wfp in self.fingerprint.read().unwrap().to_owned().special.iter() {
             if let Ok(raw_data_list) = index_fetch(
                 &url,
