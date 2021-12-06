@@ -40,11 +40,12 @@ mod ward;
 pub struct WhatWebResult {
     pub url: String,
     #[serde(deserialize_with = "string_to_hashset")]
-    pub what_web_name: HashSet<String>,
+    pub name: HashSet<String>,
     pub priority: u32,
     pub length: usize,
     pub title: String,
     pub status_code: u16,
+    #[serde(default)]
     pub is_web: bool,
     #[serde(default)]
     pub plugins: HashSet<String>,
@@ -56,7 +57,7 @@ impl WhatWebResult {
     pub fn new(url: String) -> Self {
         Self {
             url,
-            what_web_name: HashSet::new(),
+            name: HashSet::new(),
             priority: 0,
             length: 0,
             status_code: 0,
@@ -67,7 +68,6 @@ impl WhatWebResult {
         }
     }
 }
-
 // 去重
 pub fn strings_to_urls(domains: String) -> HashSet<String> {
     let target_list: Vec<String> = domains
@@ -183,20 +183,22 @@ impl WhatWeb {
     pub async fn update_self(&self) {
         let mut base_url =
             String::from("https://github.com/0x727/ObserverWard_0x727/releases/download/default/");
+        let mut download_name = "observer_ward_amd64";
         if cfg!(target_os = "windows") {
-            base_url.push_str("observer_ward.exe");
-            self.download_file_from_github(&base_url, "update_observer_ward.exe")
-                .await;
+            download_name = "observer_ward.exe";
         } else if cfg!(target_os = "linux") {
-            base_url.push_str("observer_ward_amd64");
-            self.download_file_from_github(&base_url, "update_observer_ward_amd64")
-                .await;
+            download_name = "observer_ward_amd64";
         } else if cfg!(target_os = "macos") {
-            base_url.push_str("observer_ward_darwin");
-            self.download_file_from_github(&base_url, "update_observer_ward_darwin")
-                .await;
+            download_name = "observer_ward_darwin";
         };
-        println!("Please rename the file starting with update");
+        base_url.push_str(download_name);
+        let save_filename = "update_".to_owned() + download_name;
+        self.download_file_from_github(&base_url, &save_filename)
+            .await;
+        println!(
+            "Please rename the file {} => {}",
+            save_filename, download_name
+        );
     }
     pub fn read_results_file(&self) -> Vec<WhatWebResult> {
         let mut results: Vec<WhatWebResult> = Vec::new();
@@ -231,7 +233,7 @@ impl WhatWeb {
         let mut wwr = w.clone();
         let mut plugins_set: HashSet<String> = HashSet::new();
         let mut exist_plugins: Vec<String> = Vec::new();
-        for name in wwr.what_web_name.iter() {
+        for name in wwr.name.iter() {
             let plugins_name_path = Path::new(&self.config.plugins).join(name);
             if plugins_name_path.exists() {
                 if let Some(p_path) = plugins_name_path.to_str() {
@@ -257,7 +259,7 @@ impl WhatWeb {
         let mut wwr = w.clone();
         let mut plugins_set: HashSet<String> = HashSet::new();
         let mut exist_plugins: Vec<String> = Vec::new();
-        for name in wwr.what_web_name.iter() {
+        for name in wwr.name.iter() {
             let plugins_name_path = Path::new(&self.config.plugins).join(name);
             if plugins_name_path.exists() {
                 if let Some(p_path) = plugins_name_path.to_str() {
@@ -341,7 +343,7 @@ impl WhatWeb {
         };
     }
     pub async fn scan(&self, url: String) -> WhatWebResult {
-        let mut what_web_name: HashSet<String> = HashSet::new();
+        let mut name: HashSet<String> = HashSet::new();
         let mut what_web_result: WhatWebResult = WhatWebResult::new(url.clone());
         let default_request = WebFingerPrintRequest {
             path: String::from("/"),
@@ -371,7 +373,7 @@ impl WhatWeb {
                 )
                 .await;
                 for (k, v) in web_name_set {
-                    what_web_name.insert(k);
+                    name.insert(k);
                     what_web_result.priority = v;
                 }
                 if url.starts_with("http://") || url.starts_with("https://") {
@@ -413,18 +415,18 @@ impl WhatWeb {
                     )
                     .await;
                     for (k, v) in web_name_set {
-                        what_web_name.insert(k);
+                        name.insert(k);
                         what_web_result.priority = v;
                     }
                 }
             }
         }
-        if what_web_name.len() > 10 {
-            let count = what_web_name.len();
-            what_web_name.clear();
-            what_web_name.insert(format!("Honeypot 蜜罐{}", count));
+        if name.len() > 10 {
+            let count = name.len();
+            name.clear();
+            name.insert(format!("Honeypot 蜜罐{}", count));
         }
-        what_web_result.what_web_name = what_web_name.clone();
+        what_web_result.name = name.clone();
         what_web_result
     }
 }

@@ -118,7 +118,7 @@ fn print_results_and_save(
     let mut table = Table::new();
     let mut headers = vec![
         Cell::new("url"),
-        Cell::new("what_web_name"),
+        Cell::new("name"),
         Cell::new("length"),
         Cell::new("status_code"),
         Cell::new("title"),
@@ -129,7 +129,7 @@ fn print_results_and_save(
     }
     table.set_titles(Row::new(headers.clone()));
     for res in &results {
-        let wwn: Vec<String> = res.what_web_name.iter().map(String::from).collect();
+        let wwn: Vec<String> = res.name.iter().map(String::from).collect();
         let status_code = reqwest::StatusCode::from_u16(res.status_code).unwrap_or_default();
         let mut status_code_color = Attr::ForegroundColor(color::RED);
         if status_code.is_success() {
@@ -156,7 +156,7 @@ fn print_results_and_save(
     let mut table = Table::new();
     table.set_titles(Row::new(headers.clone()));
     for res in &results {
-        let wwn: Vec<String> = res.what_web_name.iter().map(String::from).collect();
+        let wwn: Vec<String> = res.name.iter().map(String::from).collect();
         let status_code = reqwest::StatusCode::from_u16(res.status_code).unwrap_or_default();
         let mut status_code_color = Attr::ForegroundColor(color::RED);
         if status_code.is_success() {

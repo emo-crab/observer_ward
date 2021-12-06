@@ -1290,7 +1290,6 @@ version = "0.1.0"
 dependencies = [
  "futures 0.3.16",
  "log",
- "nuclei_rs",
  "prettytable-rs",
  "reqwest",
  "serde",
@@ -1301,6 +1300,7 @@ dependencies = [
  "term",
  "textwrap 0.14.2",
  "tokio",
+ "what_server",
  "what_web",
  "winres",
 ]
@@ -2995,6 +2995,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "what_server"
+version = "0.1.0"
+
+[[package]]
 name = "what_web"
 version = "0.1.0"
 dependencies = [
@@ -3008,6 +3012,7 @@ dependencies = [
  "lazy_static",
  "md-5",
  "mime",
+ "nuclei_rs",
  "openssl",
  "regex",
  "reqwest",

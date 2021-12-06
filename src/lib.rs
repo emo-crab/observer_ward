@@ -15,14 +15,10 @@ pub fn print_color(mut string: String, color: Color, nl: bool) {
     };
 }
 pub fn print_what_web(what_web_result: WhatWebResult) {
-    let color_web_name: Vec<String> = what_web_result
-        .what_web_name
-        .iter()
-        .map(String::from)
-        .collect();
+    let color_web_name: Vec<String> = what_web_result.name.iter().map(String::from).collect();
     let status_code =
         reqwest::StatusCode::from_u16(what_web_result.status_code).unwrap_or_default();
-    if !what_web_result.what_web_name.is_empty() {
+    if !what_web_result.name.is_empty() {
         print!("[ {} |", what_web_result.url);
         print_color(format!("{:?}", color_web_name), term::color::GREEN, false);
         print!(" | {} | ", what_web_result.length);
@@ -61,9 +57,9 @@ pub fn print_opening() {
   \/_/   \/_/   \/_/\/_/   \/_/ /_/   \/____/
 Community based web fingerprint analysis tool."#;
     print_color(s.to_string(), term::color::GREEN, true);
-    let info = r#"______________________________________________
-: https://github.com/0x727/FingerprintHub    :
-: https://github.com/0x727/ObserverWard_0x727:
- ---------------------------------------------"#;
+    let info = r#"_______________________________________________
+: https://github.com/0x727/FingerprintHub     :
+: https://github.com/0x727/ObserverWard_0x727 :
+ ----------------------------------------------"#;
     print_color(info.to_string(), term::color::YELLOW, true);
 }

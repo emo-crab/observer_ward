@@ -76,30 +76,28 @@ Complete web_fingerprint_v3.json update: web_fingerprint_v3.json file size => 94
 
 ```bash
 ➜  ~ ./observer_ward --verify verification.yaml -t https://httpbin.org
-[ https://httpbin.org | ["swagger"] | 9593 | httpbin.org ]
+[ https://httpbin.org |["swagger"] | 9593 | 200 | httpbin.org ]
+Important technology:
 
-高关注组件:
-
-+---------------------+---------+--------+-------------+----------+
-| Url                 | Name    | Length | Title       | Priority |
-+=====================+=========+========+=============+==========+
-| https://httpbin.org | swagger | 9593   | httpbin.org | 2        |
-+---------------------+---------+--------+-------------+----------+
++---------------------+---------+--------+-------------+-------------+----------+
+| url                 | name    | length | status_code | title       | priority |
++=====================+=========+========+=============+=============+==========+
+| https://httpbin.org | swagger | 9593   | 200         | httpbin.org | 5        |
++---------------------+---------+--------+-------------+-------------+----------+
 ```
 
 ### 单个目标识别
 
 ```bash
 ➜  ~ ./observer_ward -t https://httpbin.org
-[ https://httpbin.org | ["swagger"] | 9593 | httpbin.org ]
+[ https://httpbin.org |["swagger"] | 9593 | 200 | httpbin.org ]
+Important technology:
 
-高关注组件:
-
-+---------------------+---------+--------+-------------+----------+
-| Url                 | Name    | Length | Title       | Priority |
-+=====================+=========+========+=============+==========+
-| https://httpbin.org | swagger | 9593   | httpbin.org | 2        |
-+---------------------+---------+--------+-------------+----------+
++---------------------+---------+--------+-------------+-------------+----------+
+| url                 | name    | length | status_code | title       | priority |
++=====================+=========+========+=============+=============+==========+
+| https://httpbin.org | swagger | 9593   | 200         | httpbin.org | 5        |
++---------------------+---------+--------+-------------+-------------+----------+
 ```
 
 ![image-20210821130602444](./doc/README.assets/image-20210821130602444.png)
@@ -126,35 +124,33 @@ Complete web_fingerprint_v3.json update: web_fingerprint_v3.json file size => 94
 
 ```bash
 ➜  ~ ./observer_ward -t https://httpbin.org -j result.json
-[ https://httpbin.org/ | ["swagger"] | 9593 | httpbin.org ]
+[ https://httpbin.org |["swagger"] | 9593 | 200 | httpbin.org ]
+Important technology:
 
-高关注组件:
-
-+----------------------+---------+--------+-------------+----------+
-| Url                  | Name    | Length | Title       | Priority |
-+======================+=========+========+=============+==========+
-| https://httpbin.org/ | swagger | 9593   | httpbin.org | 2        |
-+----------------------+---------+--------+-------------+----------+
++---------------------+---------+--------+-------------+-------------+----------+
+| url                 | name    | length | status_code | title       | priority |
++=====================+=========+========+=============+=============+==========+
+| https://httpbin.org | swagger | 9593   | 200         | httpbin.org | 5        |
++---------------------+---------+--------+-------------+-------------+----------+
 ➜  ~ cat result.json
-[{"url":"https://httpbin.org/","what_web_name":["swagger"],"priority":2,"length":9593,"title":"httpbin.org"}]%
+[{"url":"https://httpbin.org","name":["swagger"],"priority":5,"length":9593,"title":"httpbin.org","status_code":200,"is_web":true,"plugins":[]}]
 ```
 
 ### 导出结果到CSV文件
 
 ```bash
 ➜  ~ ./observer_ward -t https://httpbin.org -c result.csv
-[ https://httpbin.org/ | ["swagger"] | 9593 | httpbin.org ]
+[ https://httpbin.org |["swagger"] | 9593 | 200 | httpbin.org ]
+Important technology:
 
-高关注组件:
-
-+----------------------+---------+--------+-------------+----------+
-| Url                  | Name    | Length | Title       | Priority |
-+======================+=========+========+=============+==========+
-| https://httpbin.org/ | swagger | 9593   | httpbin.org | 2        |
-+----------------------+---------+--------+-------------+----------+
++---------------------+---------+--------+-------------+-------------+----------+
+| url                 | name    | length | status_code | title       | priority |
++=====================+=========+========+=============+=============+==========+
+| https://httpbin.org | swagger | 9593   | 200         | httpbin.org | 5        |
++---------------------+---------+--------+-------------+-------------+----------+
 ➜  ~ cat result.csv 
-Url,Name,Length,Title,Priority
-https://httpbin.org/,swagger,9593,httpbin.org,2
+url,name,length,status_code,title,priority
+https://httpbin.org,swagger,9593,200,httpbin.org,5
 ```
 
 ### 调用Nuclei检测漏洞
@@ -170,56 +166,35 @@ https://httpbin.org/,swagger,9593,httpbin.org,2
 - 目前支持将Web指纹识别的结果保存为`json`和`csv`格式，所以只能解析这两种格式。
 
 ```bash
-➜  ~ ./observer_ward  -f target.txt -j results.json
-[ https://www.example.com/ | ["安网科技-智能路由系统"] | 6847 | 安网科技-智能路由系统 ] 
-[ https://www.example.com/ | ["spring-framework"] | 114 |  ]
-[ https://www.example.com/ | ["apache-solr"] | 13592 | solr admin ]
-[ https://www.example.com/ | ["gitlab"] | 51751 | sign in · gitlab ]
-[ https://www.example.com/ | ["huawei-auth-server", "huawei-vpn"] | 25286 | user login ]                                                                                  
-Important technology:                                                                                                                                                         
-+------------------------------+-----------------------+--------+-----------------------+----------+
-| Url                          | Name                  | Length | Title                 | Priority |
-+==============================+=======================+========+=======================+==========+ 
-| https://www.example.com/     | apache-solr           | 13592  | solr admin            | 5        |
-+------------------------------+-----------------------+--------+-----------------------+----------+ 
-| https://www.example.com/     | 安网科技-智能路由系统    | 6847   | 安网科技-智能路由系统     | 4        |
-+------------------------------+-----------------------+--------+-----------------------+----------+
-| https://www.example.com/     | gitlab                | 51751  | sign in · gitlab      | 4        |
-+------------------------------+-----------------------+--------+-----------------------+----------+ 
-| https://www.example.com/     | huawei-auth-server    | 25286  | user login            | 4        |
-|                              | huawei-vpn            |        |                       |          |
-+------------------------------+-----------------------+--------+-----------------------+----------+
-| https://www.example.com/     | spring-framework      | 114    |                       | 3        |
-+------------------------------+-----------------------+--------+-----------------------+----------+
-
-➜  ~ ./observer_ward  --plugins 0x272/FingerprintHub/plugins --json results.json 
+➜  ~ ./observer_ward_amd64 -t https://httpbin.org --csv result.csv --plugins 0x727/FingerprintHub/plugins  
+ __     __     ______     ______     _____
+/\ \  _ \ \   /\  __ \   /\  == \   /\  __-.
+\ \ \/ ".\ \  \ \  __ \  \ \  __<   \ \ \/\ \
+ \ \__/".~\_\  \ \_\ \_\  \ \_\ \_\  \ \____-
+  \/_/   \/_/   \/_/\/_/   \/_/ /_/   \/____/
+Community based web fingerprint analysis tool.
+_______________________________________________
+: https://github.com/0x727/FingerprintHub     :
+: https://github.com/0x727/ObserverWard_0x727 :
+ ----------------------------------------------
+[ https://httpbin.org |["swagger"] | 9593 | 200 | httpbin.org ]
 Important technology:
-+------------------------------+-----------------------+--------+-----------------------+----------+--------------------------+
-| Url                          | Name                  | Length | Title                 | Priority | Plugins                  |
-+==============================+=======================+========+=======================+==========+==========================+
-| https://www.example.com/     | 安网科技-智能路由系统    | 6847   | 安网科技-智能路由系统     | 4        |                          |
-+------------------------------+-----------------------+--------+-----------------------+----------+--------------------------+
-| https://www.example.com/     | huawei-vpn            | 25286  | user login            | 4        |                          |
-|                              | huawei-auth-server    |        |                       |          |                          |
-+------------------------------+-----------------------+--------+-----------------------+----------+--------------------------+
-| https://www.example.com/     | gitlab                | 51751  | sign in · gitlab      | 4        | CVE-2021-22205           |
-|                              |                       |        |                       |          | gitlab-public-repos      |
-|                              |                       |        |                       |          | gitlab-api-user-enum     |
-|                              |                       |        |                       |          | gitlab-graphql-user-enum |
-|                              |                       |        |                       |          | CVE-2020-26413           |
-+------------------------------+-----------------------+--------+-----------------------+----------+--------------------------+
-| https://www.example.com/     | apache-solr           | 13592  | solr admin            | 5        | CVE-2021-27905           |
-+------------------------------+-----------------------+--------+-----------------------+----------+--------------------------+
-| https://www.example.com/     | spring-framework      | 114    |                       | 3        | springboot-trace         |
-|                              |                       |        |                       |          | springboot-metrics       |
-|                              |                       |        |                       |          | springboot-env           |
-|                              |                       |        |                       |          | springboot-health        |
-+------------------------------+-----------------------+--------+-----------------------+----------+--------------------------+
+
++---------------------+---------+--------+-------------+-------------+----------+
+| url                 | name    | length | status_code | title       | priority |
++=====================+=========+========+=============+=============+==========+
+| https://httpbin.org | swagger | 9593   | 200         | httpbin.org | 5        |
++---------------------+---------+--------+-------------+-------------+----------+
+Important technology:
+
++---------------------+---------+--------+-------------+-------------+----------+------------+
+| url                 | name    | length | status_code | title       | priority | plugins    |
++=====================+=========+========+=============+=============+==========+============+
+| https://httpbin.org | swagger | 9593   | 200         | httpbin.org | 5        | swagger-api|
++---------------------+---------+--------+-------------+-------------+----------+------------+
 
 ```
-
-- 识别完指纹后一起使用`nuclei`检测漏洞
-
+- 同理`json`格式也可以。
 ```bash
 ➜  ~ ./observer_ward_amd64 -f target.txt --json result.json --plugins 0x727/FingerprintHub/plugins
 ```

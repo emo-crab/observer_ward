@@ -28,3 +28,6 @@ scraper = "0.10.1"
 hex-literal = "0.3.3"
 tokio = { version = "1.14.0", features = ["full"] }
 walkdir = "2"
+observer_ward_nuclei_rs = { path = "../nuclei_rs", optional = true, default-features = false, package = "nuclei_rs" }
+[features]
+nuclei_rs = ["observer_ward_nuclei_rs"]

@@ -38,7 +38,7 @@ impl PortScan {
         }
         Self {
             ip_rang: ipv4_cidr,
-            concurrency: 1024,
+            concurrency: 512,
             timeout: Duration::from_millis(timeout),
             result: vec![],
         }
@@ -140,7 +140,7 @@ impl PortScan {
 }
 
 pub async fn ip_cidr_to_host_port(target: &String) -> HashSet<String> {
-    let mut port_scan = PortScan::new(target.clone(), 100);
+    let mut port_scan = PortScan::new(target.clone(), 300);
     port_scan.run().await;
     let result = port_scan.result;
     let targets: Vec<String> = result.into_iter().map(|ip| ip.to_string()).collect();
