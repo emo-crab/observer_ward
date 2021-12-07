@@ -11,10 +11,10 @@ use mime::Mime;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use regex::Regex;
-use reqwest::blocking::{Body, Client, Response};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::redirect::Policy;
 use reqwest::{header, Method};
+use reqwest::{Body, Client, Response};
 use serde::{de, Deserialize, Deserializer, Serialize};
 use tera::{Context, Template};
 use url::Url;
@@ -59,10 +59,10 @@ pub fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
 }
 
 impl ResponseRaw {
-    pub fn new(resp: Response) -> Self {
+    pub async fn new(resp: Response) -> Self {
         let resp_headers = resp.headers().clone();
         let status_code = resp.status().clone();
-        let bytes = resp.bytes().unwrap_or_default().to_vec();
+        let bytes = resp.bytes().await.unwrap_or_default().to_vec();
         let text: String = get_default_encoding(&bytes, resp_headers.clone());
         Self {
             raw: bytes,
@@ -331,15 +331,15 @@ impl HttpRequest {
         self.context = self.default_ctx();
     }
     // 执行全部请求
-    pub fn execute_request(&mut self, target: String) -> bool {
+    pub async fn execute_request(&mut self, target: String) -> bool {
         let target = Url::parse(&target).unwrap();
         self.init(target);
         for (_index, path) in self.path.clone().into_iter().enumerate() {
             // 根据提取器和上次的请求数据生成这次的请求
             if let Ok(build_request) = self.path_to_br(path) {
-                let resp_result = self.send_requests(build_request.clone());
+                let resp_result = self.send_requests(build_request.clone()).await;
                 if let Ok(resp) = resp_result {
-                    let raw_resp = ResponseRaw::new(resp);
+                    let raw_resp = ResponseRaw::new(resp).await;
                     if self.match_raw_resp(&raw_resp) {
                         // self.matchers_condition_is_and 和请求没有关系，只和matcher有关系
                         // 不管是那个请求都去匹配，匹配到了再返回match的url
@@ -352,9 +352,9 @@ impl HttpRequest {
         }
         for (_index, raw) in self.raw.clone().into_iter().enumerate() {
             if let Ok(build_request) = self.raw_to_br(raw) {
-                let resp_result = self.send_requests(build_request.clone());
+                let resp_result = self.send_requests(build_request.clone()).await;
                 if let Ok(resp) = resp_result {
-                    let raw_resp = ResponseRaw::new(resp);
+                    let raw_resp = ResponseRaw::new(resp).await;
                     if self.match_raw_resp(&raw_resp) {
                         // self.matchers_condition_is_and 和请求没有关系，只和matcher有关系
                         // 不管是那个请求都去匹配，匹配到了再返回match的url
@@ -368,14 +368,15 @@ impl HttpRequest {
         return false;
     }
     // 根据 path或者raw生成的build_request发送请求，返回原始数据
-    fn send_requests(&self, build_request: BuildRequest) -> Result<Response, reqwest::Error> {
+    async fn send_requests(&self, build_request: BuildRequest) -> Result<Response, reqwest::Error> {
         let body_data = Body::from(build_request.body.clone());
         return self
             .client
             .request(build_request.method, build_request.url.as_ref())
             .body(body_data)
             .headers(build_request.headers)
-            .send();
+            .send()
+            .await;
     }
     // 新建一个HTTP客户端，用于保存会话
     pub fn new_client(&self) -> Client {
@@ -390,7 +391,7 @@ impl HttpRequest {
                 );
             }
         }
-        let client = reqwest::blocking::Client::builder()
+        let client = reqwest::Client::builder()
             .danger_accept_invalid_certs(true)
             .default_headers(headers.clone())
             .redirect(Policy::limited(self.max_redirects))
