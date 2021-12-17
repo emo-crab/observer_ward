@@ -6,8 +6,10 @@ use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::io::{BufRead, Write};
+use std::net::IpAddr;
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
 use std::{io, net::SocketAddr, time::Duration};
 
 use futures::stream::FuturesUnordered;
@@ -28,7 +30,7 @@ struct Matches {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct NmapFingerPrintLib {
+pub struct NmapFingerPrintLib {
     matches: Vec<Matches>,
     directive_name: String,
     protocol: String,
@@ -87,33 +89,20 @@ impl NmapFingerPrintLib {
     }
 }
 
-lazy_static! {
-    static ref NMAP_FINGERPRINT_LIB_DATA: Vec<NmapFingerPrintLib> = {
-        let self_path: PathBuf = env::current_exe().unwrap_or(PathBuf::new());
-        let path = Path::new(&self_path).parent().unwrap_or(Path::new(""));
-        let mut file = match File::open(path.join("nmap-service-probes.json")) {
-            Err(_) => {
-                println!("The nmap fingerprint library cannot be found in the current directory!");
-                std::process::exit(0);
-            }
-            Ok(file) => file,
-        };
-        let mut data = String::new();
-        file.read_to_string(&mut data).unwrap();
-        let nmap_fingerprint: Vec<NmapFingerPrintLib> =
-            serde_json::from_str(&data).expect("BAD JSON");
-        nmap_fingerprint
-    };
-}
-
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct WhatServer {
     timeout: u64,
+    fingerprint: Arc<RwLock<Vec<NmapFingerPrintLib>>>,
 }
 
 impl WhatServer {
-    pub fn new(timeout: u64) -> Self {
-        Self { timeout }
+    pub fn new(timeout: u64, nmap_fingerprint: Vec<NmapFingerPrintLib>) -> Self {
+        let fingerprint: Arc<RwLock<Vec<NmapFingerPrintLib>>> =
+            Arc::new(RwLock::new(nmap_fingerprint));
+        Self {
+            timeout,
+            fingerprint,
+        }
     }
     fn filter_probes_by_port(
         &self,
@@ -121,7 +110,7 @@ impl WhatServer {
     ) -> (Vec<NmapFingerPrintLib>, Vec<NmapFingerPrintLib>) {
         let (mut in_probes, mut ex_probes): (Vec<NmapFingerPrintLib>, Vec<NmapFingerPrintLib>) =
             (vec![], vec![]);
-        for nmap_fingerprint in NMAP_FINGERPRINT_LIB_DATA.clone().into_iter() {
+        for nmap_fingerprint in self.fingerprint.read().unwrap().clone().into_iter() {
             if nmap_fingerprint.ports.contains(&port) {
                 in_probes.push(nmap_fingerprint);
             } else {
@@ -150,7 +139,7 @@ impl WhatServer {
     }
 
     fn connect(&self, socket: SocketAddr) -> io::Result<TcpStream> {
-        let stream = TcpStream::connect(socket).unwrap();
+        let stream = TcpStream::connect(socket)?;
         stream.set_nodelay(true).unwrap();
         stream.set_ttl(100).unwrap();
         Ok(stream)
@@ -202,14 +191,29 @@ impl WhatServer {
     }
 }
 
-// use std::net::{IpAddr, SocketAddr};
-// use what_server::WhatServer;
-//
+lazy_static! {
+    static ref NMAP_FINGERPRINT_LIB_DATA: Vec<NmapFingerPrintLib> = {
+        let self_path: PathBuf = env::current_exe().unwrap_or(PathBuf::new());
+        let path = Path::new(&self_path).parent().unwrap_or(Path::new(""));
+        let mut file = match File::open(path.join("nmap_service_probes.json")) {
+            Err(_) => {
+                println!("The nmap fingerprint library cannot be found in the current directory!");
+                std::process::exit(0);
+            }
+            Ok(file) => file,
+        };
+        let mut data = String::new();
+        file.read_to_string(&mut data).unwrap();
+        let nmap_fingerprint: Vec<NmapFingerPrintLib> =
+            serde_json::from_str(&data).expect("BAD JSON");
+        nmap_fingerprint
+    };
+}
 // #[tokio::main]
 // async fn main() {
 //     let ip = "127.0.0.1".parse::<IpAddr>().unwrap();
 //     let socket = SocketAddr::new(ip, 22);
-//     let what_server = WhatServer::new(300);
+//     let what_server = WhatServer::new(300, NMAP_FINGERPRINT_LIB_DATA.clone());
 //     let server = what_server.scan(socket).await;
 //     println!("{:?}", server);
 // }

@@ -3,4 +3,4 @@
 web_fingerprint.json
 web_fingerprint_v2.json
 web_fingerprint_v3.json
-nmap-service-probes.json
+nmap_service_probes.json
