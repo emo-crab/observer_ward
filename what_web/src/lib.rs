@@ -202,7 +202,7 @@ impl WhatWeb {
     }
     pub fn read_results_file(&self) -> Vec<WhatWebResult> {
         let mut results: Vec<WhatWebResult> = Vec::new();
-        let read_file_data = |path: &String| {
+        let read_file_data = |path: &str| {
             let mut file = match File::open(path) {
                 Err(err) => {
                     println!("{}", err.to_string());

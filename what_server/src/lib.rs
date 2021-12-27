@@ -51,7 +51,7 @@ impl NmapFingerPrintLib {
         let mut server_name: HashSet<String> = HashSet::new();
         let mut futures = FuturesUnordered::new();
         let mut matches_iter = self.matches.iter();
-        for _ in 0..100 {
+        for _ in 0..matches_iter.len() {
             if let Some(rule) = matches_iter.next() {
                 futures.push(self.what_server(&rule, response));
             }
@@ -153,7 +153,7 @@ impl WhatServer {
                 let mut in_probes_iter = in_probes.into_iter();
                 let mut ex_probes_iter = ex_probes.into_iter();
                 let mut futures = FuturesUnordered::new();
-                for _ in 0..16 {
+                for _ in 0..32 {
                     if let Some(probes) = in_probes_iter.next() {
                         futures.push(self.exec_run(probes, socket));
                     }
@@ -167,7 +167,7 @@ impl WhatServer {
                     }
                 }
                 let mut futures = FuturesUnordered::new();
-                for _ in 0..16 {
+                for _ in 0..32 {
                     if let Some(probes) = ex_probes_iter.next() {
                         futures.push(self.exec_run(probes, socket));
                     }

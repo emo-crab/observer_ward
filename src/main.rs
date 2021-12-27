@@ -15,8 +15,10 @@ use observer_ward_what_web::{read_file_to_target, strings_to_urls, WhatWeb, What
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    print_opening();
     let config = WardArgs::new();
+    if !config.stdin {
+        print_opening();
+    }
     let mut targets = HashSet::new();
     if config.stdin {
         let mut buffer = String::new();
