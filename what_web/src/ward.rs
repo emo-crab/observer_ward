@@ -13,6 +13,7 @@ pub struct RawData {
     pub status_code: reqwest::StatusCode,
     pub text: String,
     pub favicon: HashMap<String, String>,
+    pub next_url: Option<Url>,
 }
 
 pub async fn check(

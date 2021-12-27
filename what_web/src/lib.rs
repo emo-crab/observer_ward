@@ -381,7 +381,7 @@ impl WhatWeb {
                 } else {
                     what_web_result.url = String::from(raw_data.url.clone());
                 }
-                if what_web_result.title.is_empty() {
+                if raw_data.next_url.is_none() {
                     what_web_result.title = get_title(&raw_data);
                     what_web_result.priority = what_web_result.priority + 1;
                 }

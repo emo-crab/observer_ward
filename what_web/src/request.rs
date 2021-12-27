@@ -171,6 +171,28 @@ async fn fetch_raw_data(
         // 只有在首页的时候提取favicon图标链接
         favicon = find_favicon_tag(base_url, &text, timeout, proxy).await;
     }
+    // 在请求头和正文里匹配下一跳URL
+    let get_next_url = |headers: &HeaderMap, url: &Url, text: &String| {
+        let mut next_url = headers
+            .get(LOCATION)
+            .and_then(|location| location.to_str().ok())
+            .and_then(|location| url.join(location).ok());
+        if next_url.is_none() && text.len() <= 1024 {
+            for reg in RE_COMPILE_BY_JUMP.iter() {
+                if let Some(x) = reg.captures(&text) {
+                    let u = x.name("name").map_or("", |m| m.as_str());
+                    if u.starts_with("http://") || u.starts_with("https://") {
+                        next_url = Some(Url::parse(u).unwrap_or(url.clone()));
+                        break;
+                    }
+                    next_url = Some(url.join(u).unwrap_or(url.clone()));
+                    break;
+                }
+            }
+        }
+        return next_url;
+    };
+    let next_url = get_next_url(&headers, &url, &text);
     let raw_data = Arc::new(RawData {
         url,
         path,
@@ -178,6 +200,7 @@ async fn fetch_raw_data(
         status_code,
         text,
         favicon,
+        next_url,
     });
     Ok(raw_data)
 }
@@ -307,32 +330,11 @@ pub async fn index_fetch(
                 return Err(WardError::Other(format!("{:?}", err)));
             }
         };
-        // 在请求头和正文里匹配下一跳URL
-        let get_next_url = |headers: &HeaderMap, url: &Url, text: &String, is_index: bool| {
-            let mut next_url = headers
-                .get(LOCATION)
-                .and_then(|location| location.to_str().ok())
-                .and_then(|location| url.join(location).ok());
-            if next_url.is_none() && is_index && text.len() <= 1024 {
-                for reg in RE_COMPILE_BY_JUMP.iter() {
-                    if let Some(x) = reg.captures(&text) {
-                        let u = x.name("name").map_or("", |m| m.as_str());
-                        if u.starts_with("http://") || u.starts_with("https://") {
-                            next_url = Some(Url::parse(u).unwrap_or(url.clone()));
-                            break;
-                        }
-                        next_url = Some(url.join(u).unwrap_or(url.clone()));
-                        break;
-                    }
-                }
-            }
-            return next_url;
-        };
         loop {
             let mut next_url: Option<Url> = Option::None;
             if let Ok(res) = send_requests(url.clone(), special_wfp, timeout, proxy).await {
                 if let Ok(raw_data) = fetch_raw_data(res, is_index, timeout, proxy).await {
-                    next_url = get_next_url(&raw_data.headers, &url, &raw_data.text, is_index);
+                    next_url = raw_data.next_url.clone();
                     raw_data_list.push(raw_data);
                 };
                 is_index = false;
