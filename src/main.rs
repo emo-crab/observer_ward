@@ -87,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut worker = FuturesUnordered::new();
         let mut wwr_results_iter = wwr_results.iter();
         let mut plugins_results = vec![];
-        for _ in 0..5 {
+        for _ in 0..10 {
             match wwr_results_iter.next() {
                 Some(wwr) => worker.push(what_web_ins.get_plugins_by_nuclei(wwr)),
                 None => {
