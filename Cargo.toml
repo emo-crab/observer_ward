@@ -7,15 +7,12 @@ description = "Identifies technologies used on a web page."
 license = "MIT"
 include = ["LICENSE", "Cargo.toml", "src/**/*.rs"]
 [workspace]
-members = [".", "nuclei_rs", "target_input"]
+members = ["."]
 [profile.release]
 lto = true
 opt-level = "z"
 codegen-units = 1
 panic = "abort"
-[profile.release.package.nuclei_rs]
-opt-level = "z"
-codegen-units = 1
 [dependencies]
 tokio = { version = "1.14.0", features = ["full"] }
 prettytable-rs = "^0.8"
@@ -30,7 +27,6 @@ reqwest = { version = "0.11.6", features = ["rustls-tls","socks", "blocking", "g
 term = "*"
 observer_ward_what_web = { path = "what_web", package = "what_web" }
 observer_ward_what_server = { path = "what_server", package = "what_server" }
-observer_ward_target_input = { path = "target_input", package = "target_input" }
 [target.'cfg(target_os="windows")'.build-dependencies]
 winres = "0.1"
 

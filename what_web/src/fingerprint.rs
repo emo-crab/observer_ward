@@ -61,15 +61,15 @@ pub struct WebFingerPrint {
 impl WebFingerPrint {
     pub fn new() -> Self {
         Self {
-            path: String::from(""),
-            name: String::from(""),
+            path: String::new(),
+            name: String::new(),
             status_code: 0,
             headers: HashMap::new(),
             keyword: vec![],
             priority: 1,
-            request_method: String::from(""),
+            request_method: String::new(),
             request_headers: HashMap::new(),
-            request_data: String::from(""),
+            request_data: String::new(),
             favicon_hash: vec![],
         }
     }

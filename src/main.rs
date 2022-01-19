@@ -8,7 +8,6 @@ use futures::StreamExt;
 use prettytable::{color, Attr, Cell, Row, Table};
 
 use observer_ward::{print_color, print_nuclei, print_opening, print_what_web};
-use observer_ward_target_input::ip_port::ip_cidr_to_host_port;
 use observer_ward_what_web::cli::WardArgs;
 use observer_ward_what_web::fingerprint::read_form_file;
 use observer_ward_what_web::{read_file_to_target, strings_to_urls, WhatWeb, WhatWebResult};
@@ -28,8 +27,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         targets.insert(String::from(&config.target));
     } else if !config.file.is_empty() {
         targets.extend(read_file_to_target(&config.file));
-    } else if !config.ip.is_empty() {
-        targets.extend(ip_cidr_to_host_port(&config.ip).await);
     }
     let mut what_web_ins = WhatWeb::new(config.clone(), vec![]);
     if config.update_fingerprint {

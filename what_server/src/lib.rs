@@ -14,6 +14,7 @@ use std::{io, net::SocketAddr, time::Duration};
 
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
+use observer_ward_what_web::WhatWebResult;
 use regex::bytes::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -145,9 +146,9 @@ impl WhatServer {
         let server = probe.match_rules(&response).await;
         return server;
     }
-    pub async fn scan(&self, host_port: &String) -> HashSet<String> {
-        let server_set: HashSet<String> = HashSet::new();
-        match SocketAddr::from_str(host_port) {
+    pub async fn scan(&self, what_web_result: &WhatWebResult) -> WhatWebResult {
+        let mut what_web_result = what_web_result.clone();
+        match SocketAddr::from_str(&what_web_result.url) {
             Ok(socket) => {
                 let (in_probes, ex_probes) = self.filter_probes_by_port(socket.port());
                 let mut in_probes_iter = in_probes.into_iter();
@@ -163,7 +164,8 @@ impl WhatServer {
                         futures.push(self.exec_run(probes, socket));
                     }
                     if !result.is_empty() {
-                        return result;
+                        what_web_result.name = result;
+                        return what_web_result;
                     }
                 }
                 let mut futures = FuturesUnordered::new();
@@ -177,13 +179,14 @@ impl WhatServer {
                         futures.push(self.exec_run(probes, socket));
                     }
                     if !result.is_empty() {
-                        return result;
+                        what_web_result.name = result;
+                        return what_web_result;
                     }
                 }
             }
-            Err(_) => return server_set,
+            Err(_) => return what_web_result,
         }
-        return server_set;
+        return what_web_result;
     }
 }
 

@@ -22,7 +22,6 @@ pub struct WardArgs {
     pub update_plugins: bool,
     pub update_self: bool,
     pub thread: u32,
-    pub ip: String,
     pub uuid: String,
 }
 
@@ -38,12 +37,6 @@ impl WardArgs {
                     .long("target")
                     .value_name("TARGET")
                     .help("The target URL(s) (required, unless --stdin used)"),
-            )
-            .arg(
-                Arg::with_name("ip")
-                    .long("ip")
-                    .value_name("IP")
-                    .help("The target ip (ex: [127.0.0.1|192.168.1.0/24])"),
             )
             .arg(
                 Arg::with_name("server")
@@ -144,7 +137,6 @@ impl WardArgs {
         let mut stdin: bool = false;
         let mut update_self: bool = false;
         let mut verify_path: String = String::new();
-        let mut ips: String = String::new();
         let mut update_fingerprint: bool = false;
         let mut update_plugins: bool = false;
         let mut plugins: String = String::new();
@@ -185,9 +177,6 @@ impl WardArgs {
         if let Some(uuid) = args.value_of("uuid") {
             agent_uuid = uuid.to_string();
         };
-        if let Some(ip) = args.value_of("ip") {
-            ips = ip.to_string();
-        };
         if let Some(file) = args.value_of("file") {
             file_path = file.to_string();
         };
@@ -223,7 +212,6 @@ impl WardArgs {
             plugins,
             update_self,
             thread: req_thread,
-            ip: ips,
             uuid: agent_uuid,
         }
     }

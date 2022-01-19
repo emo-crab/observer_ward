@@ -10,22 +10,17 @@ use std::iter::FromIterator;
 use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::str;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::{env, process};
 
 use csv::{DeserializeRecordsIntoIter, Reader};
 use reqwest::Proxy;
 use serde::{de, Deserialize, Deserializer, Serialize};
-#[cfg(not(feature = "observer_ward_nuclei_rs"))]
 use tokio::process::Command;
 use url::Url;
-#[cfg(feature = "observer_ward_nuclei_rs")]
-use walkdir::WalkDir;
 
 use cli::WardArgs;
 use fingerprint::{WebFingerPrintLib, WebFingerPrintRequest};
-#[cfg(feature = "observer_ward_nuclei_rs")]
-use observer_ward_nuclei_rs::NucleiTemplate;
 use request::{get_title, index_fetch};
 use ward::check;
 
@@ -102,38 +97,6 @@ pub struct TemplateResult {
     #[serde(default)]
     pub meta: HashMap<String, String>,
 }
-#[cfg(feature = "observer_ward_nuclei_rs")]
-fn run_nuclei_rs_to(p: &String, target: String) -> HashSet<String> {
-    let mut plugins_set: HashSet<String> = HashSet::new();
-    for entry in WalkDir::new(p)
-        .follow_links(true)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        let f_name = entry.file_name().to_string_lossy();
-
-        if f_name.ends_with(".yaml") && f_name != "tags.yaml" {
-            let mut file = match File::open(entry.path()) {
-                Err(_) => {
-                    return plugins_set;
-                }
-                Ok(file) => file,
-            };
-            let mut data = String::new();
-            file.read_to_string(&mut data).unwrap();
-            let template: NucleiTemplate = serde_yaml::from_str(&data).unwrap();
-            if !template.requests.is_empty() {
-                for mut request in template.requests.into_iter() {
-                    if request.execute_request(target.clone()) {
-                        plugins_set.insert(template.id.clone());
-                    };
-                }
-            }
-        }
-    }
-    return plugins_set;
-}
-
 fn string_to_hashset<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Error>
 where
     D: Deserializer<'de>,
@@ -165,16 +128,16 @@ where
 }
 
 pub struct WhatWeb {
-    fingerprint: Arc<RwLock<WebFingerPrintLib>>,
+    fingerprint: Arc<WebFingerPrintLib>,
     config: WardArgs,
 }
 
 impl WhatWeb {
     pub fn new(config: WardArgs, web_fingerprint: Vec<WebFingerPrint>) -> Self {
-        let fingerprint: Arc<RwLock<WebFingerPrintLib>> = Arc::new(RwLock::new({
+        let fingerprint: Arc<WebFingerPrintLib> = Arc::new({
             let web_fingerprint_lib = WebFingerPrintLib::new(web_fingerprint);
             web_fingerprint_lib
-        }));
+        });
         Self {
             fingerprint,
             config,
@@ -228,33 +191,6 @@ impl WhatWeb {
         results
     }
 
-    #[cfg(feature = "observer_ward_nuclei_rs")]
-    pub async fn get_plugins_by_nuclei(&self, w: &WhatWebResult) -> WhatWebResult {
-        let mut wwr = w.clone();
-        let mut plugins_set: HashSet<String> = HashSet::new();
-        let mut exist_plugins: Vec<String> = Vec::new();
-        for name in wwr.name.iter() {
-            let plugins_name_path = Path::new(&self.config.plugins).join(name);
-            if plugins_name_path.exists() {
-                if let Some(p_path) = plugins_name_path.to_str() {
-                    exist_plugins.push(p_path.to_string())
-                }
-            }
-        }
-        if exist_plugins.is_empty() {
-            return wwr;
-        }
-        for p in exist_plugins.iter() {
-            let plugins = run_nuclei_rs_to(p, wwr.url.clone());
-            plugins_set.extend(plugins);
-        }
-        wwr.plugins = plugins_set;
-        if !wwr.plugins.is_empty() {
-            wwr.priority = wwr.priority + 1;
-        }
-        return wwr;
-    }
-    #[cfg(not(feature = "observer_ward_nuclei_rs"))]
     pub async fn get_plugins_by_nuclei(&self, w: &WhatWebResult) -> WhatWebResult {
         let mut wwr = w.clone();
         let mut plugins_set: HashSet<String> = HashSet::new();
@@ -366,12 +302,7 @@ impl WhatWeb {
             }
             //首页请求允许跳转
             for raw_data in raw_data_list {
-                let web_name_set = check(
-                    &raw_data,
-                    &self.fingerprint.read().unwrap().to_owned(),
-                    false,
-                )
-                .await;
+                let web_name_set = check(&raw_data, &self.fingerprint.to_owned(), false).await;
                 for (k, v) in web_name_set {
                     name.insert(k);
                     what_web_result.priority = v;
@@ -396,7 +327,7 @@ impl WhatWeb {
         if !what_web_result.is_web {
             return what_web_result;
         }
-        for special_wfp in self.fingerprint.read().unwrap().to_owned().special.iter() {
+        for special_wfp in self.fingerprint.to_owned().special.iter() {
             if let Ok(raw_data_list) = index_fetch(
                 &url,
                 &special_wfp.request,
@@ -408,12 +339,7 @@ impl WhatWeb {
             .await
             {
                 for raw_data in raw_data_list {
-                    let web_name_set = check(
-                        &raw_data,
-                        &self.fingerprint.read().unwrap().to_owned(),
-                        true,
-                    )
-                    .await;
+                    let web_name_set = check(&raw_data, &self.fingerprint.to_owned(), true).await;
                     for (k, v) in web_name_set {
                         name.insert(k);
                         what_web_result.priority = v;
