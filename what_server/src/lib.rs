@@ -146,7 +146,7 @@ impl WhatServer {
         let server = probe.match_rules(&response).await;
         return server;
     }
-    pub async fn scan(&self, what_web_result: &WhatWebResult) -> WhatWebResult {
+    pub async fn scan(&self, what_web_result: WhatWebResult) -> WhatWebResult {
         let mut what_web_result = what_web_result.clone();
         match SocketAddr::from_str(&what_web_result.url) {
             Ok(socket) => {

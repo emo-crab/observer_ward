@@ -4,13 +4,13 @@
 
 # ObserverWard_0x727
 
-| 类别 | 说明 |
-| ---- | --- |
-| 作者 | [三米前有蕉皮](https://github.com/cn-kali-team) |
-| 团队 | [0x727](https://github.com/0x727) 未来一段时间将陆续开源工具 |
-| 定位 | 社区化[指纹库](https://github.com/0x727/FingerprintHub)识别工具。 |
-| 语言 | Rust |
-| 功能 | 命令行Web指纹识别工具 |
+| 类别  | 说明                                                     |
+|-----|--------------------------------------------------------|
+| 作者  | [三米前有蕉皮](https://github.com/cn-kali-team)              |
+| 团队  | [0x727](https://github.com/0x727) 未来一段时间将陆续开源工具        |
+| 定位  | 社区化[指纹库](https://github.com/0x727/FingerprintHub)识别工具。 |
+| 语言  | Rust                                                   |
+| 功能  | 命令行Web指纹识别工具                                           |
 
 ### 1. 源码手动安装
 
@@ -39,26 +39,25 @@ USAGE:
     observer_ward [FLAGS] [OPTIONS]
 
 FLAGS:
+    -c, --csv                   Export to the csv file or Import form the csv file
+    -f, --file                  Read the target from the file
     -h, --help                  Prints help information
+    -j, --json                  Export to the json file or Import form the json file
+        --service               Using nmap fingerprint identification service (slow)
         --stdin                 Read url(s) from STDIN
+    -t, --target                The target URL(s) (required, unless --stdin used)
     -u, --update_fingerprint    Update web fingerprint
         --update_plugins        Update nuclei plugins
         --update_self           Update self
     -V, --version               Prints version information
 
 OPTIONS:
-    -c, --csv <CSV>            Export to the csv file or Import form the csv file
-    -f, --file <FILE>          Read the target from the file
-        --ip <IP>              The target ip (ex: [127.0.0.1|192.168.1.0/24])
-    -j, --json <JSON>          Export to the json file or Import form the json file
         --plugins <plugins>    Calling plugins to detect vulnerabilities
-        --proxy <PROXY>        Proxy to use for requests (ex: [http(s)|socks5(h)]://host:port)
-    -s, --server <SERVER>      Start a web API service (127.0.0.1:8080)
-    -t, --target <TARGET>      The target URL(s) (required, unless --stdin used)
-        --thread <THREAD>      Number of concurrent threads. [default: 100]
-        --timeout <TIMEOUT>    Set request timeout. [default: 10]
+        --proxy <proxy>        Proxy to use for requests (ex: [http(s)|socks5(h)]://host:port)
+        --thread <thread>      Number of concurrent threads. [default: 100]
+        --timeout <timeout>    Set request timeout. [default: 10]
         --verify <verify>      Validate the specified yaml file
-
+        --webhook <webhook>    Send results to webhook server (ex: https://host:port/webhook)
 ```
 
 ### 更新指纹
@@ -198,7 +197,26 @@ Important technology:
 ```bash
 ➜  ~ ./observer_ward_amd64 -f target.txt --json result.json --plugins 0x727/FingerprintHub/plugins
 ```
+## WebHook
+```python
+from flask import Flask, request
 
+app = Flask(__name__)
+
+
+@app.route("/webhook", methods=['POST'])
+def xray_webhook():
+    print(request.json)
+    return 'ok'
+
+
+if __name__ == '__main__':
+    app.run()
+```
+- 开启webhook后，添加`--webhook`参数，将识别的结果发送到webhook服务器。
+```shell
+➜  ~ ./observer_ward_amd64 -f target.txt --webhook http://127.0.0.1:5000/webhook
+```
 ## 提交指纹
 
 - ObserverWard_0x727使用到的指纹规则全部来自[FingerprintHub](https://github.com/0x727/FingerprintHub)项目，如果需要获取指纹库和提交指纹规则，请查看[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
