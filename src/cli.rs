@@ -36,12 +36,14 @@ impl WardArgs {
                 Arg::with_name("target")
                     .short("t")
                     .long("target")
+                    .value_name("TARGET")
                     .help("The target URL(s) (required, unless --stdin used)"),
             )
             // .arg(
             //     Arg::with_name("server")
             //         .short("s")
             //         .long("server")
+            //         .value_name("SERVER")
             //         .help("Start a web API service (127.0.0.1:8080)"),
             // )
             .arg(
@@ -55,30 +57,35 @@ impl WardArgs {
                 Arg::with_name("file")
                     .short("f")
                     .long("file")
+                    .value_name("FILE")
                     .help("Read the target from the file"),
             )
             .arg(
                 Arg::with_name("csv")
                     .short("c")
                     .long("csv")
+                    .value_name("CSV")
                     .help("Export to the csv file or Import form the csv file"),
             )
             .arg(
                 Arg::with_name("json")
                     .short("j")
                     .long("json")
+                    .value_name("JSON")
                     .help("Export to the json file or Import form the json file"),
             )
             .arg(
                 Arg::with_name("proxy")
                     .long("proxy")
                     .takes_value(true)
+                    .value_name("PROXY")
                     .help("Proxy to use for requests (ex: [http(s)|socks5(h)]://host:port)"),
             )
             .arg(
                 Arg::with_name("webhook")
                     .long("webhook")
                     .takes_value(true)
+                    .value_name("WEBHOOK")
                     .help("Send results to webhook server (ex: https://host:port/webhook)"),
             )
             .arg(
@@ -86,6 +93,7 @@ impl WardArgs {
                     .long("timeout")
                     .takes_value(true)
                     .default_value("10")
+                    .value_name("TIMEOUT")
                     .help("Set request timeout."),
             )
             .arg(
@@ -93,6 +101,7 @@ impl WardArgs {
                     .long("thread")
                     .takes_value(true)
                     .default_value("100")
+                    .value_name("THREAD")
                     .help("Number of concurrent threads."),
             )
             .arg(
