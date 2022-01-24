@@ -129,6 +129,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 results_sender.send(wwr).unwrap_or_default();
             }
+        }else {
+            while let Ok(wwr) = verify_receiver.recv() {
+                results_sender.send(wwr).unwrap_or_default();
+            }
         }
         return true;
     });
