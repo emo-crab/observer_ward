@@ -9,7 +9,7 @@ use std::io::{BufRead, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::{io, net::SocketAddr, time::Duration};
 
 use futures::stream::FuturesUnordered;
@@ -89,13 +89,12 @@ impl NmapFingerPrintLib {
 #[derive(Clone)]
 pub struct WhatServer {
     timeout: u64,
-    fingerprint: Arc<RwLock<Vec<NmapFingerPrintLib>>>,
+    fingerprint: Arc<Vec<NmapFingerPrintLib>>,
 }
 
 impl WhatServer {
     pub fn new(timeout: u64, nmap_fingerprint: Vec<NmapFingerPrintLib>) -> Self {
-        let fingerprint: Arc<RwLock<Vec<NmapFingerPrintLib>>> =
-            Arc::new(RwLock::new(nmap_fingerprint));
+        let fingerprint: Arc<Vec<NmapFingerPrintLib>> = Arc::new(nmap_fingerprint);
         Self {
             timeout,
             fingerprint,
@@ -104,10 +103,10 @@ impl WhatServer {
     fn filter_probes_by_port(
         &self,
         port: u16,
-    ) -> (Vec<NmapFingerPrintLib>, Vec<NmapFingerPrintLib>) {
-        let (mut in_probes, mut ex_probes): (Vec<NmapFingerPrintLib>, Vec<NmapFingerPrintLib>) =
+    ) -> (Vec<&NmapFingerPrintLib>, Vec<&NmapFingerPrintLib>) {
+        let (mut in_probes, mut ex_probes): (Vec<&NmapFingerPrintLib>, Vec<&NmapFingerPrintLib>) =
             (vec![], vec![]);
-        for nmap_fingerprint in self.fingerprint.read().unwrap().clone().into_iter() {
+        for nmap_fingerprint in self.fingerprint.iter() {
             if nmap_fingerprint.ports.contains(&port) {
                 in_probes.push(nmap_fingerprint);
             } else {
@@ -141,12 +140,15 @@ impl WhatServer {
         stream.set_ttl(100).unwrap();
         Ok(stream)
     }
-    async fn exec_run(&self, probe: NmapFingerPrintLib, host_port: SocketAddr) -> HashSet<String> {
+    async fn exec_run(&self, probe: &NmapFingerPrintLib, host_port: SocketAddr) -> HashSet<String> {
         let response = self.send_directive_str_request(host_port, probe.directive_str.clone());
         let server = probe.match_rules(&response).await;
         return server;
     }
     pub async fn scan(&self, what_web_result: WhatWebResult) -> WhatWebResult {
+        if self.fingerprint.is_empty() {
+            return what_web_result;
+        }
         let mut what_web_result = what_web_result.clone();
         match SocketAddr::from_str(&what_web_result.url) {
             Ok(socket) => {

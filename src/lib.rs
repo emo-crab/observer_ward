@@ -3,6 +3,7 @@ use observer_ward_what_server::NmapFingerPrintLib;
 use observer_ward_what_web::{RequestOption, TemplateResult, WhatWebResult};
 use prettytable::csv::Reader;
 use prettytable::{color, Attr, Cell, Row, Table};
+use reqwest::redirect::Policy;
 use reqwest::{header, Proxy};
 use serde_json::json;
 use std::collections::HashSet;
@@ -12,9 +13,8 @@ use std::io::Cursor;
 use std::io::{BufRead, Read};
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
-use std::{io, process};
 use std::time::Duration;
-use reqwest::redirect::Policy;
+use std::{io, process};
 use term::color::Color;
 use tokio::process::Command;
 
@@ -78,8 +78,12 @@ pub async fn webhook_results(what_web_result: WhatWebResult, webhook_url: &str) 
     );
     let ua = "Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0";
     headers.insert(header::USER_AGENT, header::HeaderValue::from_static(ua));
-    let client = reqwest::Client::builder().default_headers(headers).pool_max_idle_per_host(0)
-        .danger_accept_invalid_certs(true).redirect(Policy::none()).timeout(Duration::new(10, 0));
+    let client = reqwest::Client::builder()
+        .default_headers(headers)
+        .pool_max_idle_per_host(0)
+        .danger_accept_invalid_certs(true)
+        .redirect(Policy::none())
+        .timeout(Duration::new(10, 0));
     let what_web_result_json = json!(what_web_result)
         .as_object()
         .unwrap_or(&serde_json::Map::new())
@@ -128,7 +132,7 @@ impl Helper {
                 "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
                 "web_fingerprint_v3.json",
             )
-                .await;
+            .await;
             process::exit(0);
         }
         if self.config.update_self {
@@ -140,7 +144,7 @@ impl Helper {
                 "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
                 "plugins.zip",
             )
-                .await;
+            .await;
             process::exit(0);
         }
     }
@@ -280,8 +284,8 @@ pub fn read_file_to_target(file_path: &String) -> HashSet<String> {
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-    where
-        P: AsRef<Path>,
+where
+    P: AsRef<Path>,
 {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())

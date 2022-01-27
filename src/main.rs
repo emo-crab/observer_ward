@@ -1,4 +1,4 @@
-use crossbeam::channel::unbounded;
+use futures::channel::mpsc::unbounded;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use std::collections::HashSet;
@@ -39,10 +39,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let what_server_ins = WhatServer::new(300, nmap_fingerprint);
     let what_web_ins = WhatWeb::new(request_option.clone(), web_fingerprint);
-    let (what_web_sender, what_web_receiver) = unbounded();
-    let (what_server_sender, what_server_receiver) = unbounded();
-    let (verify_sender, verify_receiver) = unbounded();
-    let (results_sender, results_receiver) = unbounded();
+    let (what_web_sender, mut what_web_receiver) = unbounded();
+    let (mut what_server_sender, mut what_server_receiver) = unbounded();
+    let (mut verify_sender, mut verify_receiver) = unbounded();
+    let (mut results_sender, mut results_receiver) = unbounded();
     let mut vec_results: Vec<WhatWebResult> = vec![];
     let config_thread = config.thread.clone();
     let what_web_handle = tokio::task::spawn(async move {
@@ -60,26 +60,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(target) = targets_iter.next() {
                 worker.push(what_web_ins.scan(target.to_string()));
             }
-            what_web_sender.send(result).unwrap_or_default();
+            what_web_sender.unbounded_send(result).unwrap_or_default();
         }
         return true;
     });
     let what_server_handle = tokio::task::spawn(async move {
         let mut worker = FuturesUnordered::new();
         for _ in 0..3 {
-            match what_web_receiver.recv() {
-                Ok(wwr) => worker.push(what_server_ins.scan(wwr)),
-                Err(_) => {
+            match what_web_receiver.next().await {
+                Some(w) => worker.push(what_server_ins.scan(w)),
+                None => {
                     break;
                 }
             }
         }
         while let Some(wwr) = worker.next().await {
-            if let Ok(v_wwr) = what_web_receiver.recv() {
+            if let Some(v_wwr) = what_web_receiver.next().await {
                 worker.push(what_server_ins.scan(v_wwr));
             }
             print_what_web(&wwr);
-            what_server_sender.send(wwr).unwrap_or_default();
+            what_server_sender.start_send(wwr).unwrap_or_default();
         }
         return true;
     });
@@ -88,23 +88,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if !plugins_path.is_empty() {
             let mut worker = FuturesUnordered::new();
             for _ in 0..3 {
-                match what_server_receiver.recv() {
-                    Ok(wwr) => worker.push(helper.get_plugins_by_nuclei(wwr)),
-                    Err(_) => {
+                match what_server_receiver.next().await {
+                    Some(w) => {
+                        worker.push(helper.get_plugins_by_nuclei(w));
+                    }
+                    None => {
                         break;
                     }
                 }
             }
             while let Some(wwr) = worker.next().await {
-                if let Ok(v_wwr) = what_server_receiver.recv() {
+                if let Some(v_wwr) = what_server_receiver.next().await {
                     worker.push(helper.get_plugins_by_nuclei(v_wwr));
                 }
                 print_nuclei(&wwr);
-                verify_sender.send(wwr).unwrap_or_default();
+                verify_sender.start_send(wwr).unwrap_or_default();
             }
         } else {
-            while let Ok(wwr) = what_server_receiver.recv() {
-                verify_sender.send(wwr).unwrap_or_default();
+            while let Some(wwr) = what_server_receiver.next().await {
+                verify_sender.start_send(wwr).unwrap_or_default();
             }
         }
         return true;
@@ -114,24 +116,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut worker = FuturesUnordered::new();
         if !webhook.is_empty() {
             for _ in 0..3 {
-                match verify_receiver.recv() {
-                    Ok(wwr) => {
-                        worker.push(webhook_results(wwr, &webhook));
+                match verify_receiver.next().await {
+                    Some(w) => {
+                        worker.push(webhook_results(w, &webhook));
                     }
-                    Err(_) => {
+                    None => {
                         break;
                     }
                 }
             }
             while let Some(wwr) = worker.next().await {
-                if let Ok(v_wwr) = verify_receiver.recv() {
-                    worker.push(webhook_results(v_wwr, &webhook));
+                if let Ok(v_wwr) = verify_receiver.try_next() {
+                    match v_wwr {
+                        Some(w) => {
+                            worker.push(webhook_results(w, &webhook));
+                        }
+                        None => {
+                            break;
+                        }
+                    }
                 }
-                results_sender.send(wwr).unwrap_or_default();
+                results_sender.start_send(wwr).unwrap_or_default();
             }
-        }else {
-            while let Ok(wwr) = verify_receiver.recv() {
-                results_sender.send(wwr).unwrap_or_default();
+        } else {
+            while let Some(wwr) = verify_receiver.next().await {
+                results_sender.start_send(wwr).unwrap_or_default();
             }
         }
         return true;
@@ -143,7 +152,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         results_handle
     );
     let is_enable_plugin = !config.plugins.is_empty();
-    while let Ok(wwr) = results_receiver.recv() {
+    while let Some(wwr) = results_receiver.next().await {
         vec_results.push(wwr);
     }
     if vec_results.len() < 2000 {
