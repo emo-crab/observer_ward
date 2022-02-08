@@ -25,9 +25,9 @@ pub fn print_color(mut string: String, color: Color, nl: bool) {
         string.push('\n')
     }
     if let Some(mut t) = term::stdout() {
-        t.fg(color).unwrap();
+        t.fg(color).ok();
         write!(t, "{}", string).unwrap();
-        t.reset().unwrap();
+        t.reset().ok();
     } else {
         print!("{}", string);
     };

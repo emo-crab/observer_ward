@@ -126,15 +126,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             while let Some(wwr) = worker.next().await {
-                if let Ok(v_wwr) = verify_receiver.try_next() {
-                    match v_wwr {
-                        Some(w) => {
-                            worker.push(webhook_results(w, &webhook));
-                        }
-                        None => {
-                            break;
-                        }
-                    }
+                if let Some(w) = verify_receiver.next().await {
+                    worker.push(webhook_results(w, &webhook));
                 }
                 results_sender.start_send(wwr).unwrap_or_default();
             }
