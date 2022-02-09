@@ -204,7 +204,7 @@ lazy_static! {
             Ok(file) => file,
         };
         let mut data = String::new();
-        file.read_to_string(&mut data).unwrap();
+        file.read_to_string(&mut data).ok();
         let nmap_fingerprint: Vec<NmapFingerPrintLib> =
             serde_json::from_str(&data).expect("BAD JSON");
         nmap_fingerprint

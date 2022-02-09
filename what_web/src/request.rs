@@ -115,7 +115,7 @@ async fn send_requests(
 }
 lazy_static! {
     static ref RE_COMPILE_BY_CHARSET: Regex =
-        Regex::new(r#"(?im)charset="(.*?)"|charset=(.*?)""#).unwrap();
+        Regex::new(r#"(?im)charset="(.*?)"|charset=(.*?)""#).expect("RE_COMPILE_BY_CHARSET");
 }
 fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
     let (html, _, _) = UTF_8.decode(byte);
@@ -146,7 +146,7 @@ async fn fetch_raw_data(
     config: RequestOption,
 ) -> Result<Arc<RawData>, WardError> {
     let path: String = res.url().path().to_string();
-    let url = res.url().join("/").unwrap();
+    let url = res.url().join("/")?;
     let status_code = res.status();
     let headers = res.headers().clone();
     let base_url = res.url().clone();
@@ -195,10 +195,10 @@ async fn fetch_raw_data(
 
 // favicon的URL到Hash
 #[cached(
-    type = "SizedCache<String, String>",
-    create = "{ SizedCache::with_size(100) }",
-    result = true,
-    convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
+type = "SizedCache<String, String>",
+create = "{ SizedCache::with_size(100) }",
+result = true,
+convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
 )]
 async fn get_favicon_hash(url: &Url, config: &RequestOption) -> Result<String, WardError> {
     let default_request = WebFingerPrintRequest {
@@ -251,7 +251,7 @@ async fn find_favicon_tag(
         }
     }
     // 补充默认路径
-    let favicon_url = base_url.join("/favicon.ico").unwrap();
+    let favicon_url = base_url.join("/favicon.ico").expect("favicon.icon");
     if !link_tags.contains_key(&String::from(favicon_url.clone())) {
         if let Ok(favicon_md5) = get_favicon_hash(&favicon_url, &config).await {
             link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
@@ -267,7 +267,7 @@ lazy_static! {
             r#"(?im)window\.open\(['|"](?P<name>.*?)['|"]"#,
             r#"(?im)<meta.*?http-equiv=.*?refresh.*?url=(?P<name>.*?)['|"]>"#,
         ];
-        let re_list: Vec<Regex> = js_reg.iter().map(|reg| Regex::new(reg).unwrap()).collect();
+        let re_list: Vec<Regex> = js_reg.iter().map(|reg| Regex::new(reg).expect("RE_COMPILE_BY_JUMP")).collect();
         re_list
     };
 }
@@ -277,13 +277,13 @@ lazy_static! {
             r#"(?im)<link rel=["|']icon.*?href=["|'](?P<name>.*?)["|']/{0,1}>"#,
             r#"(?im)<link rel=["|']shortcut icon.*?href=["|'](?P<name>.*?)["|']/{0,1}>"#,
         ];
-        let re_list: Vec<Regex> = js_reg.iter().map(|reg| Regex::new(reg).unwrap()).collect();
+        let re_list: Vec<Regex> = js_reg.iter().map(|reg| Regex::new(reg).expect("compiled regular expression")).collect();
         re_list
     };
 }
 lazy_static! {
     static ref RE_COMPILE_BY_TITLE: Regex =
-        Regex::new(r#"(?im)<title>(?P<name>.*?)</title>"#).unwrap();
+        Regex::new(r#"(?im)<title>(?P<name>.*?)</title>"#).expect("compiled regular expression");
 }
 pub fn get_title(raw_data: &Arc<RawData>) -> String {
     for charset in RE_COMPILE_BY_TITLE.captures_iter(&raw_data.text) {
@@ -295,10 +295,10 @@ pub fn get_title(raw_data: &Arc<RawData>) -> String {
 
 // 首页请求
 #[cached(
-    type = "SizedCache<String, Vec<Arc<RawData>>>",
-    create = "{ SizedCache::with_size(100) }",
-    result = true,
-    convert = r#"{ format!("{}{:?}", url_str.to_owned(), special_wfp) }"#
+type = "SizedCache<String, Vec<Arc<RawData>>>",
+create = "{ SizedCache::with_size(100) }",
+result = true,
+convert = r#"{ format!("{}{:?}", url_str.to_owned(), special_wfp) }"#
 )]
 pub async fn index_fetch(
     url_str: &String,

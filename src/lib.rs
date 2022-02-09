@@ -26,7 +26,7 @@ pub fn print_color(mut string: String, color: Color, nl: bool) {
     }
     if let Some(mut t) = term::stdout() {
         t.fg(color).ok();
-        write!(t, "{}", string).unwrap();
+        write!(t, "{}", string).expect("print_color err");
         t.reset().ok();
     } else {
         print!("{}", string);
@@ -132,7 +132,7 @@ impl Helper {
                 "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
                 "web_fingerprint_v3.json",
             )
-            .await;
+                .await;
             self.download_file_from_github(
                 "https://0x727.github.io/FingerprintHub/nmap_service_probes.json",
                 "nmap_service_probes.json",
@@ -149,7 +149,7 @@ impl Helper {
                 "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
                 "plugins.zip",
             )
-            .await;
+                .await;
             process::exit(0);
         }
     }
@@ -187,7 +187,7 @@ impl Helper {
                 Ok(file) => file,
             };
             let mut data = String::new();
-            file.read_to_string(&mut data).unwrap();
+            file.read_to_string(&mut data).ok();
             data
         };
         if !self.config.json.is_empty() {
@@ -234,14 +234,14 @@ impl Helper {
             command_line.args(["-t", p]);
         }
         command_line.args(["-silent", "-json"]);
-        let output = command_line.output().await.unwrap();
+        let output = command_line.output().await.expect("command_line_output");
         if let Ok(template_output) = String::from_utf8(output.stdout) {
             let templates_output: Vec<String> = template_output
                 .split_terminator('\n')
                 .map(|s| s.to_string())
                 .collect();
             for line in templates_output.iter() {
-                let template: TemplateResult = serde_json::from_str(&line).unwrap();
+                let template: TemplateResult = serde_json::from_str(&line).unwrap_or_default();
                 wwr.template_result.push(template.clone());
                 plugins_set.insert(template.template_id);
             }
@@ -289,8 +289,8 @@ pub fn read_file_to_target(file_path: &String) -> HashSet<String> {
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where
-    P: AsRef<Path>,
+    where
+        P: AsRef<Path>,
 {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
@@ -388,7 +388,7 @@ pub fn read_nmap_fingerprint() -> Vec<NmapFingerPrintLib> {
         Ok(file) => file,
     };
     let mut data = String::new();
-    file.read_to_string(&mut data).unwrap();
+    file.read_to_string(&mut data).ok();
     let nmap_fingerprint: Vec<NmapFingerPrintLib> = serde_json::from_str(&data).expect("BAD JSON");
     return nmap_fingerprint;
 }

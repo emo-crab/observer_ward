@@ -6,13 +6,16 @@ edition = "2018"
 description = "Identifies technologies used on a web page."
 license = "MIT"
 include = ["LICENSE", "Cargo.toml", "src/**/*.rs"]
+
 [workspace]
 members = ["."]
+
 [profile.release]
 lto = true
 opt-level = "z"
 codegen-units = 1
 panic = "abort"
+
 [dependencies]
 clap = "2.33.3"
 url = { version = "2.1.1", features = ["serde"] }
@@ -30,6 +33,7 @@ reqwest = { version = "0.11.6", default-features = false, features = ["rustls-tl
 term = "*"
 observer_ward_what_web = { path = "what_web", package = "what_web" }
 observer_ward_what_server = { path = "what_server", package = "what_server" }
+
 [target.'cfg(target_os="windows")'.build-dependencies]
 winres = "0.1"
 

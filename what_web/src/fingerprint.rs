@@ -140,7 +140,7 @@ pub fn read_form_file(verify: &String) -> Vec<WebFingerPrint> {
             Ok(file) => file,
         };
         let mut data = String::new();
-        file.read_to_string(&mut data).unwrap();
+        file.read_to_string(&mut data).ok();
         let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
         let verify_fingerprints: VerifyWebFingerPrint =
             serde_yaml::from_str(&data).expect("BAD YAML");
@@ -160,7 +160,7 @@ pub fn read_form_file(verify: &String) -> Vec<WebFingerPrint> {
             Ok(file) => file,
         };
         let mut data = String::new();
-        file.read_to_string(&mut data).unwrap();
+        file.read_to_string(&mut data).ok();
         let web_fingerprint: Vec<WebFingerPrint> = serde_json::from_str(&data).expect("BAD JSON");
         web_fingerprint
     };
