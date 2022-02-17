@@ -27,6 +27,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.53"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94a45b455c14666b85fc40a019e8ab9eb75e3a124e05494f5397122bc9eb06e0"
+
+[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1972,6 +1978,7 @@ dependencies = [
 name = "what_web"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base64",
  "cached",
  "encoding_rs",
@@ -1984,7 +1991,6 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "serde_yaml",
  "tokio 1.15.0",
  "url",
 ]

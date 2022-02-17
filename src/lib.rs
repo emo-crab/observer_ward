@@ -1,5 +1,6 @@
 use crate::cli::WardArgs;
 use observer_ward_what_server::NmapFingerPrintLib;
+use observer_ward_what_web::fingerprint::WebFingerPrint;
 use observer_ward_what_web::{RequestOption, TemplateResult, WhatWebResult};
 use prettytable::csv::Reader;
 use prettytable::{color, Attr, Cell, Row, Table};
@@ -19,7 +20,14 @@ use term::color::Color;
 use tokio::process::Command;
 
 pub mod cli;
+use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct VerifyWebFingerPrint {
+    name: String,
+    priority: u32,
+    fingerprint: Vec<WebFingerPrint>,
+}
 pub fn print_color(mut string: String, color: Color, nl: bool) {
     if nl {
         string.push('\n')
@@ -132,12 +140,12 @@ impl Helper {
                 "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
                 "web_fingerprint_v3.json",
             )
-                .await;
+            .await;
             self.download_file_from_github(
                 "https://0x727.github.io/FingerprintHub/nmap_service_probes.json",
                 "nmap_service_probes.json",
             )
-                .await;
+            .await;
             process::exit(0);
         }
         if self.config.update_self {
@@ -149,7 +157,7 @@ impl Helper {
                 "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
                 "plugins.zip",
             )
-                .await;
+            .await;
             process::exit(0);
         }
     }
@@ -289,8 +297,8 @@ pub fn read_file_to_target(file_path: &String) -> HashSet<String> {
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-    where
-        P: AsRef<Path>,
+where
+    P: AsRef<Path>,
 {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
@@ -391,4 +399,42 @@ pub fn read_nmap_fingerprint() -> Vec<NmapFingerPrintLib> {
     file.read_to_string(&mut data).ok();
     let nmap_fingerprint: Vec<NmapFingerPrintLib> = serde_json::from_str(&data).expect("BAD JSON");
     return nmap_fingerprint;
+}
+
+pub fn read_form_file(verify: &String) -> Vec<WebFingerPrint> {
+    let self_path: PathBuf = env::current_exe().unwrap_or(PathBuf::new());
+    let path = Path::new(&self_path).parent().unwrap_or(Path::new(""));
+    return if !verify.is_empty() {
+        let mut file = match File::open(verify.clone()) {
+            Err(_) => {
+                println!("The verification file cannot be found in the current directory!");
+                std::process::exit(0);
+            }
+            Ok(file) => file,
+        };
+        let mut data = String::new();
+        file.read_to_string(&mut data).ok();
+        let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
+        let verify_fingerprints: VerifyWebFingerPrint =
+            serde_yaml::from_str(&data).expect("BAD YAML");
+        for mut verify_fingerprint in verify_fingerprints.fingerprint {
+            verify_fingerprint.name = verify_fingerprints.name.clone();
+            verify_fingerprint.priority = verify_fingerprints.priority.clone();
+            web_fingerprint.push(verify_fingerprint);
+        }
+        web_fingerprint
+    } else {
+        let mut file = match File::open(path.join("web_fingerprint_v3.json")) {
+            Err(_) => {
+                println!("The fingerprint library cannot be found in the current directory!");
+                println!("Update fingerprint library with `-u` parameter!");
+                std::process::exit(0);
+            }
+            Ok(file) => file,
+        };
+        let mut data = String::new();
+        file.read_to_string(&mut data).ok();
+        let web_fingerprint: Vec<WebFingerPrint> = serde_json::from_str(&data).expect("BAD JSON");
+        web_fingerprint
+    };
 }

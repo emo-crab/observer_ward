@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -13,70 +12,17 @@ use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, LOCATION};
 use reqwest::redirect::Policy;
 use reqwest::{header, Body, Method, Proxy, Response};
-// use scraper::{Html, Selector};
-use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::fingerprint::WebFingerPrintRequest;
 use crate::ward::RawData;
 use crate::RequestOption;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum WardError {
-    Fetch(String),
-    Analyze(String),
-    Other(String),
-}
-
-impl fmt::Display for WardError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                WardError::Fetch(err) => format!("Fetch/{}", err),
-                WardError::Analyze(err) => format!("Analyze/{}", err),
-                WardError::Other(err) => format!("Other/{}", err),
-            }
-        )
-    }
-}
-
-impl std::convert::From<std::io::Error> for WardError {
-    fn from(err: std::io::Error) -> Self {
-        WardError::Other(err.to_string())
-    }
-}
-
-impl From<&dyn std::error::Error> for WardError {
-    fn from(err: &dyn std::error::Error) -> Self {
-        WardError::Other(err.to_string())
-    }
-}
-
-impl From<reqwest::Error> for WardError {
-    fn from(err: reqwest::Error) -> Self {
-        WardError::Other(err.to_string())
-    }
-}
-
-impl From<std::str::Utf8Error> for WardError {
-    fn from(err: std::str::Utf8Error) -> Self {
-        WardError::Other(err.to_string())
-    }
-}
-
-impl From<url::ParseError> for WardError {
-    fn from(err: url::ParseError) -> Self {
-        WardError::Other(err.to_string())
-    }
-}
-
 async fn send_requests(
     url: &Url,
     fingerprint: &WebFingerPrintRequest,
     config: &RequestOption,
-) -> Result<Response, reqwest::Error> {
+) -> anyhow::Result<Response> {
     let mut url = url.clone();
     let mut headers = header::HeaderMap::new();
     let ua = "Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0";
@@ -87,10 +33,7 @@ async fn send_requests(
         Body::from(base64::decode(fingerprint.request_data.clone()).unwrap_or_default());
     if !fingerprint.request_headers.is_empty() {
         for (k, v) in fingerprint.request_headers.clone() {
-            headers.insert(
-                HeaderName::from_str(&k).unwrap(),
-                HeaderValue::from_str(&v).unwrap(),
-            );
+            headers.insert(HeaderName::from_str(&k)?, HeaderValue::from_str(&v)?);
         }
     }
     if fingerprint.path != "/" {
@@ -104,14 +47,13 @@ async fn send_requests(
         .timeout(Duration::new(config.timeout, 0));
     let config_proxy = config.proxy.clone();
     let proxy_obj = Proxy::custom(move |_| config_proxy.clone());
-    return client
+    return Ok(client
         .proxy(proxy_obj)
-        .build()
-        .unwrap()
+        .build()?
         .request(method, url.as_ref())
         .body(body_data)
         .send()
-        .await;
+        .await?);
 }
 lazy_static! {
     static ref RE_COMPILE_BY_CHARSET: Regex =
@@ -144,7 +86,7 @@ async fn fetch_raw_data(
     res: Response,
     is_index: bool,
     config: RequestOption,
-) -> Result<Arc<RawData>, WardError> {
+) -> anyhow::Result<Arc<RawData>> {
     let path: String = res.url().path().to_string();
     let url = res.url().join("/")?;
     let status_code = res.status();
@@ -195,36 +137,28 @@ async fn fetch_raw_data(
 
 // favicon的URL到Hash
 #[cached(
-type = "SizedCache<String, String>",
-create = "{ SizedCache::with_size(100) }",
-result = true,
-convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
+    type = "SizedCache<String, String>",
+    create = "{ SizedCache::with_size(100) }",
+    result = true,
+    convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
 )]
-async fn get_favicon_hash(url: &Url, config: &RequestOption) -> Result<String, WardError> {
+async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<String> {
     let default_request = WebFingerPrintRequest {
         path: String::from("/"),
         request_method: String::from("get"),
         request_headers: Default::default(),
         request_data: String::new(),
     };
-    match send_requests(url, &default_request, config).await {
-        Ok(res) => {
-            let status_code = res.status();
-            if !res.status().is_success() {
-                return Err(WardError::Fetch(format!(
-                    "Non-200 status code: {}",
-                    status_code
-                )));
-            }
-            let content = res.bytes().await?;
-            let mut hasher = Md5::new();
-            hasher.update(content);
-            let result = hasher.finalize();
-            let favicon_md5: String = format!("{:x}", (&result));
-            Ok(favicon_md5)
-        }
-        Err(err) => Err(WardError::Fetch(format!("{}", err))),
+    let res = send_requests(url, &default_request, config).await?;
+    if !res.status().is_success() {
+        return Err(anyhow::Error::from(std::io::Error::last_os_error()));
     }
+    let content = res.bytes().await?;
+    let mut hasher = Md5::new();
+    hasher.update(content);
+    let result = hasher.finalize();
+    let favicon_md5: String = format!("{:x}", &result);
+    Ok(favicon_md5)
 }
 
 // 从HTML标签中提取favicon的链接
@@ -267,7 +201,10 @@ lazy_static! {
             r#"(?im)window\.open\(['|"](?P<name>.*?)['|"]"#,
             r#"(?im)<meta.*?http-equiv=.*?refresh.*?url=(?P<name>.*?)['|"]>"#,
         ];
-        let re_list: Vec<Regex> = js_reg.iter().map(|reg| Regex::new(reg).expect("RE_COMPILE_BY_JUMP")).collect();
+        let re_list: Vec<Regex> = js_reg
+            .iter()
+            .map(|reg| Regex::new(reg).expect("RE_COMPILE_BY_JUMP"))
+            .collect();
         re_list
     };
 }
@@ -277,7 +214,10 @@ lazy_static! {
             r#"(?im)<link rel=["|']icon.*?href=["|'](?P<name>.*?)["|']/{0,1}>"#,
             r#"(?im)<link rel=["|']shortcut icon.*?href=["|'](?P<name>.*?)["|']/{0,1}>"#,
         ];
-        let re_list: Vec<Regex> = js_reg.iter().map(|reg| Regex::new(reg).expect("compiled regular expression")).collect();
+        let re_list: Vec<Regex> = js_reg
+            .iter()
+            .map(|reg| Regex::new(reg).expect("compiled regular expression"))
+            .collect();
         re_list
     };
 }
@@ -295,10 +235,10 @@ pub fn get_title(raw_data: &Arc<RawData>) -> String {
 
 // 首页请求
 #[cached(
-type = "SizedCache<String, Vec<Arc<RawData>>>",
-create = "{ SizedCache::with_size(100) }",
-result = true,
-convert = r#"{ format!("{}{:?}", url_str.to_owned(), special_wfp) }"#
+    type = "SizedCache<String, Vec<Arc<RawData>>>",
+    create = "{ SizedCache::with_size(100) }",
+    result = true,
+    convert = r#"{ format!("{}{:?}", url_str.to_owned(), special_wfp) }"#
 )]
 pub async fn index_fetch(
     url_str: &String,
@@ -306,7 +246,7 @@ pub async fn index_fetch(
     is_index: bool,
     is_special: bool,
     config: RequestOption,
-) -> Result<Vec<Arc<RawData>>, WardError> {
+) -> anyhow::Result<Vec<Arc<RawData>>> {
     let mut is_index: bool = is_index;
     let mut is_start_with_http: bool = true;
     let mut raw_data_list: Vec<Arc<RawData>> = vec![];
@@ -322,12 +262,7 @@ pub async fn index_fetch(
             scheme_url = scheme;
             is_start_with_http = false;
         }
-        let mut url = match Url::parse(scheme_url.as_str()) {
-            Ok(url) => url,
-            Err(err) => {
-                return Err(WardError::Other(format!("{:?}", err)));
-            }
-        };
+        let mut url =  Url::parse(scheme_url.as_str())?;
         loop {
             let mut next_url: Option<Url> = Option::None;
             if let Ok(res) = send_requests(&url, special_wfp, &config).await {

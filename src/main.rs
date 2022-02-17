@@ -7,10 +7,9 @@ use std::io::{self, Read};
 use observer_ward::cli::WardArgs;
 use observer_ward::{
     print_nuclei, print_opening, print_results_and_save, print_what_web, read_file_to_target,
-    read_nmap_fingerprint, webhook_results, Helper,
+    read_form_file, read_nmap_fingerprint, webhook_results, Helper,
 };
 use observer_ward_what_server::WhatServer;
-use observer_ward_what_web::fingerprint::read_form_file;
 use observer_ward_what_web::{strings_to_urls, RequestOption, WhatWeb, WhatWebResult};
 
 #[tokio::main]
