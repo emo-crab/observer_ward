@@ -113,9 +113,7 @@ jobs:
           target: aarch64-apple-darwin
           default: true
           override: true
-      - name: Cache
-        uses: Swatinem/rust-cache@v1
-      - name: Build for mac
+      - name: Build for mac M1
         run: |
           cargo build --target=aarch64-apple-darwin --release
           strip target/aarch64-apple-darwin/release/observer_ward
