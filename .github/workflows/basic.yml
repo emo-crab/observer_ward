@@ -106,3 +106,25 @@ jobs:
           asset_name: observer_ward_darwin
           tag: default
           overwrite: true
+      - name: Install latest rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: aarch64-apple-darwin
+          default: true
+          override: true
+      - name: Cache
+        uses: Swatinem/rust-cache@v1
+      - name: Build for mac
+        run: |
+          cargo build --target=aarch64-apple-darwin --release
+          strip target/aarch64-apple-darwin/release/observer_ward
+          mv target/aarch64-apple-darwin/release/observer_ward target/aarch64-apple-darwin/release/observer_ward_m1_darwin
+      - name: Upload binary to release
+        uses: svenstaro/upload-release-action@v1-release
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/aarch64-apple-darwin/release/observer_ward_m1_darwin
+          asset_name: observer_ward_m1_darwin
+          tag: default
+          overwrite: true
