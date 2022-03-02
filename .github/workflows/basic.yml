@@ -25,7 +25,7 @@ jobs:
         run: |
           sudo apt-get install upx-ucl -y
           sudo apt-get install musl-tools -y
-          sudo apt-get install pkg-config -y
+          sudo apt-get install pkg-config libssl-dev -y
           cargo build --target=x86_64-unknown-linux-musl --release
           strip target/x86_64-unknown-linux-musl/release/observer_ward
           upx --best --lzma target/x86_64-unknown-linux-musl/release/observer_ward
@@ -57,7 +57,8 @@ jobs:
       - name: Set up the Windows environment
         shell: bash
         run: |
-          choco install llvm upx
+          choco install llvm openssl upx
+          echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" >>$GITHUB_ENV
           echo "RUSTFLAGS=-C target-feature=+crt-static" >>$GITHUB_ENV
       - name: Cache
         uses: Swatinem/rust-cache@v1
