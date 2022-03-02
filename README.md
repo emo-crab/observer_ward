@@ -2,7 +2,7 @@
 
 [中文简体](./README.md)
 
-# ObserverWard_0x727
+# ObserverWard
 
 | 类别  | 说明                                                     |
 |-----|--------------------------------------------------------|
@@ -15,18 +15,18 @@
 ### 1. 源码手动安装
 
 ```bash
-git clone https://github.com/0x727/ObserverWard_0x727
-cd ObserverWard_0x727
+git clone https://github.com/0x727/ObserverWard
+cd ObserverWard
 cargo build --target  x86_64-unknown-linux-musl --release --all-features
 ```
 
-- 更多安装细节请查看当前项目的Actions自动化编译构建流程[文件](https://github.com/0x727/ObserverWard_0x727/blob/main/.github/workflows/basic.yml)。
+- 更多安装细节请查看当前项目的Actions自动化编译构建流程[文件](https://github.com/0x727/ObserverWard/blob/main/.github/workflows/basic.yml)。
 
 ### 2. 下载二进制安装
 
 - 因为前期更新比较频繁，没有使用tags发布版本，每次更新代码都会自动重新编译发布到`default`版本，所以`default`永远是最新的版本。
 - 看到是前几天发布的不要犹豫，下载就是最新的。
-- [发行版本](https://github.com/0x727/ObserverWard_0x727/releases)下载页面。
+- [发行版本](https://github.com/0x727/ObserverWard/releases)下载页面。
 
 ## 使用方法
 
@@ -174,7 +174,7 @@ https://httpbin.org,swagger,9593,200,httpbin.org,5
 Community based web fingerprint analysis tool.
 _______________________________________________
 : https://github.com/0x727/FingerprintHub     :
-: https://github.com/0x727/ObserverWard_0x727 :
+: https://github.com/0x727/ObserverWard       :
  ----------------------------------------------
 [ https://httpbin.org |["swagger"] | 9593 | 200 | httpbin.org ]
 Important technology:
@@ -223,15 +223,15 @@ if __name__ == '__main__':
 
 ## 为ObserverWard_0x727做贡献
 
-ObserverWard_0x727 是一个免费且开源的项目，我们欢迎任何人为其开发和进步贡献力量。
+ObserverWard 是一个免费且开源的项目，我们欢迎任何人为其开发和进步贡献力量。
 
 - 在使用过程中出现任何问题，可以通过 issues 来反馈。
 - Bug 的修复可以直接提交 Pull Request 到 dev 分支。
 - 如果是增加新的功能特性，请先创建一个 issue 并做简单描述以及大致的实现方法，提议被采纳后，就可以创建一个实现新特性的 Pull Request。
-- 欢迎对说明文档做出改善，帮助更多的人使用 ObserverWard_0x727，特别是英文文档。
+- 欢迎对说明文档做出改善，帮助更多的人使用 ObserverWard，特别是英文文档。
 - 贡献代码请提交 PR 至 dev 分支，master 分支仅用于发布稳定可用版本。
 - 如果你有任何其他方面的问题或合作，欢迎发送邮件至 0x727Team@gmail.com 。
 
 ## Stargazers over time
 
-[![Stargazers over time](https://starchart.cc/0x727/ObserverWard_0x727.svg)](https://github.com/0x727/ObserverWard_0x727)
+[![Stargazers over time](https://starchart.cc/0x727/ObserverWard.svg)](https://github.com/0x727/ObserverWard)

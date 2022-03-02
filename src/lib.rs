@@ -116,7 +116,7 @@ Community based web fingerprint analysis tool."#;
     print_color(s.to_string(), term::color::GREEN, true);
     let info = r#"_______________________________________________
 : https://github.com/0x727/FingerprintHub     :
-: https://github.com/0x727/ObserverWard_0x727 :
+: https://github.com/0x727/ObserverWard       :
  ----------------------------------------------"#;
     print_color(info.to_string(), term::color::YELLOW, true);
 }
@@ -166,7 +166,7 @@ impl Helper {
 impl Helper {
     pub async fn update_self(&self) {
         let mut base_url =
-            String::from("https://github.com/0x727/ObserverWard_0x727/releases/download/default/");
+            String::from("https://github.com/0x727/ObserverWard/releases/download/default/");
         let mut download_name = "observer_ward_amd64";
         if cfg!(target_os = "windows") {
             download_name = "observer_ward.exe";
