@@ -141,11 +141,11 @@ impl Helper {
                 "web_fingerprint_v3.json",
             )
             .await;
-            self.download_file_from_github(
-                "https://0x727.github.io/FingerprintHub/nmap_service_probes.json",
-                "nmap_service_probes.json",
-            )
-            .await;
+            // self.download_file_from_github(
+            //     "https://0x727.github.io/FingerprintHub/nmap_service_probes.json",
+            //     "nmap_service_probes.json",
+            // )
+            // .await;
             process::exit(0);
         }
         if self.config.update_self {
