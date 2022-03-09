@@ -20,6 +20,7 @@ panic = "abort"
 clap = "2.33.3"
 url = { version = "2.1.1", features = ["serde"] }
 csv = "1.1.6"
+dirs = "4.0.0"
 tokio = { version = "1.14.0", features = ["full"] }
 prettytable-rs = "^0.8"
 textwrap = "0.14"

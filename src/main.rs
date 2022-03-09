@@ -7,7 +7,7 @@ use std::io::{self, Read};
 use observer_ward::cli::WardArgs;
 use observer_ward::{
     print_nuclei, print_opening, print_results_and_save, print_what_web, read_file_to_target,
-    read_form_file, read_nmap_fingerprint, webhook_results, Helper,
+    webhook_results, Helper,
 };
 use observer_ward_what_server::WhatServer;
 use observer_ward_what_web::{strings_to_urls, RequestOption, WhatWeb, WhatWebResult};
@@ -31,10 +31,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let request_option = RequestOption::new(&config.timeout, &config.proxy);
     let helper = Helper::new(&config);
     helper.run().await;
-    let web_fingerprint = read_form_file(&config.verify);
+    let web_fingerprint = helper.read_web_fingerprint(&config.verify);
     let mut nmap_fingerprint = vec![];
     if config.service {
-        nmap_fingerprint = read_nmap_fingerprint();
+        nmap_fingerprint = helper.read_nmap_fingerprint();
     }
     let what_server_ins = WhatServer::new(300, nmap_fingerprint);
     let what_web_ins = WhatWeb::new(request_option.clone(), web_fingerprint);

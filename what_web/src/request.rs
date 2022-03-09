@@ -262,7 +262,7 @@ pub async fn index_fetch(
             scheme_url = scheme;
             is_start_with_http = false;
         }
-        let mut url =  Url::parse(scheme_url.as_str())?;
+        let mut url = Url::parse(scheme_url.as_str())?;
         loop {
             let mut next_url: Option<Url> = Option::None;
             if let Ok(res) = send_requests(&url, special_wfp, &config).await {

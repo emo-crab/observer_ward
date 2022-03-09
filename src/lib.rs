@@ -8,7 +8,6 @@ use reqwest::redirect::Policy;
 use reqwest::{header, Proxy};
 use serde_json::json;
 use std::collections::HashSet;
-use std::env;
 use std::fs::File;
 use std::io::Cursor;
 use std::io::{BufRead, Read};
@@ -114,31 +113,47 @@ pub fn print_opening() {
   \/_/   \/_/   \/_/\/_/   \/_/ /_/   \/____/
 Community based web fingerprint analysis tool."#;
     print_color(s.to_string(), term::color::GREEN, true);
-    let info = r#"_______________________________________________
-: https://github.com/0x727/FingerprintHub     :
-: https://github.com/0x727/ObserverWard       :
- ----------------------------------------------"#;
+    let info = r#"_____________________________________________
+:  https://github.com/0x727/FingerprintHub  :
+:  https://github.com/0x727/ObserverWard    :
+ --------------------------------------------"#;
     print_color(info.to_string(), term::color::YELLOW, true);
 }
 
 pub struct Helper {
     request_option: RequestOption,
+    config_path: PathBuf,
     config: WardArgs,
 }
 
 impl Helper {
     pub fn new(config: &WardArgs) -> Self {
         let ro = RequestOption::new(&config.timeout, &config.proxy);
+        let mut config_path = PathBuf::new();
+        if let Some(cp) = dirs::config_dir() {
+            config_path = cp;
+        } else {
+            println!("Cannot create config directory{:?}", config_path);
+            std::process::exit(0);
+        }
+        let observer_ward = config_path.join(".observer_ward");
+        if !observer_ward.is_dir() || !observer_ward.exists() {
+            std::fs::create_dir_all(&observer_ward).unwrap_or_default();
+        }
         Self {
             request_option: ro,
+            config_path: observer_ward,
             config: config.clone(),
         }
     }
     pub async fn run(&self) {
         if self.config.update_fingerprint {
+            let fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
             self.download_file_from_github(
                 "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
-                "web_fingerprint_v3.json",
+                fingerprint_path
+                    .to_str()
+                    .unwrap_or("web_fingerprint_v3.json"),
             )
             .await;
             // self.download_file_from_github(
@@ -158,6 +173,7 @@ impl Helper {
                 "plugins.zip",
             )
             .await;
+            println!("Please unzip the plugins.zip");
             process::exit(0);
         }
     }
@@ -184,6 +200,61 @@ impl Helper {
             save_filename, download_name
         );
     }
+
+    pub fn read_nmap_fingerprint(&self) -> Vec<NmapFingerPrintLib> {
+        let nmap_fingerprint_path = self.config_path.join("nmap_service_probes.json");
+        let mut file = match File::open(nmap_fingerprint_path) {
+            Err(_) => {
+                println!("The nmap fingerprint library cannot be found in the current directory!");
+                std::process::exit(0);
+            }
+            Ok(file) => file,
+        };
+        let mut data = String::new();
+        file.read_to_string(&mut data).ok();
+        let nmap_fingerprint: Vec<NmapFingerPrintLib> =
+            serde_json::from_str(&data).expect("BAD JSON");
+        return nmap_fingerprint;
+    }
+
+    pub fn read_web_fingerprint(&self, verify: &String) -> Vec<WebFingerPrint> {
+        return if !verify.is_empty() {
+            let mut file = match File::open(verify.clone()) {
+                Err(_) => {
+                    println!("The verification file cannot be found in the current directory!");
+                    std::process::exit(0);
+                }
+                Ok(file) => file,
+            };
+            let mut data = String::new();
+            file.read_to_string(&mut data).ok();
+            let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
+            let verify_fingerprints: VerifyWebFingerPrint =
+                serde_yaml::from_str(&data).expect("BAD YAML");
+            for mut verify_fingerprint in verify_fingerprints.fingerprint {
+                verify_fingerprint.name = verify_fingerprints.name.clone();
+                verify_fingerprint.priority = verify_fingerprints.priority.clone();
+                web_fingerprint.push(verify_fingerprint);
+            }
+            web_fingerprint
+        } else {
+            let web_fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
+            let mut file = match File::open(web_fingerprint_path) {
+                Err(_) => {
+                    println!("The fingerprint library cannot be found in the current directory!");
+                    println!("Update fingerprint library with `-u` parameter!");
+                    std::process::exit(0);
+                }
+                Ok(file) => file,
+            };
+            let mut data = String::new();
+            file.read_to_string(&mut data).ok();
+            let web_fingerprint: Vec<WebFingerPrint> =
+                serde_json::from_str(&data).expect("BAD JSON");
+            web_fingerprint
+        };
+    }
+
     pub fn read_results_file(&self) -> Vec<WhatWebResult> {
         let mut results: Vec<WhatWebResult> = Vec::new();
         let read_file_data = |path: &str| {
@@ -266,14 +337,11 @@ impl Helper {
         let client = reqwest::Client::builder().proxy(proxy_obj);
         match client.build().unwrap().get(update_url).send().await {
             Ok(response) => {
-                let self_path: PathBuf = env::current_exe().unwrap_or(PathBuf::new());
-                let path = Path::new(&self_path).parent().unwrap_or(Path::new(""));
-                let mut file = std::fs::File::create(path.join(filename)).unwrap();
+                let mut file = std::fs::File::create(filename).unwrap();
                 let mut content = Cursor::new(response.bytes().await.unwrap());
                 std::io::copy(&mut content, &mut file).unwrap();
                 println!(
-                    "Complete {} update: {} file size => {:?}",
-                    filename,
+                    "update: {} file size => {:?}",
                     filename,
                     file.metadata().unwrap().len()
                 );
@@ -383,58 +451,4 @@ pub fn print_results_and_save(
         );
         table.printstd();
     }
-}
-
-pub fn read_nmap_fingerprint() -> Vec<NmapFingerPrintLib> {
-    let self_path: PathBuf = env::current_exe().unwrap_or(PathBuf::new());
-    let path = Path::new(&self_path).parent().unwrap_or(Path::new(""));
-    let mut file = match File::open(path.join("nmap_service_probes.json")) {
-        Err(_) => {
-            println!("The nmap fingerprint library cannot be found in the current directory!");
-            std::process::exit(0);
-        }
-        Ok(file) => file,
-    };
-    let mut data = String::new();
-    file.read_to_string(&mut data).ok();
-    let nmap_fingerprint: Vec<NmapFingerPrintLib> = serde_json::from_str(&data).expect("BAD JSON");
-    return nmap_fingerprint;
-}
-
-pub fn read_form_file(verify: &String) -> Vec<WebFingerPrint> {
-    let self_path: PathBuf = env::current_exe().unwrap_or(PathBuf::new());
-    let path = Path::new(&self_path).parent().unwrap_or(Path::new(""));
-    return if !verify.is_empty() {
-        let mut file = match File::open(verify.clone()) {
-            Err(_) => {
-                println!("The verification file cannot be found in the current directory!");
-                std::process::exit(0);
-            }
-            Ok(file) => file,
-        };
-        let mut data = String::new();
-        file.read_to_string(&mut data).ok();
-        let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
-        let verify_fingerprints: VerifyWebFingerPrint =
-            serde_yaml::from_str(&data).expect("BAD YAML");
-        for mut verify_fingerprint in verify_fingerprints.fingerprint {
-            verify_fingerprint.name = verify_fingerprints.name.clone();
-            verify_fingerprint.priority = verify_fingerprints.priority.clone();
-            web_fingerprint.push(verify_fingerprint);
-        }
-        web_fingerprint
-    } else {
-        let mut file = match File::open(path.join("web_fingerprint_v3.json")) {
-            Err(_) => {
-                println!("The fingerprint library cannot be found in the current directory!");
-                println!("Update fingerprint library with `-u` parameter!");
-                std::process::exit(0);
-            }
-            Ok(file) => file,
-        };
-        let mut data = String::new();
-        file.read_to_string(&mut data).ok();
-        let web_fingerprint: Vec<WebFingerPrint> = serde_json::from_str(&data).expect("BAD JSON");
-        web_fingerprint
-    };
 }
