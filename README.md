@@ -217,6 +217,26 @@ if __name__ == '__main__':
 ```shell
 ➜  ~ ./observer_ward_amd64 -f target.txt --webhook http://127.0.0.1:5000/webhook
 ```
+
+Webhook json格式：
+
+```
+{
+    "is_web":true,
+    "length":9593,
+    "name":[
+        "swagger"
+    ],
+    "plugins":[
+
+    ],
+    "priority":5,
+    "status_code":200,
+    "title":"httpbin.org",
+    "url":"https://httpbin.org/"
+}
+```
+
 ## 提交指纹
 
 - ObserverWard_0x727使用到的指纹规则全部来自[FingerprintHub](https://github.com/0x727/FingerprintHub)项目，如果需要获取指纹库和提交指纹规则，请查看[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
