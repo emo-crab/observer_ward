@@ -68,6 +68,7 @@ OPTIONS:
 | Windows | C:\Users\Alice\AppData\Roaming\.observer_ward\web_fingerprint_v3.json           |
 | Linux   | /home/alice/.config/.observer_ward/web_fingerprint_v3.json                      |
 | macOS   | /Users/Alice/Library/Application Support/.observer_ward/web_fingerprint_v3.json |
+
 ```bash
 ➜  ~ ./observer_ward_amd64 -u    
 update: /home/kali-team/.config/.observer_ward/web_fingerprint_v3.json file size => 953771
@@ -195,6 +196,7 @@ Important technology:
 ➜  ~ ./observer_ward_amd64 -f target.txt --json result.json --plugins 0x727/FingerprintHub/plugins
 ```
 ## WebHook
+
 ```python
 from flask import Flask, request
 
@@ -210,6 +212,7 @@ def xray_webhook():
 if __name__ == '__main__':
     app.run()
 ```
+
 - 开启webhook后，添加`--webhook`参数，将识别的结果发送到webhook服务器。
 ```shell
 ➜  ~ ./observer_ward_amd64 -f target.txt --webhook http://127.0.0.1:5000/webhook
@@ -217,7 +220,7 @@ if __name__ == '__main__':
 
 Webhook json格式：
 
-```
+``` json
 {
     "is_web":true,
     "length":9593,
