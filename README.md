@@ -63,15 +63,15 @@ OPTIONS:
 
 - 使用`-u`参数从指纹库中更新指纹，也可以自己从[指纹库项目](https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json)当前系统对应目录。
 
-| 系统      | 路径                                                                              |
-|---------|---------------------------------------------------------------------------------|
-| Windows | C:\Users\Alice\AppData\Roaming\.observer_ward\web_fingerprint_v3.json           |
-| Linux   | /home/alice/.config/.observer_ward/web_fingerprint_v3.json                      |
-| macOS   | /Users/Alice/Library/Application Support/.observer_ward/web_fingerprint_v3.json |
+| 系统      | 路径                                                                             |
+|---------|--------------------------------------------------------------------------------|
+| Windows | C:\Users\Alice\AppData\Roaming\observer_ward\web_fingerprint_v3.json           |
+| Linux   | /home/alice/.config/observer_ward/web_fingerprint_v3.json                      |
+| macOS   | /Users/Alice/Library/Application Support/observer_ward/web_fingerprint_v3.json |
 
 ```bash
 ➜  ~ ./observer_ward_amd64 -u    
-update: /home/kali-team/.config/.observer_ward/web_fingerprint_v3.json file size => 953771
+update: /home/kali-team/.config/observer_ward/web_fingerprint_v3.json file size => 953771
 ```
 
 ### 验证指纹是否有效

@@ -136,7 +136,7 @@ impl Helper {
             println!("Cannot create config directory{:?}", config_path);
             std::process::exit(0);
         }
-        let observer_ward = config_path.join(".observer_ward");
+        let observer_ward = config_path.join("observer_ward");
         if !observer_ward.is_dir() || !observer_ward.exists() {
             std::fs::create_dir_all(&observer_ward).unwrap_or_default();
         }
