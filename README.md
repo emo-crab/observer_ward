@@ -74,6 +74,19 @@ OPTIONS:
 update: /home/kali-team/.config/observer_ward/web_fingerprint_v3.json file size => 953771
 ```
 
+### 更新插件
+
+- 使用`--update_plugins`
+  从[指纹库项目](https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip)下载插件压缩包到用户配置目录。
+- 并自动解压到当前系统对应目录，当使用`--plugins default`参数时会默认使用这个目录下的插件。
+- 更新会删除原来的目录，重新解压覆盖。
+
+| 系统      | 路径                                                             |
+|---------|----------------------------------------------------------------|
+| Windows | C:\Users\Alice\AppData\Roaming\observer_ward\plugins           |
+| Linux   | /home/alice/.config/observer_ward/plugins                      |
+| macOS   | /Users/Alice/Library/Application Support/observer_ward/plugins |
+
 ### 验证指纹是否有效
 
 - `--verify`指定要验证的指纹yaml文件路径，`-t`指定要识别的目标。
@@ -156,14 +169,13 @@ https://httpbin.org,swagger,9593,200,httpbin.org,5
 - **请确保nuclei更新至`2.5.3`以上版本**
 - 如果需要使用[nuclei](https://github.com/projectdiscovery/nuclei)检测漏洞，需要首先安装`Nuclei`到当前目录，或者是加入环境变量里面，让`observe_ward`可以正常调用。
 - 再下载[指纹库中的插件](https://github.com/0x727/FingerprintHub/tree/main/plugins)到当前目录下，或者使用`--update_plugins`插件。
-- 按照提示解压插件到当前目录。
-- 在[指纹库](https://github.com/0x727/FingerprintHub/tree/main/plugins)中已经对部分组件的插件进行了分类，如果识别到的组件在`plugins`目录下存在和组件同名的文件夹，会对目标调用Nuclei使用匹配到的插件进行检测，存在漏洞会输出到屏幕。
+- 在[指纹库](https://github.com/0x727/FingerprintHub/tree/main/plugins)中已经对部分组件的插件进行了分类。
+- 如果识别到的组件在`plugins`目录下存在和组件同名的文件夹，会对目标调用Nuclei使用匹配到的插件进行检测，存在漏洞会输出到屏幕。
 - 因为经过测试在指纹识别过程中同时调用nuclei检测漏洞会影响Web指纹识别的效果，也会拉长识别的时间，所以选择识别完Web指纹后将结果保存到文件，再解析文件调用nuclei检测。
 - 目前支持将Web指纹识别的结果保存为`json`和`csv`格式，所以只能解析这两种格式。
 
-
 ```bash
-➜  ~ ./observer_ward_amd64 -t https://httpbin.org --csv result.csv --plugins 0x727/FingerprintHub/plugins  
+➜  ~ ./observer_ward_amd64 -t https://httpbin.org --csv result.csv --plugins 0x727/FingerprintHub/plugins
  __     __     ______     ______     _____
 /\ \  _ \ \   /\  __ \   /\  == \   /\  __-.
 \ \ \/ ".\ \  \ \  __ \  \ \  __<   \ \ \/\ \
@@ -191,10 +203,19 @@ Important technology:
 +---------------------+---------+--------+-------------+-------------+----------+------------+
 
 ```
+
 - 同理`json`格式也可以。
+
 ```bash
 ➜  ~ ./observer_ward_amd64 -f target.txt --json result.json --plugins 0x727/FingerprintHub/plugins
 ```
+
+- 使用默认插件目录`default`
+
+```bash
+➜  ~ ./observer_ward_amd64 -f target.txt --json result.json --plugins default
+```
+
 ## WebHook
 
 ```python
@@ -214,6 +235,7 @@ if __name__ == '__main__':
 ```
 
 - 开启webhook后，添加`--webhook`参数，将识别的结果发送到webhook服务器。
+
 ```shell
 ➜  ~ ./observer_ward_amd64 -f target.txt --webhook http://127.0.0.1:5000/webhook
 ```
@@ -239,7 +261,8 @@ Webhook json格式：
 
 ## 提交指纹
 
-- ObserverWard_0x727使用到的指纹规则全部来自[FingerprintHub](https://github.com/0x727/FingerprintHub)项目，如果需要获取指纹库和提交指纹规则，请查看[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
+- ObserverWard_0x727使用到的指纹规则全部来自[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
+- 如果需要获取指纹库和提交指纹规则，请查看[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
 
 ## 为ObserverWard_0x727做贡献
 

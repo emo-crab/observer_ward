@@ -15,10 +15,12 @@ use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{io, process};
+use lazy_static::lazy_static;
 use term::color::Color;
 use tokio::process::Command;
 
 pub mod cli;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -27,6 +29,7 @@ pub struct VerifyWebFingerPrint {
     priority: u32,
     fingerprint: Vec<WebFingerPrint>,
 }
+
 pub fn print_color(mut string: String, color: Color, nl: bool) {
     if nl {
         string.push('\n')
@@ -125,10 +128,8 @@ pub struct Helper {
     config_path: PathBuf,
     config: WardArgs,
 }
-
-impl Helper {
-    pub fn new(config: &WardArgs) -> Self {
-        let ro = RequestOption::new(&config.timeout, &config.proxy);
+lazy_static! {
+    static ref OBSERVER_WARD_PATH: PathBuf={
         let mut config_path = PathBuf::new();
         if let Some(cp) = dirs::config_dir() {
             config_path = cp;
@@ -140,9 +141,15 @@ impl Helper {
         if !observer_ward.is_dir() || !observer_ward.exists() {
             std::fs::create_dir_all(&observer_ward).unwrap_or_default();
         }
+        return observer_ward;
+    };
+}
+impl Helper {
+    pub fn new(config: &WardArgs) -> Self {
+        let ro = RequestOption::new(&config.timeout, &config.proxy);
         Self {
             request_option: ro,
-            config_path: observer_ward,
+            config_path: OBSERVER_WARD_PATH.clone(),
             config: config.clone(),
         }
     }
@@ -155,7 +162,7 @@ impl Helper {
                     .to_str()
                     .unwrap_or("web_fingerprint_v3.json"),
             )
-            .await;
+                .await;
             // self.download_file_from_github(
             //     "https://0x727.github.io/FingerprintHub/nmap_service_probes.json",
             //     "nmap_service_probes.json",
@@ -168,12 +175,21 @@ impl Helper {
             process::exit(0);
         }
         if self.config.update_plugins {
+            let plugins_zip_path = self.config_path.join("plugins.zip");
+            let extract_target_path = self.config_path.clone();
             self.download_file_from_github(
                 "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
-                "plugins.zip",
-            )
-            .await;
-            println!("Please unzip the plugins.zip");
+                plugins_zip_path.to_str().unwrap_or("plugins.zip"),
+            ).await;
+            match extract_plugins_zip(&plugins_zip_path, &extract_target_path) {
+                Ok(_) => {
+                    println!("It has been extracted to the {:?}", extract_target_path);
+                }
+                Err(err) => {
+                    println!("{:?}", err);
+                    println!("Please manually unzip the plugins to the directory");
+                }
+            }
             process::exit(0);
         }
     }
@@ -335,13 +351,14 @@ impl Helper {
         let proxy = self.request_option.proxy.clone();
         let proxy_obj = Proxy::custom(move |_url| proxy.clone());
         let client = reqwest::Client::builder().proxy(proxy_obj);
+        println!("Downloading {} to {}.", update_url, filename);
         match client.build().unwrap().get(update_url).send().await {
             Ok(response) => {
                 let mut file = std::fs::File::create(filename).unwrap();
                 let mut content = Cursor::new(response.bytes().await.unwrap());
                 std::io::copy(&mut content, &mut file).unwrap();
                 println!(
-                    "update: {} file size => {:?}",
+                    "Update: '{}' file size => {:?}",
                     filename,
                     file.metadata().unwrap().len()
                 );
@@ -365,8 +382,8 @@ pub fn read_file_to_target(file_path: &String) -> HashSet<String> {
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where
-    P: AsRef<Path>,
+    where
+        P: AsRef<Path>,
 {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
@@ -451,4 +468,15 @@ pub fn print_results_and_save(
         );
         table.printstd();
     }
+}
+
+fn extract_plugins_zip(f_name: &PathBuf, extract_target_path: &PathBuf) -> Result<(), std::io::Error> {
+    let plugins_path = extract_target_path.join("plugins");
+    if plugins_path.exists() {
+        std::fs::remove_dir_all(plugins_path)?;
+    }
+    let zipfile = std::fs::File::open(f_name)?;
+    let mut archive = zip::ZipArchive::new(zipfile)?;
+    archive.extract(extract_target_path)?;
+    Ok(())
 }

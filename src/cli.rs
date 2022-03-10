@@ -3,7 +3,7 @@ extern crate clap;
 use std::path::Path;
 use std::process;
 use std::process::{Command, Stdio};
-
+use crate::OBSERVER_WARD_PATH;
 use clap::{App, Arg};
 use serde::{Deserialize, Serialize};
 
@@ -177,8 +177,11 @@ impl WardArgs {
                 process::exit(0);
             }
             plugins = nuclei.to_string();
+            if plugins == "default" {
+                plugins = OBSERVER_WARD_PATH.join("plugins").to_str().unwrap_or_default().to_string();
+            }
             if !Path::new(&plugins).exists() {
-                println!("The plugins directory does not exist!");
+                println!("The '{}' directory does not exist!", plugins);
                 process::exit(0);
             }
         }
