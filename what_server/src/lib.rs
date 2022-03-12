@@ -31,7 +31,7 @@ struct Matches {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct NmapFingerPrintLib {
+pub struct NmapFingerPrint {
     matches: Vec<Matches>,
     directive_name: String,
     protocol: String,
@@ -47,7 +47,7 @@ pub struct NmapFingerPrintLib {
     fallback: Option<String>,
 }
 
-impl NmapFingerPrintLib {
+impl NmapFingerPrint {
     pub async fn match_rules(&self, response: &Vec<u8>) -> HashSet<String> {
         let mut server_name: HashSet<String> = HashSet::new();
         let mut futures = FuturesUnordered::new();
@@ -89,12 +89,12 @@ impl NmapFingerPrintLib {
 #[derive(Clone)]
 pub struct WhatServer {
     timeout: u64,
-    fingerprint: Arc<Vec<NmapFingerPrintLib>>,
+    fingerprint: Arc<Vec<NmapFingerPrint>>,
 }
 
 impl WhatServer {
-    pub fn new(timeout: u64, nmap_fingerprint: Vec<NmapFingerPrintLib>) -> Self {
-        let fingerprint: Arc<Vec<NmapFingerPrintLib>> = Arc::new(nmap_fingerprint);
+    pub fn new(timeout: u64, nmap_fingerprint: Vec<NmapFingerPrint>) -> Self {
+        let fingerprint: Arc<Vec<NmapFingerPrint>> = Arc::new(nmap_fingerprint);
         Self {
             timeout,
             fingerprint,
@@ -103,8 +103,8 @@ impl WhatServer {
     fn filter_probes_by_port(
         &self,
         port: u16,
-    ) -> (Vec<&NmapFingerPrintLib>, Vec<&NmapFingerPrintLib>) {
-        let (mut in_probes, mut ex_probes): (Vec<&NmapFingerPrintLib>, Vec<&NmapFingerPrintLib>) =
+    ) -> (Vec<&NmapFingerPrint>, Vec<&NmapFingerPrint>) {
+        let (mut in_probes, mut ex_probes): (Vec<&NmapFingerPrint>, Vec<&NmapFingerPrint>) =
             (vec![], vec![]);
         for nmap_fingerprint in self.fingerprint.iter() {
             if nmap_fingerprint.ports.contains(&port) {
@@ -140,7 +140,7 @@ impl WhatServer {
         stream.set_ttl(100).unwrap();
         Ok(stream)
     }
-    async fn exec_run(&self, probe: &NmapFingerPrintLib, host_port: SocketAddr) -> HashSet<String> {
+    async fn exec_run(&self, probe: &NmapFingerPrint, host_port: SocketAddr) -> HashSet<String> {
         let response = self.send_directive_str_request(host_port, probe.directive_str.clone());
         let server = probe.match_rules(&response).await;
         return server;
@@ -193,7 +193,7 @@ impl WhatServer {
 }
 
 lazy_static! {
-    static ref NMAP_FINGERPRINT_LIB_DATA: Vec<NmapFingerPrintLib> = {
+    static ref NMAP_FINGERPRINT_LIB_DATA: Vec<NmapFingerPrint> = {
         let self_path: PathBuf = env::current_exe().unwrap_or(PathBuf::new());
         let path = Path::new(&self_path).parent().unwrap_or(Path::new(""));
         let mut file = match File::open(path.join("nmap_service_probes.json")) {
@@ -205,7 +205,7 @@ lazy_static! {
         };
         let mut data = String::new();
         file.read_to_string(&mut data).ok();
-        let nmap_fingerprint: Vec<NmapFingerPrintLib> =
+        let nmap_fingerprint: Vec<NmapFingerPrint> =
             serde_json::from_str(&data).expect("BAD JSON");
         nmap_fingerprint
     };

@@ -1,25 +1,29 @@
-use crate::cli::WardArgs;
-use observer_ward_what_server::NmapFingerPrintLib;
+use crate::cli::ObserverWardConfig;
+use observer_ward_what_server::{NmapFingerPrint, WhatServer};
 use observer_ward_what_web::fingerprint::WebFingerPrint;
-use observer_ward_what_web::{RequestOption, TemplateResult, WhatWebResult};
+use observer_ward_what_web::{RequestOption, TemplateResult, WhatWeb, WhatWebResult};
 use prettytable::csv::Reader;
 use prettytable::{color, Attr, Cell, Row, Table};
 use reqwest::redirect::Policy;
 use reqwest::{header, Proxy};
 use serde_json::json;
 use std::collections::HashSet;
+use futures::channel::mpsc::unbounded;
 use std::fs::File;
 use std::io::Cursor;
 use std::io::{BufRead, Read};
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use std::{io, process};
+use std::io;
 use lazy_static::lazy_static;
 use term::color::Color;
 use tokio::process::Command;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 
 pub mod cli;
+pub mod api;
 
 use serde::{Deserialize, Serialize};
 
@@ -126,7 +130,7 @@ Community based web fingerprint analysis tool."#;
 pub struct Helper {
     request_option: RequestOption,
     config_path: PathBuf,
-    config: WardArgs,
+    config: ObserverWardConfig,
 }
 lazy_static! {
     static ref OBSERVER_WARD_PATH: PathBuf={
@@ -145,7 +149,7 @@ lazy_static! {
     };
 }
 impl Helper {
-    pub fn new(config: &WardArgs) -> Self {
+    pub fn new(config: &ObserverWardConfig) -> Self {
         let ro = RequestOption::new(&config.timeout, &config.proxy);
         Self {
             request_option: ro,
@@ -168,11 +172,9 @@ impl Helper {
             //     "nmap_service_probes.json",
             // )
             // .await;
-            process::exit(0);
         }
         if self.config.update_self {
             self.update_self().await;
-            process::exit(0);
         }
         if self.config.update_plugins {
             let plugins_zip_path = self.config_path.join("plugins.zip");
@@ -190,7 +192,6 @@ impl Helper {
                     println!("Please manually unzip the plugins to the directory");
                 }
             }
-            process::exit(0);
         }
     }
 }
@@ -217,7 +218,7 @@ impl Helper {
         );
     }
 
-    pub fn read_nmap_fingerprint(&self) -> Vec<NmapFingerPrintLib> {
+    pub fn read_nmap_fingerprint(&self) -> Vec<NmapFingerPrint> {
         let nmap_fingerprint_path = self.config_path.join("nmap_service_probes.json");
         let mut file = match File::open(nmap_fingerprint_path) {
             Err(_) => {
@@ -228,7 +229,7 @@ impl Helper {
         };
         let mut data = String::new();
         file.read_to_string(&mut data).ok();
-        let nmap_fingerprint: Vec<NmapFingerPrintLib> =
+        let nmap_fingerprint: Vec<NmapFingerPrint> =
             serde_json::from_str(&data).expect("BAD JSON");
         return nmap_fingerprint;
     }
@@ -297,55 +298,6 @@ impl Helper {
             results.extend(wwr);
         }
         results
-    }
-    pub async fn get_plugins_by_nuclei(&self, w: WhatWebResult) -> WhatWebResult {
-        let mut wwr = w.clone();
-        let mut plugins_set: HashSet<String> = HashSet::new();
-        let mut exist_plugins: Vec<String> = Vec::new();
-        for name in wwr.name.iter() {
-            let plugins_name_path = Path::new(&self.config.plugins).join(name);
-            if plugins_name_path.exists() {
-                if let Some(p_path) = plugins_name_path.to_str() {
-                    exist_plugins.push(p_path.to_string())
-                }
-            }
-        }
-        if exist_plugins.is_empty() {
-            return wwr;
-        }
-        let mut command_line = Command::new("nuclei");
-        command_line.args([
-            "-u",
-            &wwr.url,
-            "-no-color",
-            "-timeout",
-            &(self.config.timeout + 5).to_string(),
-        ]);
-        command_line.args([
-            "-H",
-            "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0",
-        ]);
-        for p in exist_plugins.iter() {
-            command_line.args(["-t", p]);
-        }
-        command_line.args(["-silent", "-json"]);
-        let output = command_line.output().await.expect("command_line_output");
-        if let Ok(template_output) = String::from_utf8(output.stdout) {
-            let templates_output: Vec<String> = template_output
-                .split_terminator('\n')
-                .map(|s| s.to_string())
-                .collect();
-            for line in templates_output.iter() {
-                let template: TemplateResult = serde_json::from_str(&line).unwrap_or_default();
-                wwr.template_result.push(template.clone());
-                plugins_set.insert(template.template_id);
-            }
-        }
-        wwr.plugins = plugins_set;
-        if !wwr.plugins.is_empty() {
-            wwr.priority = wwr.priority + 1;
-        }
-        return wwr;
     }
     pub async fn download_file_from_github(&self, update_url: &str, filename: &str) {
         let proxy = self.request_option.proxy.clone();
@@ -479,4 +431,200 @@ fn extract_plugins_zip(f_name: &PathBuf, extract_target_path: &PathBuf) -> Resul
     let mut archive = zip::ZipArchive::new(zipfile)?;
     archive.extract(extract_target_path)?;
     Ok(())
+}
+
+pub async fn get_plugins_by_nuclei(w: WhatWebResult, config: &ObserverWardConfig) -> WhatWebResult {
+    let mut wwr = w.clone();
+    let mut plugins_set: HashSet<String> = HashSet::new();
+    let mut exist_plugins: Vec<String> = Vec::new();
+    for name in wwr.name.iter() {
+        let plugins_name_path = Path::new(&config.plugins).join(name);
+        if plugins_name_path.exists() {
+            if let Some(p_path) = plugins_name_path.to_str() {
+                exist_plugins.push(p_path.to_string())
+            }
+        }
+    }
+    if exist_plugins.is_empty() {
+        return wwr;
+    }
+    let mut command_line = Command::new("nuclei");
+    command_line.args([
+        "-u",
+        &wwr.url,
+        "-no-color",
+        "-timeout",
+        &(config.timeout + 5).to_string(),
+    ]);
+    command_line.args([
+        "-H",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0",
+    ]);
+    for p in exist_plugins.iter() {
+        command_line.args(["-t", p]);
+    }
+    command_line.args(["-silent", "-json"]);
+    let output = command_line.output().await.expect("command_line_output");
+    if let Ok(template_output) = String::from_utf8(output.stdout) {
+        let templates_output: Vec<String> = template_output
+            .split_terminator('\n')
+            .map(|s| s.to_string())
+            .collect();
+        for line in templates_output.iter() {
+            let template: TemplateResult = serde_json::from_str(&line).unwrap_or_default();
+            wwr.template_result.push(template.clone());
+            plugins_set.insert(template.template_id);
+        }
+    }
+    wwr.plugins = plugins_set;
+    if !wwr.plugins.is_empty() {
+        wwr.priority = wwr.priority + 1;
+    }
+    return wwr;
+}
+
+#[derive(Clone)]
+pub struct ObserverWard {
+    what_server_ins: WhatServer,
+    what_web_ins: WhatWeb,
+    config: ObserverWardConfig,
+}
+
+impl ObserverWard {
+    pub fn new(config: ObserverWardConfig, web_fingerprint: Vec<WebFingerPrint>, nmap_fingerprint: Vec<NmapFingerPrint>) -> Self {
+        let request_option = RequestOption::new(&config.timeout, &config.proxy);
+        let what_server_ins = WhatServer::new(300, nmap_fingerprint);
+        let what_web_ins = WhatWeb::new(request_option, web_fingerprint);
+        Self {
+            what_server_ins,
+            what_web_ins,
+            config,
+        }
+    }
+    pub async fn scan(&self, targets: HashSet<String>) -> Vec<WhatWebResult> {
+        let config = self.config.clone();
+        let what_web_ins = self.what_web_ins.clone();
+        let what_server_ins = self.what_server_ins.clone();
+        let (what_web_sender, mut what_web_receiver) = unbounded();
+        let (mut what_server_sender, mut what_server_receiver) = unbounded();
+        let (mut verify_sender, mut verify_receiver) = unbounded();
+        let (mut results_sender, mut results_receiver) = unbounded();
+        let mut vec_results: Vec<WhatWebResult> = vec![];
+        let config_thread = config.thread.clone();
+        let webhook = config.webhook.clone();
+        let what_web_handle = tokio::task::spawn(async move {
+            let mut worker = FuturesUnordered::new();
+            let mut targets_iter = targets.iter();
+            for _ in 0..config_thread {
+                match targets_iter.next() {
+                    Some(target) => worker.push(what_web_ins.scan(target.to_string())),
+                    None => {
+                        break;
+                    }
+                }
+            }
+            while let Some(result) = worker.next().await {
+                if let Some(target) = targets_iter.next() {
+                    worker.push(what_web_ins.scan(target.to_string()));
+                }
+                what_web_sender.unbounded_send(result).unwrap_or_default();
+            }
+            return true;
+        });
+        let what_server_handle = tokio::task::spawn(async move {
+            let mut worker = FuturesUnordered::new();
+            for _ in 0..3 {
+                match what_web_receiver.next().await {
+                    Some(w) => worker.push(what_server_ins.scan(w)),
+                    None => {
+                        break;
+                    }
+                }
+            }
+            while let Some(wwr) = worker.next().await {
+                if let Some(v_wwr) = what_web_receiver.next().await {
+                    worker.push(what_server_ins.scan(v_wwr));
+                }
+                print_what_web(&wwr);
+                what_server_sender.start_send(wwr).unwrap_or_default();
+            }
+            return true;
+        });
+        let plugins_path = config.plugins.clone();
+        let verify_handle = tokio::task::spawn(async move {
+            if !plugins_path.is_empty() {
+                let mut worker = FuturesUnordered::new();
+                for _ in 0..3 {
+                    match what_server_receiver.next().await {
+                        Some(w) => {
+                            worker.push(get_plugins_by_nuclei(w, &config));
+                        }
+                        None => {
+                            break;
+                        }
+                    }
+                }
+                while let Some(wwr) = worker.next().await {
+                    if let Some(v_wwr) = what_server_receiver.next().await {
+                        worker.push(get_plugins_by_nuclei(v_wwr, &config));
+                    }
+                    print_nuclei(&wwr);
+                    verify_sender.start_send(wwr).unwrap_or_default();
+                }
+            } else {
+                while let Some(wwr) = what_server_receiver.next().await {
+                    verify_sender.start_send(wwr).unwrap_or_default();
+                }
+            }
+            return true;
+        });
+
+        let results_handle = tokio::task::spawn(async move {
+            let mut worker = FuturesUnordered::new();
+            if !webhook.is_empty() {
+                for _ in 0..3 {
+                    match verify_receiver.next().await {
+                        Some(w) => {
+                            worker.push(webhook_results(w, &webhook));
+                        }
+                        None => {
+                            break;
+                        }
+                    }
+                }
+                while let Some(wwr) = worker.next().await {
+                    if let Some(w) = verify_receiver.next().await {
+                        worker.push(webhook_results(w, &webhook));
+                    }
+                    results_sender.start_send(wwr).unwrap_or_default();
+                }
+            } else {
+                while let Some(wwr) = verify_receiver.next().await {
+                    results_sender.start_send(wwr).unwrap_or_default();
+                }
+            }
+            return true;
+        });
+        let (_r1, _r2, _r3, _r4) = tokio::join!(
+        what_web_handle,
+        what_server_handle,
+        verify_handle,
+        results_handle
+        );
+        while let Some(wwr) = results_receiver.next().await {
+            vec_results.push(wwr);
+        }
+        if vec_results.len() < 2000 {
+            vec_results.sort_by(|a, b| b.priority.cmp(&a.priority));
+        }
+        return vec_results;
+    }
+}
+// 去重
+pub fn strings_to_urls(domains: String) -> HashSet<String> {
+    let target_list: Vec<String> = domains
+        .split_terminator('\n')
+        .map(|s| s.to_string())
+        .collect();
+    HashSet::from_iter(target_list)
 }

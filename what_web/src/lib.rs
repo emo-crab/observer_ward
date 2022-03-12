@@ -53,14 +53,7 @@ impl WhatWebResult {
     }
 }
 
-// 去重
-pub fn strings_to_urls(domains: String) -> HashSet<String> {
-    let target_list: Vec<String> = domains
-        .split_terminator('\n')
-        .map(|s| s.to_string())
-        .collect();
-    HashSet::from_iter(target_list)
-}
+
 
 #[derive(Debug, Clone)]
 pub struct RequestOption {
@@ -92,7 +85,7 @@ impl RequestOption {
         }
     }
 }
-
+#[derive(Clone)]
 pub struct WhatWeb {
     fingerprint: Arc<WebFingerPrintLib>,
     config: RequestOption,
@@ -119,7 +112,7 @@ impl WhatWeb {
             request_data: String::new(),
         };
         if let Ok(raw_data_list) =
-            index_fetch(&url, &default_request, true, false, self.config.clone()).await
+        index_fetch(&url, &default_request, true, false, self.config.clone()).await
         {
             if raw_data_list.is_empty() {
                 what_web_result.is_web = false;
@@ -153,7 +146,7 @@ impl WhatWeb {
         }
         for special_wfp in self.fingerprint.to_owned().special.iter() {
             if let Ok(raw_data_list) =
-                index_fetch(&url, &special_wfp.request, false, true, self.config.clone()).await
+            index_fetch(&url, &special_wfp.request, false, true, self.config.clone()).await
             {
                 for raw_data in raw_data_list {
                     let web_name_set = check(&raw_data, &self.fingerprint.to_owned(), true).await;
@@ -185,8 +178,8 @@ pub struct TemplateResult {
 }
 
 fn string_to_hashset<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Error>
-where
-    D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
 {
     struct StringToHashSet(PhantomData<HashSet<String>>);
     impl<'de> de::Visitor<'de> for StringToHashSet {
@@ -195,8 +188,8 @@ where
             formatter.write_str("string or list of strings")
         }
         fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-        where
-            E: de::Error,
+            where
+                E: de::Error,
         {
             let name: Vec<String> = value
                 .split_terminator('\n')
@@ -205,8 +198,8 @@ where
             Ok(HashSet::from_iter(name))
         }
         fn visit_seq<S>(self, visitor: S) -> Result<Self::Value, S::Error>
-        where
-            S: de::SeqAccess<'de>,
+            where
+                S: de::SeqAccess<'de>,
         {
             Deserialize::deserialize(de::value::SeqAccessDeserializer::new(visitor))
         }

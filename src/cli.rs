@@ -1,5 +1,6 @@
 extern crate clap;
 
+use std::collections::HashSet;
 use std::path::Path;
 use std::process;
 use std::process::{Command, Stdio};
@@ -7,26 +8,80 @@ use crate::OBSERVER_WARD_PATH;
 use clap::{App, Arg};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug)]
-pub struct WardArgs {
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ObserverWardConfig {
+    #[serde(skip)]
     pub target: String,
+    #[serde(default)]
+    pub targets: HashSet<String>,
+    #[serde(skip)]
     pub stdin: bool,
+    #[serde(skip)]
     pub verify: String,
+    #[serde(skip)]
     pub file: String,
+    #[serde(default)]
     pub update_fingerprint: bool,
+    #[serde(skip)]
     pub csv: String,
+    #[serde(skip)]
     pub json: String,
+    #[serde(default)]
     pub proxy: String,
+    #[serde(default = "default_timeout")]
     pub timeout: u64,
+    #[serde(default)]
     pub plugins: String,
+    #[serde(default)]
     pub update_plugins: bool,
+    #[serde(skip)]
     pub update_self: bool,
+    #[serde(default = "default_thread")]
     pub thread: u32,
+    #[serde(default)]
     pub webhook: String,
+    #[serde(default)]
     pub service: bool,
+    #[serde(skip)]
+    pub api_server: String,
+    #[serde(skip)]
+    pub daemon: bool,
 }
 
-impl WardArgs {
+fn default_thread() -> u32 {
+    100 as u32
+}
+
+fn default_timeout() -> u64 {
+    10
+}
+
+impl Default for ObserverWardConfig {
+    fn default() -> Self {
+        Self {
+            target: String::new(),
+            targets: Default::default(),
+            stdin: false,
+            verify: String::new(),
+            file: String::new(),
+            update_fingerprint: false,
+            csv: String::new(),
+            json: String::new(),
+            proxy: String::new(),
+            timeout: 10,
+            plugins: String::new(),
+            update_plugins: false,
+            update_self: false,
+            thread: 100,
+            webhook: String::new(),
+            service: false,
+            api_server: String::new(),
+            daemon: false,
+        }
+    }
+}
+
+impl ObserverWardConfig {
     pub fn new() -> Self {
         let app = App::new("ObserverWard")
             .version("0.0.1")
@@ -39,13 +94,13 @@ impl WardArgs {
                     .value_name("TARGET")
                     .help("The target URL(s) (required, unless --stdin used)"),
             )
-            // .arg(
-            //     Arg::with_name("server")
-            //         .short("s")
-            //         .long("server")
-            //         .value_name("SERVER")
-            //         .help("Start a web API service (127.0.0.1:8080)"),
-            // )
+            .arg(
+                Arg::with_name("rest_api")
+                    .short("s")
+                    .long("rest_api")
+                    .value_name("SERVER")
+                    .help("Start a web API service (ex: 127.0.0.1:8080)"),
+            )
             .arg(
                 Arg::with_name("stdin")
                     .long("stdin")
@@ -59,6 +114,13 @@ impl WardArgs {
                     .long("file")
                     .value_name("FILE")
                     .help("Read the target from the file"),
+            )
+            .arg(
+                Arg::with_name("daemon")
+                    .long("daemon")
+                    .takes_value(false)
+                    .help("API background service")
+                    .conflicts_with("url"),
             )
             .arg(
                 Arg::with_name("csv")
@@ -119,7 +181,7 @@ impl WardArgs {
                 Arg::with_name("plugins")
                     .long("plugins")
                     .takes_value(true)
-                    .help("Calling plugins to detect vulnerabilities"),
+                    .help("The 'plugins' directory is used when the parameter is the 'default'"),
             )
             .arg(
                 Arg::with_name("update_plugins")
@@ -141,101 +203,71 @@ impl WardArgs {
                     .help("Update web fingerprint"),
             );
         let args = app.get_matches();
-        let mut stdin: bool = false;
-        let mut service: bool = false;
-        let mut webhook_url = String::new();
-        let mut update_self: bool = false;
-        let mut verify_path: String = String::new();
-        let mut update_fingerprint: bool = false;
-        let mut update_plugins: bool = false;
-        let mut plugins: String = String::new();
-        let mut req_timeout: u64 = 10;
-        let mut req_thread: u32 = 100;
-        let mut target_url: String = String::new();
-        let mut file_path: String = String::new();
-        let mut csv_file_path: String = String::new();
-        let mut json_file_path: String = String::new();
-        let mut proxy_uri: String = String::new();
+        let mut default = ObserverWardConfig::default();
         if args.is_present("stdin") {
-            stdin = true;
+            default.stdin = true;
         }
         if args.is_present("service") {
-            service = true;
+            default.service = true;
+        }
+        if args.is_present("daemon") {
+            default.daemon = true;
         }
         if args.is_present("update_plugins") {
-            update_plugins = true;
+            default.update_plugins = true;
         }
         if args.is_present("update_self") {
-            update_self = true;
+            default.update_self = true;
         }
         if args.is_present("update_fingerprint") {
-            update_fingerprint = true;
+            default.update_fingerprint = true;
         }
         if let Some(nuclei) = args.value_of("plugins") {
             if !has_nuclei_app() {
                 println!("Please install nuclei to the environment variable!");
                 process::exit(0);
             }
-            plugins = nuclei.to_string();
-            if plugins == "default" {
-                plugins = OBSERVER_WARD_PATH.join("plugins").to_str().unwrap_or_default().to_string();
+            default.plugins = nuclei.to_string();
+            if default.plugins == "default" {
+                default.plugins = OBSERVER_WARD_PATH.join("plugins").to_str().unwrap_or_default().to_string();
             }
-            if !Path::new(&plugins).exists() {
-                println!("The '{}' directory does not exist!", plugins);
+            if !Path::new(&default.plugins).exists() {
+                println!("The '{}' directory does not exist!", default.plugins);
                 process::exit(0);
             }
         }
         if let Some(target) = args.value_of("target") {
-            target_url = target.to_string();
+            default.target = target.to_string();
         };
         if let Some(webhook) = args.value_of("webhook") {
-            webhook_url = webhook.to_string();
+            default.webhook = webhook.to_string();
+        };
+        if let Some(server) = args.value_of("rest_api") {
+            default.api_server = server.to_string();
         };
         if let Some(file) = args.value_of("file") {
-            file_path = file.to_string();
+            default.file = file.to_string();
         };
         if let Some(verify) = args.value_of("verify") {
-            verify_path = verify.to_string();
+            default.verify = verify.to_string();
         };
         if let Some(file) = args.value_of("csv") {
-            csv_file_path = file.to_string();
+            default.csv = file.to_string();
         };
         if let Some(file) = args.value_of("json") {
-            json_file_path = file.to_string();
+            default.json = file.to_string();
         };
         if let Some(proxy) = args.value_of("proxy") {
-            proxy_uri = proxy.to_string();
+            default.proxy = proxy.to_string();
         };
         if let Some(timeout) = args.value_of("timeout") {
-            req_timeout = timeout.parse().unwrap_or(10);
+            default.timeout = timeout.parse().unwrap_or(10);
         };
         if let Some(thread) = args.value_of("thread") {
-            req_thread = thread.parse().unwrap_or(100);
+            default.thread = thread.parse().unwrap_or(100);
         };
-        WardArgs {
-            target: target_url,
-            stdin,
-            file: file_path,
-            update_plugins,
-            update_fingerprint,
-            verify: verify_path,
-            csv: csv_file_path,
-            json: json_file_path,
-            proxy: proxy_uri,
-            timeout: req_timeout,
-            plugins,
-            update_self,
-            thread: req_thread,
-            webhook: webhook_url,
-            service,
-        }
+        return default;
     }
-}
-
-// https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct Template {
-    pub template_id: String,
 }
 
 pub fn has_nuclei_app() -> bool {

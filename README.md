@@ -38,25 +38,28 @@ USAGE:
     observer_ward [FLAGS] [OPTIONS]
 
 FLAGS:
-    -c, --csv                   Export to the csv file or Import form the csv file
-    -f, --file                  Read the target from the file
+        --daemon                API background service
     -h, --help                  Prints help information
-    -j, --json                  Export to the json file or Import form the json file
         --service               Using nmap fingerprint identification service (slow)
         --stdin                 Read url(s) from STDIN
-    -t, --target                The target URL(s) (required, unless --stdin used)
     -u, --update_fingerprint    Update web fingerprint
         --update_plugins        Update nuclei plugins
         --update_self           Update self
     -V, --version               Prints version information
 
 OPTIONS:
-        --plugins <plugins>    Calling plugins to detect vulnerabilities
-        --proxy <proxy>        Proxy to use for requests (ex: [http(s)|socks5(h)]://host:port)
-        --thread <thread>      Number of concurrent threads. [default: 100]
-        --timeout <timeout>    Set request timeout. [default: 10]
+    -c, --csv <CSV>            Export to the csv file or Import form the csv file
+    -f, --file <FILE>          Read the target from the file
+    -j, --json <JSON>          Export to the json file or Import form the json file
+        --plugins <plugins>    The 'plugins' directory is used when the parameter is the 'default'
+        --proxy <PROXY>        Proxy to use for requests (ex: [http(s)|socks5(h)]://host:port)
+    -s, --rest_api <SERVER>    Start a web API service (ex: 127.0.0.1:8080)
+    -t, --target <TARGET>      The target URL(s) (required, unless --stdin used)
+        --thread <THREAD>      Number of concurrent threads. [default: 100]
+        --timeout <TIMEOUT>    Set request timeout. [default: 10]
         --verify <verify>      Validate the specified yaml file
-        --webhook <webhook>    Send results to webhook server (ex: https://host:port/webhook)
+        --webhook <WEBHOOK>    Send results to webhook server (ex: https://host:port/webhook)
+
 ```
 
 ### 更新指纹
@@ -216,7 +219,7 @@ Important technology:
 ➜  ~ ./observer_ward_amd64 -f target.txt --json result.json --plugins default
 ```
 
-## WebHook
+### WebHook
 
 ```python
 from flask import Flask, request
@@ -256,6 +259,77 @@ Webhook json格式：
     "status_code":200,
     "title":"httpbin.org",
     "url":"https://httpbin.org/"
+}
+```
+
+### 开启API服务
+
+- 使用`rest_api`参数提供监听地址和端口开启rest-api服务，使用`--daemon`参数将服务放到后台进程（不支持Window系统）。
+
+```shell
+➜  ~ ./observer_ward --rest_api 127.0.0.1:8000
+ __     __     ______     ______     _____
+/\ \  _ \ \   /\  __ \   /\  == \   /\  __-.
+\ \ \/ ".\ \  \ \  __ \  \ \  __<   \ \ \/\ \
+ \ \__/".~\_\  \ \_\ \_\  \ \_\ \_\  \ \____-
+  \/_/   \/_/   \/_/\/_/   \/_/ /_/   \/____/
+Community based web fingerprint analysis tool.
+_____________________________________________
+:  https://github.com/0x727/FingerprintHub  :
+:  https://github.com/0x727/ObserverWard    :
+ --------------------------------------------
+API service has been started:http://127.0.0.1:8000/v1/observer_ward
+Request:
+curl --request POST \
+  --url http://127.0.0.1:8000/v1/observer_ward \
+  --header 'Content-Type: application/json' \
+  --data '{"targets":["https://httpbin.org/"]}'
+Response:
+[{"url":"http://httpbin.org/","name":["swagger"],"priority":5,"length":9593,"title":"httpbin.org","status_code":200,"is_web":true,"plugins":[]}]
+```
+
+- 提交任务
+
+```shell
+curl --request POST \
+  --url http://127.0.0.1:8000/v1/observer_ward \
+  --data '{
+	"targets": ["httpbin.org"]
+}'
+```
+
+- 更新指纹接口
+
+```shell
+curl --request POST \
+  --url http://127.0.0.1:8000/v1/config \
+  --data '{
+	"update_fingerprint": false
+}'
+```
+
+- 其他可选参数，`update_fingerprint`，`update_plugins`只能在更新指纹接口下使用；其他参数可以在提交任务时和目标附加在一起。
+
+```json lines
+{
+  "targets": [],
+  //多个目标
+  "update_fingerprint": false,
+  //更新指纹
+  "proxy": "",
+  //代理URL
+  "timeout": 10,
+  //请求超时
+  "plugins": "",
+  //nuclei插件路径，default时使用默认的plugins目录
+  "update_plugins": false,
+  //更新nuclei插件
+  "thread": 100,
+  //线程数
+  "webhook": "",
+  //将结果发送到webhook服务器的URL
+  "service": false,
+  //是否识别服务（慢，拉垮）
 }
 ```
 
