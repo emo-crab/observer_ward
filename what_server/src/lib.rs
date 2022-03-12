@@ -100,10 +100,7 @@ impl WhatServer {
             fingerprint,
         }
     }
-    fn filter_probes_by_port(
-        &self,
-        port: u16,
-    ) -> (Vec<&NmapFingerPrint>, Vec<&NmapFingerPrint>) {
+    fn filter_probes_by_port(&self, port: u16) -> (Vec<&NmapFingerPrint>, Vec<&NmapFingerPrint>) {
         let (mut in_probes, mut ex_probes): (Vec<&NmapFingerPrint>, Vec<&NmapFingerPrint>) =
             (vec![], vec![]);
         for nmap_fingerprint in self.fingerprint.iter() {
@@ -205,8 +202,7 @@ lazy_static! {
         };
         let mut data = String::new();
         file.read_to_string(&mut data).ok();
-        let nmap_fingerprint: Vec<NmapFingerPrint> =
-            serde_json::from_str(&data).expect("BAD JSON");
+        let nmap_fingerprint: Vec<NmapFingerPrint> = serde_json::from_str(&data).expect("BAD JSON");
         nmap_fingerprint
     };
 }

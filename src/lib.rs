@@ -1,4 +1,8 @@
 use crate::cli::ObserverWardConfig;
+use futures::channel::mpsc::unbounded;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
+use lazy_static::lazy_static;
 use observer_ward_what_server::{NmapFingerPrint, WhatServer};
 use observer_ward_what_web::fingerprint::WebFingerPrint;
 use observer_ward_what_web::{RequestOption, TemplateResult, WhatWeb, WhatWebResult};
@@ -7,23 +11,19 @@ use prettytable::{color, Attr, Cell, Row, Table};
 use reqwest::redirect::Policy;
 use reqwest::{header, Proxy};
 use serde_json::json;
-use std::collections::HashSet;
-use futures::channel::mpsc::unbounded;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
+use std::io;
 use std::io::Cursor;
 use std::io::{BufRead, Read};
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use std::io;
-use lazy_static::lazy_static;
 use term::color::Color;
 use tokio::process::Command;
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
 
-pub mod cli;
 pub mod api;
+pub mod cli;
 
 use serde::{Deserialize, Serialize};
 
@@ -131,9 +131,10 @@ pub struct Helper {
     request_option: RequestOption,
     config_path: PathBuf,
     config: ObserverWardConfig,
+    msg: HashMap<String, String>,
 }
 lazy_static! {
-    static ref OBSERVER_WARD_PATH: PathBuf={
+    static ref OBSERVER_WARD_PATH: PathBuf = {
         let mut config_path = PathBuf::new();
         if let Some(cp) = dirs::config_dir() {
             config_path = cp;
@@ -155,49 +156,61 @@ impl Helper {
             request_option: ro,
             config_path: OBSERVER_WARD_PATH.clone(),
             config: config.clone(),
+            msg: Default::default(),
         }
     }
-    pub async fn run(&self) {
+    async fn update_fingerprint(&mut self) {
+        let fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
+        self.download_file_from_github(
+            "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
+            fingerprint_path
+                .to_str()
+                .unwrap_or("web_fingerprint_v3.json"),
+        )
+        .await;
+        // self.download_file_from_github(
+        //     "https://0x727.github.io/FingerprintHub/nmap_service_probes.json",
+        //     "nmap_service_probes.json",
+        // )
+        // .await;
+    }
+    async fn update_plugins(&mut self) {
+        let plugins_zip_path = self.config_path.join("plugins.zip");
+        let extract_target_path = self.config_path.clone();
+        self.download_file_from_github(
+            "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
+            plugins_zip_path.to_str().unwrap_or("plugins.zip"),
+        )
+        .await;
+        match extract_plugins_zip(&plugins_zip_path, &extract_target_path) {
+            Ok(_) => {
+                println!("It has been extracted to the {:?}", extract_target_path);
+            }
+            Err(err) => {
+                println!("{:?}", err);
+                println!("Please manually unzip the plugins to the directory");
+            }
+        }
+    }
+    pub async fn run(&mut self) -> HashMap<String, String> {
         if self.config.update_fingerprint {
-            let fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
-            self.download_file_from_github(
-                "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
-                fingerprint_path
-                    .to_str()
-                    .unwrap_or("web_fingerprint_v3.json"),
-            )
-                .await;
-            // self.download_file_from_github(
-            //     "https://0x727.github.io/FingerprintHub/nmap_service_probes.json",
-            //     "nmap_service_probes.json",
-            // )
-            // .await;
+            self.update_fingerprint().await;
         }
         if self.config.update_self {
             self.update_self().await;
         }
         if self.config.update_plugins {
-            let plugins_zip_path = self.config_path.join("plugins.zip");
-            let extract_target_path = self.config_path.clone();
-            self.download_file_from_github(
-                "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
-                plugins_zip_path.to_str().unwrap_or("plugins.zip"),
-            ).await;
-            match extract_plugins_zip(&plugins_zip_path, &extract_target_path) {
-                Ok(_) => {
-                    println!("It has been extracted to the {:?}", extract_target_path);
-                }
-                Err(err) => {
-                    println!("{:?}", err);
-                    println!("Please manually unzip the plugins to the directory");
-                }
-            }
+            self.update_plugins().await;
         }
+        if !self.msg.is_empty() {
+            print!("{:?}", self.msg);
+        }
+        return self.msg.clone();
     }
 }
 
 impl Helper {
-    pub async fn update_self(&self) {
+    pub async fn update_self(&mut self) {
         let mut base_url =
             String::from("https://github.com/0x727/ObserverWard/releases/download/default/");
         let mut download_name = "observer_ward_amd64";
@@ -218,58 +231,51 @@ impl Helper {
         );
     }
 
-    pub fn read_nmap_fingerprint(&self) -> Vec<NmapFingerPrint> {
+    pub fn read_nmap_fingerprint(&mut self) -> Vec<NmapFingerPrint> {
         let nmap_fingerprint_path = self.config_path.join("nmap_service_probes.json");
-        let mut file = match File::open(nmap_fingerprint_path) {
-            Err(_) => {
-                println!("The nmap fingerprint library cannot be found in the current directory!");
-                std::process::exit(0);
-            }
-            Ok(file) => file,
-        };
-        let mut data = String::new();
-        file.read_to_string(&mut data).ok();
-        let nmap_fingerprint: Vec<NmapFingerPrint> =
-            serde_json::from_str(&data).expect("BAD JSON");
-        return nmap_fingerprint;
+        if let Ok(mut file) = File::open(nmap_fingerprint_path) {
+            let mut data = String::new();
+            file.read_to_string(&mut data).ok();
+            let nmap_fingerprint: Vec<NmapFingerPrint> =
+                serde_json::from_str(&data).expect("BAD JSON");
+            return nmap_fingerprint;
+        } else {
+            println!("The nmap fingerprint library cannot be found in the current directory!");
+        }
+        return Vec::new();
     }
 
-    pub fn read_web_fingerprint(&self, verify: &String) -> Vec<WebFingerPrint> {
-        return if !verify.is_empty() {
-            let mut file = match File::open(verify.clone()) {
-                Err(_) => {
-                    println!("The verification file cannot be found in the current directory!");
-                    std::process::exit(0);
+    pub fn read_web_fingerprint(&mut self, verify: &String) -> Vec<WebFingerPrint> {
+        if !verify.is_empty() {
+            if let Ok(mut file) = File::open(verify.clone()) {
+                let mut data = String::new();
+                file.read_to_string(&mut data).ok();
+                let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
+                let verify_fingerprints: VerifyWebFingerPrint =
+                    serde_yaml::from_str(&data).expect("BAD YAML");
+                for mut verify_fingerprint in verify_fingerprints.fingerprint {
+                    verify_fingerprint.name = verify_fingerprints.name.clone();
+                    verify_fingerprint.priority = verify_fingerprints.priority.clone();
+                    web_fingerprint.push(verify_fingerprint);
                 }
-                Ok(file) => file,
-            };
-            let mut data = String::new();
-            file.read_to_string(&mut data).ok();
-            let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
-            let verify_fingerprints: VerifyWebFingerPrint =
-                serde_yaml::from_str(&data).expect("BAD YAML");
-            for mut verify_fingerprint in verify_fingerprints.fingerprint {
-                verify_fingerprint.name = verify_fingerprints.name.clone();
-                verify_fingerprint.priority = verify_fingerprints.priority.clone();
-                web_fingerprint.push(verify_fingerprint);
+                return web_fingerprint;
+            } else {
+                println!("The verification file cannot be found in the current directory!");
             }
-            web_fingerprint
         } else {
             let web_fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
-            let mut file = match File::open(web_fingerprint_path) {
-                Err(_) => {
-                    println!("The fingerprint library cannot be found in the current directory!");
-                    println!("Update fingerprint library with `-u` parameter!");
-                    std::process::exit(0);
-                }
-                Ok(file) => file,
-            };
-            let mut data = String::new();
-            file.read_to_string(&mut data).ok();
-            let web_fingerprint: Vec<WebFingerPrint> =
-                serde_json::from_str(&data).expect("BAD JSON");
-            web_fingerprint
-        };
+            if let Ok(mut file) = File::open(web_fingerprint_path) {
+                let mut data = String::new();
+                file.read_to_string(&mut data).ok();
+                let web_fingerprint: Vec<WebFingerPrint> =
+                    serde_json::from_str(&data).expect("BAD JSON");
+                return web_fingerprint;
+            } else {
+                println!("The fingerprint library cannot be found in the current directory!");
+                println!("Update fingerprint library with `-u` parameter!");
+            }
+        }
+        return Vec::new();
     }
 
     pub fn read_results_file(&self) -> Vec<WhatWebResult> {
@@ -299,29 +305,33 @@ impl Helper {
         }
         results
     }
-    pub async fn download_file_from_github(&self, update_url: &str, filename: &str) {
+    pub async fn download_file_from_github(&mut self, update_url: &str, filename: &str) {
         let proxy = self.request_option.proxy.clone();
         let proxy_obj = Proxy::custom(move |_url| proxy.clone());
         let client = reqwest::Client::builder().proxy(proxy_obj);
-        println!("Downloading {} to {}.", update_url, filename);
-        match client.build().unwrap().get(update_url).send().await {
-            Ok(response) => {
+        if let Ok(downloading_client) = client.build() {
+            if let Ok(response) = downloading_client.get(update_url).send().await {
                 let mut file = std::fs::File::create(filename).unwrap();
-                let mut content = Cursor::new(response.bytes().await.unwrap());
-                std::io::copy(&mut content, &mut file).unwrap();
-                println!(
-                    "Update: '{}' file size => {:?}",
-                    filename,
-                    file.metadata().unwrap().len()
+                let mut content = Cursor::new(response.bytes().await.unwrap_or_default());
+                std::io::copy(&mut content, &mut file).unwrap_or_default();
+                self.msg.insert(
+                    String::from("info"),
+                    format!(
+                        "Update: '{}' file size => {:?}",
+                        filename,
+                        file.metadata().unwrap().len()
+                    ),
                 );
+                return;
             }
-            Err(_) => {
-                println!(
-                    "Update failed, please download {} to local directory manually.",
-                    update_url
-                );
-            }
-        };
+        }
+        self.msg.insert(
+            String::from("err"),
+            format!(
+                "Update failed, please download {} to local directory manually.",
+                update_url
+            ),
+        );
     }
 }
 
@@ -334,8 +344,8 @@ pub fn read_file_to_target(file_path: &String) -> HashSet<String> {
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-    where
-        P: AsRef<Path>,
+where
+    P: AsRef<Path>,
 {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
@@ -422,7 +432,10 @@ pub fn print_results_and_save(
     }
 }
 
-fn extract_plugins_zip(f_name: &PathBuf, extract_target_path: &PathBuf) -> Result<(), std::io::Error> {
+fn extract_plugins_zip(
+    f_name: &PathBuf,
+    extract_target_path: &PathBuf,
+) -> Result<(), std::io::Error> {
     let plugins_path = extract_target_path.join("plugins");
     if plugins_path.exists() {
         std::fs::remove_dir_all(plugins_path)?;
@@ -491,7 +504,11 @@ pub struct ObserverWard {
 }
 
 impl ObserverWard {
-    pub fn new(config: ObserverWardConfig, web_fingerprint: Vec<WebFingerPrint>, nmap_fingerprint: Vec<NmapFingerPrint>) -> Self {
+    pub fn new(
+        config: ObserverWardConfig,
+        web_fingerprint: Vec<WebFingerPrint>,
+        nmap_fingerprint: Vec<NmapFingerPrint>,
+    ) -> Self {
         let request_option = RequestOption::new(&config.timeout, &config.proxy);
         let what_server_ins = WhatServer::new(300, nmap_fingerprint);
         let what_web_ins = WhatWeb::new(request_option, web_fingerprint);
@@ -606,10 +623,10 @@ impl ObserverWard {
             return true;
         });
         let (_r1, _r2, _r3, _r4) = tokio::join!(
-        what_web_handle,
-        what_server_handle,
-        verify_handle,
-        results_handle
+            what_web_handle,
+            what_server_handle,
+            verify_handle,
+            results_handle
         );
         while let Some(wwr) = results_receiver.next().await {
             vec_results.push(wwr);
@@ -619,7 +636,22 @@ impl ObserverWard {
         }
         return vec_results;
     }
+    pub fn reload(&mut self, config: &ObserverWardConfig) {
+        let mut helper = Helper::new(config);
+        let web_fingerprint = helper.read_web_fingerprint(&config.verify);
+        let mut nmap_fingerprint = vec![];
+        if config.service {
+            nmap_fingerprint = helper.read_nmap_fingerprint();
+        }
+        let request_option = RequestOption::new(&config.timeout, &config.proxy);
+        let what_server_ins = WhatServer::new(300, nmap_fingerprint);
+        let what_web_ins = WhatWeb::new(request_option, web_fingerprint);
+        self.config = config.clone();
+        self.what_web_ins = what_web_ins;
+        self.what_server_ins = what_server_ins;
+    }
 }
+
 // 去重
 pub fn strings_to_urls(domains: String) -> HashSet<String> {
     let target_list: Vec<String> = domains

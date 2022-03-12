@@ -26,7 +26,7 @@ jobs:
           sudo apt-get install upx-ucl -y
           sudo apt-get install musl-tools -y
           sudo apt-get install pkg-config libssl-dev -y
-          export CARGO_PKG_VERSION=`date +'%Y.%m.%d'`
+          export CARGO_PKG_VERSION=`date +'%-Y.%-m.%-d'`
           cargo build --target=x86_64-unknown-linux-musl --release
           strip target/x86_64-unknown-linux-musl/release/observer_ward
           upx --best --lzma target/x86_64-unknown-linux-musl/release/observer_ward
@@ -59,7 +59,7 @@ jobs:
         shell: bash
         run: |
           choco install llvm openssl upx
-          export CARGO_PKG_VERSION=`date +'%Y.%m.%d'`
+          export CARGO_PKG_VERSION=`date +'%-Y.%-m.%-d'`
           echo "CARGO_PKG_VERSION=`date +'%Y.%m.%d'`" >>$GITHUB_ENV
           echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" >>$GITHUB_ENV
           echo "RUSTFLAGS=-C target-feature=+crt-static" >>$GITHUB_ENV
@@ -99,7 +99,7 @@ jobs:
         uses: Swatinem/rust-cache@v1
       - name: Build for mac
         run: |
-          export CARGO_PKG_VERSION=`date +'%Y.%m.%d'`
+          export CARGO_PKG_VERSION=`date +'%-Y.%-m.%-d'`
           cargo build --target=x86_64-apple-darwin --release
           strip target/x86_64-apple-darwin/release/observer_ward
           mv target/x86_64-apple-darwin/release/observer_ward target/x86_64-apple-darwin/release/observer_ward_darwin
@@ -120,7 +120,7 @@ jobs:
           override: true
       - name: Build for mac M1
         run: |
-          export CARGO_PKG_VERSION=`date +'%Y.%m.%d'`
+          export CARGO_PKG_VERSION=`date +'%-Y.%-m.%-d'`
           cargo build --target=aarch64-apple-darwin --release
           strip target/aarch64-apple-darwin/release/observer_ward
           mv target/aarch64-apple-darwin/release/observer_ward target/aarch64-apple-darwin/release/observer_ward_m1_darwin

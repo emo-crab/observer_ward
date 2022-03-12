@@ -1,12 +1,12 @@
 extern crate clap;
 
+use crate::OBSERVER_WARD_PATH;
+use clap::{App, Arg};
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::Path;
 use std::process;
 use std::process::{Command, Stdio};
-use crate::OBSERVER_WARD_PATH;
-use clap::{App, Arg};
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ObserverWardConfig {
@@ -229,7 +229,11 @@ impl ObserverWardConfig {
             }
             default.plugins = nuclei.to_string();
             if default.plugins == "default" {
-                default.plugins = OBSERVER_WARD_PATH.join("plugins").to_str().unwrap_or_default().to_string();
+                default.plugins = OBSERVER_WARD_PATH
+                    .join("plugins")
+                    .to_str()
+                    .unwrap_or_default()
+                    .to_string();
             }
             if !Path::new(&default.plugins).exists() {
                 println!("The '{}' directory does not exist!", default.plugins);

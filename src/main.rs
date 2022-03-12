@@ -1,9 +1,12 @@
 use std::collections::HashSet;
 use std::io::{self, Read};
 
-use observer_ward::cli::ObserverWardConfig;
-use observer_ward::{print_opening, print_results_and_save, read_file_to_target, Helper, ObserverWard, strings_to_urls};
 use observer_ward::api::run_server;
+use observer_ward::cli::ObserverWardConfig;
+use observer_ward::{
+    print_opening, print_results_and_save, read_file_to_target, strings_to_urls, Helper,
+    ObserverWard,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -24,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if !config.file.is_empty() {
         targets.extend(read_file_to_target(&config.file));
     }
-    let helper = Helper::new(&config);
+    let mut helper = Helper::new(&config);
     let web_fingerprint = helper.read_web_fingerprint(&config.verify);
     let mut nmap_fingerprint = vec![];
     if config.service {

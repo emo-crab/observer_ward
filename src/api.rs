@@ -1,62 +1,85 @@
 #[cfg(not(target_os = "windows"))]
 extern crate daemonize;
 
+use crate::{print_color, Helper, ObserverWard, ObserverWardConfig};
+#[cfg(not(target_os = "windows"))]
+use daemonize::Daemonize;
+use lazy_static::lazy_static;
+use std::collections::{HashMap, HashSet};
 #[cfg(not(target_os = "windows"))]
 use std::fs::File;
 use std::net::SocketAddr;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::thread;
+use tokio::sync::RwLock;
 use warp::Filter;
-#[cfg(not(target_os = "windows"))]
-use daemonize::Daemonize;
-use crate::{Helper, ObserverWard, ObserverWardConfig, print_color};
-
-async fn what_web_api(mut observer_ward_ins: ObserverWard, config: ObserverWardConfig) -> Result<impl warp::Reply, warp::Rejection> {
-    observer_ward_ins.config = config.clone();
-    let vec_results = observer_ward_ins.scan(config.targets).await;
+lazy_static! {
+    static ref OBSERVER_WARD_INS: Arc<RwLock<ObserverWard>> = {
+        let config = ObserverWardConfig::new();
+        let mut helper = Helper::new(&config);
+        let web_fingerprint = helper.read_web_fingerprint(&config.verify);
+        let mut nmap_fingerprint = vec![];
+        if config.service {
+            nmap_fingerprint = helper.read_nmap_fingerprint();
+        }
+        let observer_ward_ins =
+            ObserverWard::new(config.clone(), web_fingerprint, nmap_fingerprint);
+        return Arc::new(RwLock::new(observer_ward_ins));
+    };
+}
+async fn what_web_api(config: ObserverWardConfig) -> Result<impl warp::Reply, warp::Rejection> {
+    let vec_results = OBSERVER_WARD_INS.read().await.scan(config.targets).await;
     Ok(warp::reply::json(&vec_results))
 }
 
-async fn config_api(mut observer_ward_ins: ObserverWard, config: ObserverWardConfig) -> Result<impl warp::Reply, warp::Rejection> {
-    let helper = Helper::new(&config);
-    helper.run().await;
-    observer_ward_ins.config = config.clone();
+async fn set_config_api(
+    mut config: ObserverWardConfig,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    let mut helper = Helper::new(&config);
+    let msg = helper.run().await;
+    helper.msg = HashMap::new();
+    config.targets = HashSet::new();
+    OBSERVER_WARD_INS.write().await.reload(&config);
+    Ok(warp::reply::json(&msg))
+}
+
+async fn get_config_api() -> Result<impl warp::Reply, warp::Rejection> {
+    let config = OBSERVER_WARD_INS.read().await.config.clone();
     Ok(warp::reply::json(&config))
 }
 
-fn observer_ward_config() -> impl Filter<Extract=(ObserverWardConfig, ), Error=warp::Rejection> + Clone {
+fn observer_ward_config(
+) -> impl Filter<Extract = (ObserverWardConfig,), Error = warp::Rejection> + Clone {
     warp::body::content_length_limit(1024 * 16).and(warp::body::json())
 }
 
 #[tokio::main]
 async fn api_server(listening_address: SocketAddr) {
-    let config = ObserverWardConfig::new();
-    let helper = Helper::new(&config);
-    let web_fingerprint = helper.read_web_fingerprint(&config.verify);
-    let mut nmap_fingerprint = vec![];
-    if config.service {
-        nmap_fingerprint = helper.read_nmap_fingerprint();
-    }
-    helper.run().await;
-    let observer_ward_ins = ObserverWard::new(config.clone(), web_fingerprint, nmap_fingerprint);
-    let observer_ward_filter = warp::any().map(move || observer_ward_ins.clone());
-    let observer_ward_api = warp::post()
+    let observer_ward_api_router = warp::post()
         .and(warp::path("v1"))
         .and(warp::path("observer_ward"))
         .and(warp::path::end())
-        .and(observer_ward_filter.clone())
         .and(observer_ward_config())
         .and_then(what_web_api);
-    let get_config_api = warp::post()
+    let set_config_api_router = warp::post()
         .and(warp::path("v1"))
         .and(warp::path("config"))
         .and(warp::path::end())
-        .and(observer_ward_filter.clone())
         .and(observer_ward_config())
-        .and_then(config_api);
-    warp::serve(observer_ward_api.or(get_config_api))
-        .run(listening_address)
-        .await;
+        .and_then(set_config_api);
+    let get_config_api_router = warp::get()
+        .and(warp::path("v1"))
+        .and(warp::path("config"))
+        .and(warp::path::end())
+        .and_then(get_config_api);
+    warp::serve(
+        observer_ward_api_router
+            .or(get_config_api_router)
+            .or(set_config_api_router),
+    )
+    .run(listening_address)
+    .await;
 }
 
 pub fn run_server(listening_address: &String, is_daemon: bool) {
@@ -80,7 +103,9 @@ pub fn run_server(listening_address: &String, is_daemon: bool) {
     if let Ok(address) = std::net::SocketAddr::from_str(&listening_address) {
         thread::spawn(move || {
             api_server(address);
-        }).join().expect("API service startup failed")
+        })
+        .join()
+        .expect("API service startup failed")
     } else {
         println!("Invalid listening address");
     }
