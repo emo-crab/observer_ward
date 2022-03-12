@@ -1,6 +1,6 @@
 [package]
 name = "observer_ward"
-version = "0.1.0"
+version = "2022.3.13"
 authors = ["Kali-Team <root@kali-team.cn>"]
 edition = "2018"
 description = "Identifies technologies used on a web page."
@@ -17,7 +17,7 @@ codegen-units = 1
 panic = "abort"
 
 [dependencies]
-clap = "2.33.3"
+clap = { default-features = false, version = "3.1.6", features = ["std"] }
 url = { version = "2.1.1", features = ["serde"] }
 csv = "1.1.6"
 dirs = "4.0.0"
@@ -30,7 +30,7 @@ serde = { version = "1.0.99", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.8"
 serde_derive = "1.0"
-reqwest = { version = "0.11.6", features = [ "socks", "blocking", "gzip", "cookies", "json"] }
+reqwest = { version = "0.11.6", features = ["socks", "blocking", "gzip", "cookies", "json"] }
 term = "*"
 observer_ward_what_web = { path = "what_web", package = "what_web" }
 observer_ward_what_server = { path = "what_server", package = "what_server" }

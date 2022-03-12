@@ -1,7 +1,7 @@
 extern crate clap;
 
 use crate::OBSERVER_WARD_PATH;
-use clap::{App, Arg};
+use clap::Arg;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::Path;
@@ -83,75 +83,75 @@ impl Default for ObserverWardConfig {
 
 impl ObserverWardConfig {
     pub fn new() -> Self {
-        let app = App::new("ObserverWard")
-            .version("0.0.1")
-            // .about("about: Community based web fingerprint analysis tool.")
+        let app = clap::Command::new("observer_ward")
+            .version(env!("CARGO_PKG_VERSION"))
+            .about("about: Community based web fingerprint analysis tool.")
             .author("author: Kali-Team")
             .arg(
-                Arg::with_name("target")
-                    .short("t")
+                Arg::new("target")
+                    .short('t')
                     .long("target")
                     .value_name("TARGET")
                     .help("The target URL(s) (required, unless --stdin used)"),
             )
             .arg(
-                Arg::with_name("rest_api")
-                    .short("s")
+                Arg::new("rest_api")
+                    .short('s')
                     .long("rest_api")
                     .value_name("SERVER")
                     .help("Start a web API service (ex: 127.0.0.1:8080)"),
             )
             .arg(
-                Arg::with_name("stdin")
+                Arg::new("stdin")
                     .long("stdin")
                     .takes_value(false)
                     .help("Read url(s) from STDIN")
                     .conflicts_with("url"),
             )
             .arg(
-                Arg::with_name("file")
-                    .short("f")
+                Arg::new("file")
+                    .short('f')
                     .long("file")
                     .value_name("FILE")
                     .help("Read the target from the file"),
             )
             .arg(
-                Arg::with_name("daemon")
+                Arg::new("daemon")
                     .long("daemon")
                     .takes_value(false)
                     .help("API background service")
                     .conflicts_with("url"),
             )
             .arg(
-                Arg::with_name("csv")
-                    .short("c")
+                Arg::new("csv")
+                    .short('c')
                     .long("csv")
                     .value_name("CSV")
                     .help("Export to the csv file or Import form the csv file"),
             )
             .arg(
-                Arg::with_name("json")
-                    .short("j")
+                Arg::new("json")
+                    .short('j')
                     .long("json")
                     .value_name("JSON")
                     .help("Export to the json file or Import form the json file"),
             )
             .arg(
-                Arg::with_name("proxy")
+                Arg::new("proxy")
                     .long("proxy")
                     .takes_value(true)
                     .value_name("PROXY")
                     .help("Proxy to use for requests (ex: [http(s)|socks5(h)]://host:port)"),
             )
             .arg(
-                Arg::with_name("webhook")
+                Arg::new("webhook")
                     .long("webhook")
                     .takes_value(true)
                     .value_name("WEBHOOK")
                     .help("Send results to webhook server (ex: https://host:port/webhook)"),
             )
             .arg(
-                Arg::with_name("timeout")
+                Arg::new("timeout")
                     .long("timeout")
                     .takes_value(true)
                     .default_value("10")
@@ -159,7 +159,7 @@ impl ObserverWardConfig {
                     .help("Set request timeout."),
             )
             .arg(
-                Arg::with_name("thread")
+                Arg::new("thread")
                     .long("thread")
                     .takes_value(true)
                     .default_value("100")
@@ -167,37 +167,37 @@ impl ObserverWardConfig {
                     .help("Number of concurrent threads."),
             )
             .arg(
-                Arg::with_name("verify")
+                Arg::new("verify")
                     .long("verify")
                     .takes_value(true)
                     .help("Validate the specified yaml file"),
             )
             .arg(
-                Arg::with_name("service")
+                Arg::new("service")
                     .long("service")
                     .help("Using nmap fingerprint identification service (slow)"),
             )
             .arg(
-                Arg::with_name("plugins")
+                Arg::new("plugins")
                     .long("plugins")
                     .takes_value(true)
                     .help("The 'plugins' directory is used when the parameter is the 'default'"),
             )
             .arg(
-                Arg::with_name("update_plugins")
+                Arg::new("update_plugins")
                     .long("update_plugins")
                     .takes_value(false)
                     .help("Update nuclei plugins"),
             )
             .arg(
-                Arg::with_name("update_self")
+                Arg::new("update_self")
                     .long("update_self")
                     .takes_value(false)
                     .help("Update self"),
             )
             .arg(
-                Arg::with_name("update_fingerprint")
-                    .short("u")
+                Arg::new("update_fingerprint")
+                    .short('u')
                     .long("update_fingerprint")
                     .takes_value(false)
                     .help("Update web fingerprint"),
