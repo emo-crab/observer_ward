@@ -43,9 +43,9 @@ async fn set_config_api(
     OBSERVER_WARD_INS.write().await.reload(&config);
     if msg.is_empty() {
         let msg = OBSERVER_WARD_INS.read().await.config.clone();
-        Ok(warp::reply::json(&msg))
+        return  Ok(warp::reply::json(&msg));
     }
-    Ok(warp::reply::json(&msg))
+    return  Ok(warp::reply::json(&msg));
 }
 
 async fn get_config_api() -> Result<impl warp::Reply, warp::Rejection> {
