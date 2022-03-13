@@ -45,6 +45,8 @@ pub struct ObserverWardConfig {
     #[serde(skip)]
     pub api_server: String,
     #[serde(skip)]
+    pub token: String,
+    #[serde(skip)]
     pub daemon: bool,
 }
 
@@ -77,6 +79,7 @@ impl Default for ObserverWardConfig {
             service: false,
             api_server: String::new(),
             daemon: false,
+            token: String::new(),
         }
     }
 }
@@ -106,7 +109,6 @@ impl ObserverWardConfig {
                     .long("stdin")
                     .takes_value(false)
                     .help("Read url(s) from STDIN")
-                    .conflicts_with("url"),
             )
             .arg(
                 Arg::new("file")
@@ -120,7 +122,6 @@ impl ObserverWardConfig {
                     .long("daemon")
                     .takes_value(false)
                     .help("API background service")
-                    .conflicts_with("url"),
             )
             .arg(
                 Arg::new("csv")
@@ -182,6 +183,12 @@ impl ObserverWardConfig {
                     .long("plugins")
                     .takes_value(true)
                     .help("The 'plugins' directory is used when the parameter is the 'default'"),
+            )
+            .arg(
+                Arg::new("token")
+                    .long("token")
+                    .takes_value(true)
+                    .help("API Bearer authentication"),
             )
             .arg(
                 Arg::new("update_plugins")
@@ -251,6 +258,9 @@ impl ObserverWardConfig {
         };
         if let Some(file) = args.value_of("file") {
             default.file = file.to_string();
+        };
+        if let Some(token) = args.value_of("token") {
+            default.token = token.to_string();
         };
         if let Some(verify) = args.value_of("verify") {
             default.verify = verify.to_string();

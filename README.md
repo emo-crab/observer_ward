@@ -333,6 +333,25 @@ curl --request POST \
 }
 ```
 
+### Token认证
+
+```shell
+curl --request GET \
+  --url http://127.0.0.1:8000/v1/config \
+  --header 'Authorization: Bearer 3b7d8ca9db659c8e5ca83fbf7f1e7aa4d' \
+  --data '{
+	"targets": [],
+	"update_fingerprint": false,
+	"proxy": "",
+	"timeout": 20,
+	"plugins": "/home/kali-team/.config/observer_ward/plugins",
+	"update_plugins": false,
+	"thread": 100,
+	"webhook": "http://127.0.0.1:5000/webhook",
+	"service": false
+}'
+```
+
 ## 提交指纹
 
 - ObserverWard_0x727使用到的指纹规则全部来自[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。

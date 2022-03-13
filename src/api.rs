@@ -28,14 +28,28 @@ lazy_static! {
         return Arc::new(RwLock::new(observer_ward_ins));
     };
 }
-async fn what_web_api(config: ObserverWardConfig) -> Result<impl warp::Reply, warp::Rejection> {
+async fn what_web_api(token: String, config: ObserverWardConfig) -> Result<impl warp::Reply, warp::Rejection> {
+    let token_key = format!("Bearer {}", OBSERVER_WARD_INS.read().await.config.token);
+    if !token_key.is_empty() {
+        if token != token_key {
+            let mut m: HashMap<String, String> = HashMap::new();
+            m.insert(String::from("err"), String::from("UNAUTHORIZED"));
+            return Ok(warp::reply::json(&m));
+        }
+    }
     let vec_results = OBSERVER_WARD_INS.read().await.scan(config.targets).await;
-    Ok(warp::reply::json(&vec_results))
+    return Ok(warp::reply::json(&vec_results));
 }
 
-async fn set_config_api(
-    mut config: ObserverWardConfig,
-) -> Result<impl warp::Reply, warp::Rejection> {
+async fn set_config_api(token: String, mut config: ObserverWardConfig) -> Result<impl warp::Reply, warp::Rejection> {
+    let token_key = format!("Bearer {}", OBSERVER_WARD_INS.read().await.config.token);
+    if !token_key.is_empty() {
+        if token != token_key {
+            let mut m: HashMap<String, String> = HashMap::new();
+            m.insert(String::from("err"), String::from("UNAUTHORIZED"));
+            return Ok(warp::reply::json(&m));
+        }
+    }
     let mut helper = Helper::new(&config);
     let msg = helper.run().await;
     helper.msg = HashMap::new();
@@ -43,14 +57,22 @@ async fn set_config_api(
     OBSERVER_WARD_INS.write().await.reload(&config);
     if msg.is_empty() {
         let msg = OBSERVER_WARD_INS.read().await.config.clone();
-        return  Ok(warp::reply::json(&msg));
+        return Ok(warp::reply::json(&msg));
     }
-    return  Ok(warp::reply::json(&msg));
+    return Ok(warp::reply::json(&msg));
 }
 
-async fn get_config_api() -> Result<impl warp::Reply, warp::Rejection> {
+async fn get_config_api(token: String) -> Result<impl warp::Reply, warp::Rejection> {
+    let token_key = format!("Bearer {}", OBSERVER_WARD_INS.read().await.config.token);
+    if !token_key.is_empty() {
+        if token != token_key {
+            let mut m: HashMap<String, String> = HashMap::new();
+            m.insert(String::from("err"), String::from("UNAUTHORIZED"));
+            return Ok(warp::reply::json(&m));
+        }
+    }
     let config = OBSERVER_WARD_INS.read().await.config.clone();
-    Ok(warp::reply::json(&config))
+    return Ok(warp::reply::json(&config));
 }
 
 fn observer_ward_config() -> impl Filter<Extract=(ObserverWardConfig, ), Error=warp::Rejection> + Clone {
@@ -63,18 +85,21 @@ async fn api_server(listening_address: SocketAddr) {
         .and(warp::path("v1"))
         .and(warp::path("observer_ward"))
         .and(warp::path::end())
+        .and(warp::header::<String>("Authorization"))
         .and(observer_ward_config())
         .and_then(what_web_api);
     let set_config_api_router = warp::post()
         .and(warp::path("v1"))
         .and(warp::path("config"))
         .and(warp::path::end())
+        .and(warp::header::<String>("Authorization"))
         .and(observer_ward_config())
         .and_then(set_config_api);
     let get_config_api_router = warp::get()
         .and(warp::path("v1"))
         .and(warp::path("config"))
         .and(warp::path::end())
+        .and(warp::header::<String>("Authorization"))
         .and_then(get_config_api);
     warp::serve(
         observer_ward_api_router
