@@ -41,6 +41,10 @@ async fn set_config_api(
     helper.msg = HashMap::new();
     config.targets = HashSet::new();
     OBSERVER_WARD_INS.write().await.reload(&config);
+    if msg.is_empty() {
+        let msg = OBSERVER_WARD_INS.read().await.config.clone();
+        Ok(warp::reply::json(&msg))
+    }
     Ok(warp::reply::json(&msg))
 }
 
@@ -49,8 +53,7 @@ async fn get_config_api() -> Result<impl warp::Reply, warp::Rejection> {
     Ok(warp::reply::json(&config))
 }
 
-fn observer_ward_config(
-) -> impl Filter<Extract = (ObserverWardConfig,), Error = warp::Rejection> + Clone {
+fn observer_ward_config() -> impl Filter<Extract=(ObserverWardConfig, ), Error=warp::Rejection> + Clone {
     warp::body::content_length_limit(1024 * 16).and(warp::body::json())
 }
 
@@ -78,8 +81,8 @@ async fn api_server(listening_address: SocketAddr) {
             .or(get_config_api_router)
             .or(set_config_api_router),
     )
-    .run(listening_address)
-    .await;
+        .run(listening_address)
+        .await;
 }
 
 pub fn run_server(listening_address: &String, is_daemon: bool) {
@@ -104,8 +107,8 @@ pub fn run_server(listening_address: &String, is_daemon: bool) {
         thread::spawn(move || {
             api_server(address);
         })
-        .join()
-        .expect("API service startup failed")
+            .join()
+            .expect("API service startup failed")
     } else {
         println!("Invalid listening address");
     }
