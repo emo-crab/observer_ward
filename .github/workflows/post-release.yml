@@ -35,6 +35,7 @@ jobs:
           # See: https://github.community/t5/GitHub-Actions/How-to-get-just-the-tag-name/m-p/32167/highlight/true#M1027
           echo "RELEASE_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
           echo "version is: ${{ env.RELEASE_VERSION }}"
+          sed -i -e "s/^version = .*/version = \"`date +'%-Y.%-m.%-d'`\"/" Cargo.toml
       - name: Checkout repository
         uses: actions/checkout@v2
         with:
@@ -92,16 +93,12 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends xz-utils liblz4-tool libssl-dev upx-ucl musl-tools pkg-config
-          sed -i -e "s/^version = .*/version = \"`date +'%-Y.%-m.%-d'`\"/" Cargo.toml
-      - name: Install packages (Ubuntu)
+          sudo apt-get install -y --no-install-recommends xz-utils liblz4-tool libssl-dev musl-tools pkg-config
+      - name: Install packages (Windows)
         if: matrix.os == 'windows-latest'
         shell: bash
         run: |
-          choco install llvm openssl upx
-          export CARGO_PKG_VERSION=`date +'%-Y.%-m.%-d'`
-          sed -i -e "s/^version = .*/version = \"`date +'%-Y.%-m.%-d'`\"/" Cargo.toml
-          echo "CARGO_PKG_VERSION=`date +'%Y.%m.%d'`" >>$GITHUB_ENV
+          choco install llvm openssl
           echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" >>$GITHUB_ENV
           echo "RUSTFLAGS=-C target-feature=+crt-static" >>$GITHUB_ENV
       - name: Install Rust
@@ -116,12 +113,11 @@ jobs:
       - name: Build archive
         shell: bash
         run: |
-          outdir="./target/${{ env.TARGET_DIR }}/release"
-          staging="${{ env.BIN_NAME }}-${{ needs.create-release.outputs.release_version }}-${{ matrix.target }}"
+          staging="${{ env.BIN_NAME }}_${{ needs.create-release.outputs.release_version }}_${{ matrix.target }}"
+          mkdir -p "$staging"
           cp {README.md,LICENSE} "$staging/"
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             bin_file="target/${{ matrix.target }}/release/${{ env.BIN_NAME }}.exe"
-            upx -9 "$bin_file"
             cp "$bin_file" "$staging/"
             cd "$staging"
             7z a "../$staging.zip" .
@@ -130,9 +126,8 @@ jobs:
           else
             bin_file="target/${{ matrix.target }}/release/${{ env.BIN_NAME }}"
             strip "$bin_file"
-            upx --best --lzma "$bin_file"
             cp "$bin_file" "$staging/"
-            tar czf "$staging.tar.gz" -C "$staging" .
+            tar czf "$staging.tar.gz" -C "$staging" ${{ env.BIN_NAME }} README.md LICENSE
             echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
             echo "BIN_FILE=$bin_file" >> $GITHUB_ENV
           fi
