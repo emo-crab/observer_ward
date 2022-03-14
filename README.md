@@ -31,34 +31,34 @@ cargo build --target  x86_64-unknown-linux-musl --release --all-features
 
 ```bash
 ➜  ~ ./observer_ward -h
-ObserverWard 0.0.1
+observer_ward 2022.3.14
 author: Kali-Team
+about: Community based web fingerprint analysis tool.
 
 USAGE:
-    observer_ward [FLAGS] [OPTIONS]
+    observer_ward [OPTIONS]
 
-FLAGS:
+OPTIONS:
+    -c, --csv <CSV>             Export to the csv file or Import form the csv file
         --daemon                API background service
-    -h, --help                  Prints help information
+    -f, --file <FILE>           Read the target from the file
+    -h, --help                  Print help information
+    -j, --json <JSON>           Export to the json file or Import form the json file
+        --plugins <plugins>     The 'plugins' directory is used when the parameter is the 'default'
+        --proxy <PROXY>         Proxy to use for requests (ex: [http(s)|socks5(h)]://host:port)
+    -s, --rest_api <SERVER>     Start a web API service (ex: 127.0.0.1:8080)
         --service               Using nmap fingerprint identification service (slow)
         --stdin                 Read url(s) from STDIN
+    -t, --target <TARGET>       The target URL(s) (required, unless --stdin used)
+        --thread <THREAD>       Number of concurrent threads. [default: 100]
+        --timeout <TIMEOUT>     Set request timeout. [default: 10]
+        --token <token>         API Bearer authentication
     -u, --update_fingerprint    Update web fingerprint
         --update_plugins        Update nuclei plugins
         --update_self           Update self
-    -V, --version               Prints version information
-
-OPTIONS:
-    -c, --csv <CSV>            Export to the csv file or Import form the csv file
-    -f, --file <FILE>          Read the target from the file
-    -j, --json <JSON>          Export to the json file or Import form the json file
-        --plugins <plugins>    The 'plugins' directory is used when the parameter is the 'default'
-        --proxy <PROXY>        Proxy to use for requests (ex: [http(s)|socks5(h)]://host:port)
-    -s, --rest_api <SERVER>    Start a web API service (ex: 127.0.0.1:8080)
-    -t, --target <TARGET>      The target URL(s) (required, unless --stdin used)
-        --thread <THREAD>      Number of concurrent threads. [default: 100]
-        --timeout <TIMEOUT>    Set request timeout. [default: 10]
-        --verify <verify>      Validate the specified yaml file
-        --webhook <WEBHOOK>    Send results to webhook server (ex: https://host:port/webhook)
+    -V, --version               Print version information
+        --verify <verify>       Validate the specified yaml file
+        --webhook <WEBHOOK>     Send results to webhook server (ex: https://host:port/webhook)
 
 ```
 
@@ -185,10 +185,10 @@ https://httpbin.org,swagger,9593,200,httpbin.org,5
  \ \__/".~\_\  \ \_\ \_\  \ \_\ \_\  \ \____-
   \/_/   \/_/   \/_/\/_/   \/_/ /_/   \/____/
 Community based web fingerprint analysis tool.
-_______________________________________________
-: https://github.com/0x727/FingerprintHub     :
-: https://github.com/0x727/ObserverWard       :
- ----------------------------------------------
+_____________________________________________
+:  https://github.com/0x727/FingerprintHub  :
+:  https://github.com/0x727/ObserverWard    :
+ --------------------------------------------
 [ https://httpbin.org |["swagger"] | 9593 | 200 | httpbin.org ]
 Important technology:
 
@@ -307,34 +307,25 @@ curl --request POST \
 }'
 ```
 
-- 其他可选参数，`update_fingerprint`，`update_plugins`只能在更新指纹接口下使用；其他参数可以在提交任务时和目标附加在一起。
+- 其他可选参数，`update_fingerprint`，`update_plugins`只能在更新配置接口下使用；其他参数可以在提交任务时和目标附加在一起。
 
-```json lines
+```json
 {
   "targets": [],
-  //多个目标
   "update_fingerprint": false,
-  //更新指纹
   "proxy": "",
-  //代理URL
   "timeout": 10,
-  //请求超时
   "plugins": "",
-  //nuclei插件路径，default时使用默认的plugins目录
   "update_plugins": false,
-  //更新nuclei插件
   "thread": 100,
-  //线程数
   "webhook": "",
-  //将结果发送到webhook服务器的URL
-  "service": false,
-  //是否识别服务（慢，拉垮）
+  "service": false
 }
 ```
 
 ## 提交指纹
 
-- ObserverWard_0x727使用到的指纹规则全部来自[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
+- ObserverWard使用到的指纹规则全部来自[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
 - 如果需要获取指纹库和提交指纹规则，请查看[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
 
 ## 为ObserverWard_0x727做贡献
