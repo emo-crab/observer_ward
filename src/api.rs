@@ -10,12 +10,10 @@ use std::fs::File;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::thread;
-use actix_web::{get, post, App, HttpResponse, HttpServer, middleware, Responder, web, Error};
+use actix_web::{get, post, App, HttpResponse, HttpServer, middleware, Responder, web};
+use actix_web::web::Data;
 use tokio::sync::RwLock;
-use actix_web::dev::ServiceRequest;
-use actix_web_httpauth::extractors::AuthenticationError;
 use actix_web_httpauth::extractors::bearer::{BearerAuth, Config};
-use actix_web_httpauth::middleware::HttpAuthentication;
 use openssl::error::ErrorStack;
 use openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslFiletype, SslMethod};
 
@@ -26,27 +24,35 @@ fn get_ssl_config() -> Result<SslAcceptorBuilder, ErrorStack> {
     return Ok(builder);
 }
 
-async fn validator(req: ServiceRequest, credentials: BearerAuth) -> Result<ServiceRequest, Error> {
-    let observer_config = ObserverWardConfig::new();
-    if credentials.token() == observer_config.token {
-        Ok(req)
+#[derive(Clone, Debug)]
+struct TokenAuth {
+    token: String,
+}
+
+fn validator(token_auth: Data<TokenAuth>, credentials: BearerAuth) -> bool {
+    return if token_auth.token.is_empty() {
+        true
+    } else if token_auth.token == credentials.token() {
+        true
     } else {
-        let config = req.app_data::<Config>()
-            .map(|data| data.clone())
-            .unwrap_or_else(Default::default)
-            .scope("urn:example:channel=HBO&urn:example:rating=G,PG-13");
-        Err(AuthenticationError::from(config).into())
-    }
+        false
+    };
 }
 
 #[post("/v1/observer_ward")]
-async fn what_web_api(config: web::Json<ObserverWardConfig>, observer_ward_ins: web::Data<RwLock<ObserverWard>>) -> impl Responder {
+async fn what_web_api(token: web::Data<TokenAuth>, auth: BearerAuth, config: web::Json<ObserverWardConfig>, observer_ward_ins: web::Data<RwLock<ObserverWard>>) -> impl Responder {
+    if !validator(token, auth) {
+        return HttpResponse::Unauthorized().finish();
+    }
     let vec_results = observer_ward_ins.read().await.scan(config.targets.clone()).await;
     return HttpResponse::Ok().json(vec_results);
 }
 
 #[post("/v1/config")]
-async fn set_config_api(mut config: web::Json<ObserverWardConfig>, observer_ward_ins: web::Data<RwLock<ObserverWard>>) -> impl Responder {
+async fn set_config_api(token: web::Data<TokenAuth>, auth: BearerAuth, mut config: web::Json<ObserverWardConfig>, observer_ward_ins: web::Data<RwLock<ObserverWard>>) -> impl Responder {
+    if !validator(token, auth) {
+        return HttpResponse::Unauthorized().finish();
+    }
     let mut helper = Helper::new(&config);
     helper.run().await;
     helper.msg = HashMap::new();
@@ -57,7 +63,10 @@ async fn set_config_api(mut config: web::Json<ObserverWardConfig>, observer_ward
 }
 
 #[get("/v1/config")]
-async fn get_config_api(observer_ward_ins: web::Data<RwLock<ObserverWard>>) -> impl Responder {
+async fn get_config_api(token: web::Data<TokenAuth>, auth: BearerAuth, observer_ward_ins: web::Data<RwLock<ObserverWard>>) -> impl Responder {
+    if !validator(token, auth) {
+        return HttpResponse::Unauthorized().finish();
+    }
     let config = observer_ward_ins.read().await.config.clone();
     return HttpResponse::Ok().json(config);
 }
@@ -67,11 +76,12 @@ async fn api_server(listening_address: SocketAddr, token: String) {
     std::env::set_var("RUST_LOG", "actix_web=info");
     env_logger::init();
     let observer_ward_ins = web::Data::new(RwLock::new(ObserverWard::default()));
-    let auth_middleware = HttpAuthentication::bearer(validator);
+    let token_auth = web::Data::new(TokenAuth { token: token.clone() });
     let http_server = HttpServer::new(move || {
         App::new()
             .wrap(middleware::Logger::default())
-            .wrap(auth_middleware.clone())
+            .app_data(token_auth.clone())
+            .app_data(Config::default())
             .app_data(web::JsonConfig::default().limit(4096))
             .app_data(observer_ward_ins.clone())
             .service(what_web_api)
