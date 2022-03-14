@@ -1,4 +1,4 @@
-![logo](./doc/images/logo.png)
+![logo](docs/images/logo.png)
 
 [中文简体](./README.md)
 
