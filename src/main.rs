@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         print_opening();
     }
     if !config.api_server.is_empty() {
-        run_server(&config.api_server, config.daemon);
+        run_server();
     }
     let mut targets = HashSet::new();
     if config.stdin {

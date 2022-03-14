@@ -265,9 +265,15 @@ Webhook json格式：
 ### 开启API服务
 
 - 使用`rest_api`参数提供监听地址和端口开启rest-api服务，使用`--daemon`参数将服务放到后台进程（不支持Window系统）。
+- 如果需要支持`https`可以将`cert.pem`和`key.pem`文件放到程序根目录。
+- 生成证书文件
 
 ```shell
-➜  ~ ./observer_ward --rest_api 127.0.0.1:8000
+mkcert -key-file key.pem -cert-file cert.pem localhost
+```
+
+```shell
+➜  ~ ./observer_ward --rest_api 127.0.0.1:8000 --token 22e038328151a7a06fd4ebfa63a10228
  __     __     ______     ______     _____
 /\ \  _ \ \   /\  __ \   /\  == \   /\  __-.
 \ \ \/ ".\ \  \ \  __ \  \ \  __<   \ \ \/\ \
@@ -278,24 +284,15 @@ _____________________________________________
 :  https://github.com/0x727/FingerprintHub  :
 :  https://github.com/0x727/ObserverWard    :
  --------------------------------------------
-API service has been started:http://127.0.0.1:8000/v1/observer_ward
+API service has been started:https://127.0.0.1:8000/v1/observer_ward
 Request:
 curl --request POST \
-  --url http://127.0.0.1:8000/v1/observer_ward \
+  --url https://127.0.0.1:8000/v1/observer_ward \
+  --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
   --header 'Content-Type: application/json' \
   --data '{"targets":["https://httpbin.org/"]}'
 Response:
 [{"url":"http://httpbin.org/","name":["swagger"],"priority":5,"length":9593,"title":"httpbin.org","status_code":200,"is_web":true,"plugins":[]}]
-```
-
-- 提交任务
-
-```shell
-curl --request POST \
-  --url http://127.0.0.1:8000/v1/observer_ward \
-  --data '{
-	"targets": ["httpbin.org"]
-}'
 ```
 
 - 更新配置接口，更新配置时会对识别服务上锁，`GET`方法可以回去当前配置，`POST`方法对配置全量更新，未设置的字段为默认值。
@@ -303,6 +300,8 @@ curl --request POST \
 ```shell
 curl --request POST \
   --url http://127.0.0.1:8000/v1/config \
+  --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
+  --header 'Content-Type: application/json' \
   --data '{
 	"update_fingerprint": false
 }'
@@ -331,25 +330,6 @@ curl --request POST \
   "service": false,
   //是否识别服务（慢，拉垮）
 }
-```
-
-### Token认证
-
-```shell
-curl --request GET \
-  --url http://127.0.0.1:8000/v1/config \
-  --header 'Authorization: Bearer 3b7d8ca9db659c8e5ca83fbf7f1e7aa4d' \
-  --data '{
-	"targets": [],
-	"update_fingerprint": false,
-	"proxy": "",
-	"timeout": 20,
-	"plugins": "/home/kali-team/.config/observer_ward/plugins",
-	"update_plugins": false,
-	"thread": 100,
-	"webhook": "http://127.0.0.1:5000/webhook",
-	"service": false
-}'
 ```
 
 ## 提交指纹

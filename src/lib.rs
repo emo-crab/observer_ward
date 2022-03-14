@@ -167,7 +167,7 @@ impl Helper {
                 .to_str()
                 .unwrap_or("web_fingerprint_v3.json"),
         )
-        .await;
+            .await;
         // self.download_file_from_github(
         //     "https://0x727.github.io/FingerprintHub/nmap_service_probes.json",
         //     "nmap_service_probes.json",
@@ -181,7 +181,7 @@ impl Helper {
             "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
             plugins_zip_path.to_str().unwrap_or("plugins.zip"),
         )
-        .await;
+            .await;
         match extract_plugins_zip(&plugins_zip_path, &extract_target_path) {
             Ok(_) => {
                 println!("It has been extracted to the {:?}", extract_target_path);
@@ -344,8 +344,8 @@ pub fn read_file_to_target(file_path: &String) -> HashSet<String> {
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where
-    P: AsRef<Path>,
+    where
+        P: AsRef<Path>,
 {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
@@ -501,6 +501,21 @@ pub struct ObserverWard {
     what_server_ins: WhatServer,
     what_web_ins: WhatWeb,
     config: ObserverWardConfig,
+}
+
+impl Default for ObserverWard {
+    fn default() -> Self {
+        let config = ObserverWardConfig::new();
+        let mut helper = Helper::new(&config);
+        let web_fingerprint = helper.read_web_fingerprint(&config.verify);
+        let mut nmap_fingerprint = vec![];
+        if config.service {
+            nmap_fingerprint = helper.read_nmap_fingerprint();
+        }
+        let observer_ward_ins =
+            ObserverWard::new(config.clone(), web_fingerprint, nmap_fingerprint);
+        return observer_ward_ins;
+    }
 }
 
 impl ObserverWard {
