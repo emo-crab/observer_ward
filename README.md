@@ -12,6 +12,8 @@
 | 语言  | Rust                                                   |
 | 功能  | 命令行Web指纹识别工具                                           |
 
+## 安装
+
 ### 1. 源码手动安装
 
 ```bash
@@ -26,6 +28,12 @@ cargo build --target  x86_64-unknown-linux-musl --release --all-features
 
 - 因为添加了`--update_self`参数，方便更新固定了标签，每次更新代码都会自动重新编译发布到`default`版本，所以`default`永远是最新的版本。
 - [发行版本](https://github.com/0x727/ObserverWard/releases)下载页面。
+
+### 3. Mac系统
+
+```shell
+brew install observer_ward
+```
 
 ## 使用方法
 
