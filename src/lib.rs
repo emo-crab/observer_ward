@@ -265,18 +265,20 @@ impl Helper {
             } else {
                 println!("The verification file cannot be found in the current directory!");
             }
+        }
+        let mut web_fingerprint_path = PathBuf::from("web_fingerprint_v3.json");
+        if !web_fingerprint_path.exists() {
+            web_fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
+        }
+        if let Ok(mut file) = File::open(web_fingerprint_path) {
+            let mut data = String::new();
+            file.read_to_string(&mut data).ok();
+            let web_fingerprint: Vec<WebFingerPrint> =
+                serde_json::from_str(&data).expect("BAD JSON");
+            return web_fingerprint;
         } else {
-            let web_fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
-            if let Ok(mut file) = File::open(web_fingerprint_path) {
-                let mut data = String::new();
-                file.read_to_string(&mut data).ok();
-                let web_fingerprint: Vec<WebFingerPrint> =
-                    serde_json::from_str(&data).expect("BAD JSON");
-                return web_fingerprint;
-            } else {
-                println!("The fingerprint library cannot be found in the current directory!");
-                println!("Update fingerprint library with `-u` parameter!");
-            }
+            println!("The fingerprint library cannot be found in the current directory!");
+            println!("Update fingerprint library with `-u` parameter!");
         }
         Vec::new()
     }
