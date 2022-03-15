@@ -1,7 +1,7 @@
 #[cfg(not(target_os = "windows"))]
 extern crate daemonize;
 
-use crate::{print_color, Helper, ObserverWard, ObserverWardConfig};
+use crate::{print_color, Helper, ObserverWard, ObserverWardConfig, OBSERVER_WARD_PATH};
 #[cfg(not(target_os = "windows"))]
 use daemonize::Daemonize;
 use std::collections::{HashMap, HashSet};
@@ -19,8 +19,10 @@ use openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslFiletype, SslMethod};
 
 fn get_ssl_config() -> Result<SslAcceptorBuilder, ErrorStack> {
     let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
-    builder.set_private_key_file("key.pem", SslFiletype::PEM)?;
-    builder.set_certificate_chain_file("cert.pem")?;
+    let key_path = OBSERVER_WARD_PATH.join("key.pem");
+    let cert_path = OBSERVER_WARD_PATH.join("cert.pem");
+    builder.set_private_key_file(key_path, SslFiletype::PEM)?;
+    builder.set_certificate_chain_file(cert_path)?;
     return Ok(builder);
 }
 
@@ -82,7 +84,7 @@ async fn api_server(listening_address: SocketAddr, token: String) {
             .wrap(middleware::Logger::default())
             .app_data(token_auth.clone())
             .app_data(Config::default())
-            .app_data(web::JsonConfig::default().limit(4096))
+            .app_data(web::JsonConfig::default().limit(40960))
             .app_data(observer_ward_ins.clone())
             .service(what_web_api)
             .service(get_config_api)

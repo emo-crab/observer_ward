@@ -211,6 +211,7 @@ impl Helper {
 
 impl Helper {
     pub async fn update_self(&mut self) {
+        // https://doc.rust-lang.org/reference/conditional-compilation.html
         let mut base_url =
             String::from("https://github.com/0x727/ObserverWard/releases/download/default/");
         let mut download_name = "observer_ward_amd64";
@@ -218,8 +219,10 @@ impl Helper {
             download_name = "observer_ward.exe";
         } else if cfg!(target_os = "linux") {
             download_name = "observer_ward_amd64";
-        } else if cfg!(target_os = "macos") {
+        } else if cfg!(target_os = "macos") && cfg!(target_arch="x86_64") {
             download_name = "observer_ward_darwin";
+        } else if cfg!(target_os = "macos") && cfg!(target_arch="aarch64") {
+            download_name = "observer_ward_aarch64_darwin";
         };
         base_url.push_str(download_name);
         let save_filename = "update_".to_owned() + download_name;
