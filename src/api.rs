@@ -2,20 +2,20 @@
 extern crate daemonize;
 
 use crate::{print_color, Helper, ObserverWard, ObserverWardConfig, OBSERVER_WARD_PATH};
+use actix_web::web::Data;
+use actix_web::{get, middleware, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web_httpauth::extractors::bearer::{BearerAuth, Config};
 #[cfg(not(target_os = "windows"))]
 use daemonize::Daemonize;
+use openssl::error::ErrorStack;
+use openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslFiletype, SslMethod};
 use std::collections::{HashMap, HashSet};
 #[cfg(not(target_os = "windows"))]
 use std::fs::File;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::thread;
-use actix_web::{get, post, App, HttpResponse, HttpServer, middleware, Responder, web};
-use actix_web::web::Data;
 use tokio::sync::RwLock;
-use actix_web_httpauth::extractors::bearer::{BearerAuth, Config};
-use openssl::error::ErrorStack;
-use openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslFiletype, SslMethod};
 
 fn get_ssl_config() -> Result<SslAcceptorBuilder, ErrorStack> {
     let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
@@ -42,16 +42,30 @@ fn validator(token_auth: Data<TokenAuth>, credentials: BearerAuth) -> bool {
 }
 
 #[post("/v1/observer_ward")]
-async fn what_web_api(token: web::Data<TokenAuth>, auth: BearerAuth, config: web::Json<ObserverWardConfig>, observer_ward_ins: web::Data<RwLock<ObserverWard>>) -> impl Responder {
+async fn what_web_api(
+    token: web::Data<TokenAuth>,
+    auth: BearerAuth,
+    config: web::Json<ObserverWardConfig>,
+    observer_ward_ins: web::Data<RwLock<ObserverWard>>,
+) -> impl Responder {
     if !validator(token, auth) {
         return HttpResponse::Unauthorized().finish();
     }
-    let vec_results = observer_ward_ins.read().await.scan(config.targets.clone()).await;
+    let vec_results = observer_ward_ins
+        .read()
+        .await
+        .scan(config.targets.clone())
+        .await;
     return HttpResponse::Ok().json(vec_results);
 }
 
 #[post("/v1/config")]
-async fn set_config_api(token: web::Data<TokenAuth>, auth: BearerAuth, mut config: web::Json<ObserverWardConfig>, observer_ward_ins: web::Data<RwLock<ObserverWard>>) -> impl Responder {
+async fn set_config_api(
+    token: web::Data<TokenAuth>,
+    auth: BearerAuth,
+    mut config: web::Json<ObserverWardConfig>,
+    observer_ward_ins: web::Data<RwLock<ObserverWard>>,
+) -> impl Responder {
     if !validator(token, auth) {
         return HttpResponse::Unauthorized().finish();
     }
@@ -65,7 +79,11 @@ async fn set_config_api(token: web::Data<TokenAuth>, auth: BearerAuth, mut confi
 }
 
 #[get("/v1/config")]
-async fn get_config_api(token: web::Data<TokenAuth>, auth: BearerAuth, observer_ward_ins: web::Data<RwLock<ObserverWard>>) -> impl Responder {
+async fn get_config_api(
+    token: web::Data<TokenAuth>,
+    auth: BearerAuth,
+    observer_ward_ins: web::Data<RwLock<ObserverWard>>,
+) -> impl Responder {
     if !validator(token, auth) {
         return HttpResponse::Unauthorized().finish();
     }
@@ -78,7 +96,9 @@ async fn api_server(listening_address: SocketAddr, token: String) {
     std::env::set_var("RUST_LOG", "actix_web=info");
     env_logger::init();
     let observer_ward_ins = web::Data::new(RwLock::new(ObserverWard::default()));
-    let token_auth = web::Data::new(TokenAuth { token: token.clone() });
+    let token_auth = web::Data::new(TokenAuth {
+        token: token.clone(),
+    });
     let http_server = HttpServer::new(move || {
         App::new()
             .wrap(middleware::Logger::default())
@@ -132,8 +152,9 @@ pub fn run_server() {
     if let Ok(address) = std::net::SocketAddr::from_str(&config.api_server) {
         thread::spawn(move || {
             api_server(address, config.token);
-        }).join()
-            .expect("API service startup failed")
+        })
+        .join()
+        .expect("API service startup failed")
     } else {
         println!("Invalid listening address");
     }

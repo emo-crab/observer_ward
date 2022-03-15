@@ -108,7 +108,7 @@ impl ObserverWardConfig {
                 Arg::new("stdin")
                     .long("stdin")
                     .takes_value(false)
-                    .help("Read url(s) from STDIN")
+                    .help("Read url(s) from STDIN"),
             )
             .arg(
                 Arg::new("file")
@@ -121,7 +121,7 @@ impl ObserverWardConfig {
                 Arg::new("daemon")
                     .long("daemon")
                     .takes_value(false)
-                    .help("API background service")
+                    .help("API background service"),
             )
             .arg(
                 Arg::new("csv")
