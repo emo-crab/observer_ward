@@ -75,10 +75,12 @@ pub async fn what_web(
             return default_result;
         }
         for (k, v) in &fingerprint.match_rules.headers {
+            let matcher_part = format!("{:?}", raw_data.headers);
+            if k == "set-cookie" && !matcher_part.contains(v) {
+                return default_result;
+            }
             if raw_data.headers.contains_key(k) {
-                let is_match = format!("{:?}", raw_data.headers)
-                    .to_lowercase()
-                    .find(&v.to_lowercase());
+                let is_match = matcher_part.to_lowercase().find(&v.to_lowercase());
                 if is_match == None && v != "*" {
                     return default_result;
                 }
