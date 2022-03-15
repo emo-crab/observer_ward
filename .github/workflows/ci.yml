@@ -19,7 +19,7 @@ on:
 jobs:
   ci:
     name: CI
-    needs: [test, msrv, docs, rustfmt, clippy]
+    needs: [test, rustfmt, clippy]
     runs-on: ubuntu-latest
     steps:
       - name: Done
