@@ -74,7 +74,7 @@ jobs:
             os: macos-latest
             rust: stable
             target: aarch64-apple-darwin
-            file: observer_ward_aarch64
+            file: observer_ward_aarch64_darwin
           - build: win-msvc
             os: windows-latest
             rust: stable
