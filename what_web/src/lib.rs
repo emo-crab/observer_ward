@@ -62,13 +62,13 @@ pub struct RequestOption {
 impl RequestOption {
     pub fn new(timeout: &u64, proxy: &str) -> Self {
         if !proxy.is_empty() {
-            match Url::parse(&proxy) {
+            match Url::parse(proxy) {
                 Ok(u) => {
                     let proxy_url = Some(u);
-                    return Self {
-                        timeout: timeout.clone(),
+                    Self {
+                        timeout: *timeout,
                         proxy: proxy_url,
-                    };
+                    }
                 }
                 Err(err) => {
                     println!("Invalid Proxy Uri {}", err);
@@ -76,13 +76,14 @@ impl RequestOption {
                 }
             }
         } else {
-            return Self {
-                timeout: timeout.clone(),
+            Self {
+                timeout: *timeout,
                 proxy: None,
-            };
+            }
         }
     }
 }
+
 #[derive(Clone)]
 pub struct WhatWeb {
     fingerprint: Arc<WebFingerPrintLib>,
@@ -91,10 +92,8 @@ pub struct WhatWeb {
 
 impl WhatWeb {
     pub fn new(config: RequestOption, web_fingerprint: Vec<WebFingerPrint>) -> Self {
-        let fingerprint: Arc<WebFingerPrintLib> = Arc::new({
-            let web_fingerprint_lib = WebFingerPrintLib::new(web_fingerprint);
-            web_fingerprint_lib
-        });
+        let fingerprint: Arc<WebFingerPrintLib> =
+            Arc::new(WebFingerPrintLib::new(web_fingerprint));
         Self {
             fingerprint,
             config,
@@ -129,12 +128,12 @@ impl WhatWeb {
                 }
                 if raw_data.next_url.is_none() {
                     what_web_result.title = get_title(&raw_data);
-                    what_web_result.priority = what_web_result.priority + 1;
+                    what_web_result.priority += 1;
                 }
                 what_web_result.length = raw_data.text.len();
                 what_web_result.status_code = raw_data.status_code.as_u16();
                 if raw_data.status_code.is_success() {
-                    what_web_result.priority = what_web_result.priority + 1;
+                    what_web_result.priority += 1;
                 }
             }
         };

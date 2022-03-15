@@ -51,7 +51,7 @@ pub struct ObserverWardConfig {
 }
 
 fn default_thread() -> u32 {
-    100 as u32
+    100_u32
 }
 
 fn default_timeout() -> u64 {
@@ -280,7 +280,7 @@ impl ObserverWardConfig {
         if let Some(thread) = args.value_of("thread") {
             default.thread = thread.parse().unwrap_or(100);
         };
-        return default;
+        default
     }
 }
 

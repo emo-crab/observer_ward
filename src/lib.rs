@@ -109,7 +109,7 @@ pub async fn webhook_results(what_web_result: WhatWebResult, webhook_url: &str) 
         .json(&what_web_result_json)
         .send()
         .await;
-    return what_web_result.clone();
+    what_web_result.clone()
 }
 
 pub fn print_opening() {
@@ -146,7 +146,7 @@ lazy_static! {
         if !observer_ward.is_dir() || !observer_ward.exists() {
             std::fs::create_dir_all(&observer_ward).unwrap_or_default();
         }
-        return observer_ward;
+        observer_ward
     };
 }
 impl Helper {
@@ -167,7 +167,7 @@ impl Helper {
                 .to_str()
                 .unwrap_or("web_fingerprint_v3.json"),
         )
-        .await;
+            .await;
         // self.download_file_from_github(
         //     "https://0x727.github.io/FingerprintHub/nmap_service_probes.json",
         //     "nmap_service_probes.json",
@@ -181,7 +181,7 @@ impl Helper {
             "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
             plugins_zip_path.to_str().unwrap_or("plugins.zip"),
         )
-        .await;
+            .await;
         match extract_plugins_zip(&plugins_zip_path, &extract_target_path) {
             Ok(_) => {
                 println!("It has been extracted to the {:?}", extract_target_path);
@@ -205,7 +205,7 @@ impl Helper {
         if !self.msg.is_empty() {
             print!("{:?}", self.msg);
         }
-        return self.msg.clone();
+        self.msg.clone()
     }
 }
 
@@ -245,12 +245,12 @@ impl Helper {
         } else {
             println!("The nmap fingerprint library cannot be found in the current directory!");
         }
-        return Vec::new();
+        Vec::new()
     }
 
-    pub fn read_web_fingerprint(&mut self, verify: &String) -> Vec<WebFingerPrint> {
+    pub fn read_web_fingerprint(&mut self, verify: &str) -> Vec<WebFingerPrint> {
         if !verify.is_empty() {
-            if let Ok(mut file) = File::open(verify.clone()) {
+            if let Ok(mut file) = File::open(verify.to_string()) {
                 let mut data = String::new();
                 file.read_to_string(&mut data).ok();
                 let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
@@ -258,7 +258,7 @@ impl Helper {
                     serde_yaml::from_str(&data).expect("BAD YAML");
                 for mut verify_fingerprint in verify_fingerprints.fingerprint {
                     verify_fingerprint.name = verify_fingerprints.name.clone();
-                    verify_fingerprint.priority = verify_fingerprints.priority.clone();
+                    verify_fingerprint.priority = verify_fingerprints.priority;
                     web_fingerprint.push(verify_fingerprint);
                 }
                 return web_fingerprint;
@@ -278,7 +278,7 @@ impl Helper {
                 println!("Update fingerprint library with `-u` parameter!");
             }
         }
-        return Vec::new();
+        Vec::new()
     }
 
     pub fn read_results_file(&self) -> Vec<WhatWebResult> {
@@ -286,7 +286,7 @@ impl Helper {
         let read_file_data = |path: &str| {
             let mut file = match File::open(path) {
                 Err(err) => {
-                    println!("{}", err.to_string());
+                    println!("{}", err);
                     std::process::exit(0);
                 }
                 Ok(file) => file,
@@ -338,25 +338,25 @@ impl Helper {
     }
 }
 
-pub fn read_file_to_target(file_path: &String) -> HashSet<String> {
+pub fn read_file_to_target(file_path: &str) -> HashSet<String> {
     if let Ok(lines) = read_lines(file_path) {
         let target_list: Vec<String> = lines.filter_map(Result::ok).collect();
         return HashSet::from_iter(target_list);
     }
-    return HashSet::from_iter([]);
+    HashSet::from_iter([])
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where
-    P: AsRef<Path>,
+    where
+        P: AsRef<Path>,
 {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
 }
 
 pub fn print_results_and_save(
-    json: &String,
-    csv: &String,
+    json: &str,
+    csv: &str,
     results: Vec<WhatWebResult>,
     has_plugins: bool,
 ) {
@@ -385,7 +385,7 @@ pub fn print_results_and_save(
             status_code_color = Attr::ForegroundColor(color::GREEN);
         }
         let mut rows = vec![
-            Cell::new(&res.url.as_str()),
+            Cell::new(res.url.as_str()),
             Cell::new(&wwn.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
             Cell::new(&res.length.to_string()),
             Cell::new(&res.status_code.to_string()).with_style(status_code_color),
@@ -412,7 +412,7 @@ pub fn print_results_and_save(
             status_code_color = Attr::ForegroundColor(color::GREEN);
         }
         let mut rows = vec![
-            Cell::new(&res.url.as_str()),
+            Cell::new(res.url.as_str()),
             Cell::new(&wwn.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
             Cell::new(&res.length.to_string()),
             Cell::new(&res.status_code.to_string()).with_style(status_code_color),
@@ -425,7 +425,7 @@ pub fn print_results_and_save(
         }
         table.add_row(Row::new(rows));
     }
-    if table.len() > 0 {
+    if !table.is_empty() {
         print_color(
             String::from("Important technology:\n"),
             term::color::YELLOW,
@@ -436,8 +436,8 @@ pub fn print_results_and_save(
 }
 
 fn extract_plugins_zip(
-    f_name: &PathBuf,
-    extract_target_path: &PathBuf,
+    f_name: &Path,
+    extract_target_path: &Path,
 ) -> Result<(), std::io::Error> {
     let plugins_path = extract_target_path.join("plugins");
     if plugins_path.exists() {
@@ -487,16 +487,16 @@ pub async fn get_plugins_by_nuclei(w: WhatWebResult, config: &ObserverWardConfig
             .map(|s| s.to_string())
             .collect();
         for line in templates_output.iter() {
-            let template: TemplateResult = serde_json::from_str(&line).unwrap_or_default();
+            let template: TemplateResult = serde_json::from_str(line).unwrap_or_default();
             wwr.template_result.push(template.clone());
             plugins_set.insert(template.template_id);
         }
     }
     wwr.plugins = plugins_set;
     if !wwr.plugins.is_empty() {
-        wwr.priority = wwr.priority + 1;
+        wwr.priority += 1;
     }
-    return wwr;
+    wwr
 }
 
 #[derive(Clone)]
@@ -515,9 +515,7 @@ impl Default for ObserverWard {
         if config.service {
             nmap_fingerprint = helper.read_nmap_fingerprint();
         }
-        let observer_ward_ins =
-            ObserverWard::new(config.clone(), web_fingerprint, nmap_fingerprint);
-        return observer_ward_ins;
+        ObserverWard::new(config.clone(), web_fingerprint, nmap_fingerprint)
     }
 }
 
@@ -545,7 +543,7 @@ impl ObserverWard {
         let (mut verify_sender, mut verify_receiver) = unbounded();
         let (mut results_sender, mut results_receiver) = unbounded();
         let mut vec_results: Vec<WhatWebResult> = vec![];
-        let config_thread = config.thread.clone();
+        let config_thread = config.thread;
         let webhook = config.webhook.clone();
         let what_web_handle = tokio::task::spawn(async move {
             let mut worker = FuturesUnordered::new();
@@ -564,7 +562,7 @@ impl ObserverWard {
                 }
                 what_web_sender.unbounded_send(result).unwrap_or_default();
             }
-            return true;
+            true
         });
         let what_server_handle = tokio::task::spawn(async move {
             let mut worker = FuturesUnordered::new();
@@ -583,7 +581,7 @@ impl ObserverWard {
                 print_what_web(&wwr);
                 what_server_sender.start_send(wwr).unwrap_or_default();
             }
-            return true;
+            true
         });
         let plugins_path = config.plugins.clone();
         let verify_handle = tokio::task::spawn(async move {
@@ -611,7 +609,7 @@ impl ObserverWard {
                     verify_sender.start_send(wwr).unwrap_or_default();
                 }
             }
-            return true;
+            true
         });
 
         let results_handle = tokio::task::spawn(async move {
@@ -638,7 +636,7 @@ impl ObserverWard {
                     results_sender.start_send(wwr).unwrap_or_default();
                 }
             }
-            return true;
+            true
         });
         let (_r1, _r2, _r3, _r4) = tokio::join!(
             what_web_handle,
@@ -652,7 +650,7 @@ impl ObserverWard {
         if vec_results.len() < 2000 {
             vec_results.sort_by(|a, b| b.priority.cmp(&a.priority));
         }
-        return vec_results;
+        vec_results
     }
     pub fn reload(&mut self, config: &ObserverWardConfig) {
         let mut helper = Helper::new(config);

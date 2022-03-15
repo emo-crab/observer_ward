@@ -23,7 +23,7 @@ fn get_ssl_config() -> Result<SslAcceptorBuilder, ErrorStack> {
     let cert_path = OBSERVER_WARD_PATH.join("cert.pem");
     builder.set_private_key_file(key_path, SslFiletype::PEM)?;
     builder.set_certificate_chain_file(cert_path)?;
-    return Ok(builder);
+    Ok(builder)
 }
 
 #[derive(Clone, Debug)]
@@ -32,13 +32,7 @@ struct TokenAuth {
 }
 
 fn validator(token_auth: Data<TokenAuth>, credentials: BearerAuth) -> bool {
-    return if token_auth.token.is_empty() {
-        true
-    } else if token_auth.token == credentials.token() {
-        true
-    } else {
-        false
-    };
+    return token_auth.token.is_empty() || token_auth.token == credentials.token();
 }
 
 #[post("/v1/observer_ward")]
@@ -56,7 +50,7 @@ async fn what_web_api(
         .await
         .scan(config.targets.clone())
         .await;
-    return HttpResponse::Ok().json(vec_results);
+    HttpResponse::Ok().json(vec_results)
 }
 
 #[post("/v1/config")]
@@ -75,7 +69,7 @@ async fn set_config_api(
     config.targets = HashSet::new();
     observer_ward_ins.write().await.reload(&config);
     let config = observer_ward_ins.read().await.config.clone();
-    return HttpResponse::Ok().json(config);
+    HttpResponse::Ok().json(config)
 }
 
 #[get("/v1/config")]
@@ -88,7 +82,7 @@ async fn get_config_api(
         return HttpResponse::Unauthorized().finish();
     }
     let config = observer_ward_ins.read().await.config.clone();
-    return HttpResponse::Ok().json(config);
+    HttpResponse::Ok().json(config)
 }
 
 #[actix_web::main]
@@ -127,7 +121,7 @@ async fn api_server(listening_address: SocketAddr, token: String) {
     }
 }
 
-fn print_help(s: &String, t: &String) {
+fn print_help(s: &str, t: &str) {
     println!("API service has been started:{}", s);
     let api_doc = format!(
         r#"curl --request POST \
@@ -138,7 +132,7 @@ fn print_help(s: &String, t: &String) {
         s, t
     );
     let result = r#"[{"url":"http://httpbin.org/","name":["swagger"],"priority":5,"length":9593,"title":"httpbin.org","status_code":200,"is_web":true,"plugins":[]}]"#;
-    print!("Request:\n");
+    println!("Request:");
     print_color(api_doc, term::color::BRIGHT_GREEN, true);
     println!("Response:");
     print_color(result.to_string(), term::color::GREEN, true);
@@ -153,8 +147,8 @@ pub fn run_server() {
         thread::spawn(move || {
             api_server(address, config.token);
         })
-        .join()
-        .expect("API service startup failed")
+            .join()
+            .expect("API service startup failed")
     } else {
         println!("Invalid listening address");
     }

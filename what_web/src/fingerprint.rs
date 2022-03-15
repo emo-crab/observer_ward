@@ -47,8 +47,8 @@ pub struct WebFingerPrint {
     favicon_hash: Vec<String>,
 }
 
-impl WebFingerPrint {
-    pub fn new() -> Self {
+impl Default for WebFingerPrint {
+    fn default() -> Self {
         Self {
             path: String::new(),
             name: String::new(),

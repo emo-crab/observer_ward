@@ -179,7 +179,7 @@ fn unescape_str_or_byte_str(src: &str) -> Vec<u8> {
         };
         let unescaped_char_result = unescaped_char.unwrap_or_default();
         if !unescaped_char_result.is_control() && first_char == '\\' {
-            buf.push('\\' as u8);
+            buf.push(b'\\');
         }
         buf.push(unescaped_char_result as u8);
         // callback(start..end, unescaped_char);

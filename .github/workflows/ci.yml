@@ -17,7 +17,7 @@ on:
 jobs:
   ci:
     name: CI
-    needs: [ test, rustfmt ]
+    needs: [ test,rustfmt,clippy ]
     if: github.repository == '0x727/ObserverWard' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -63,3 +63,21 @@ jobs:
       - uses: Swatinem/rust-cache@v1
       - name: Check formatting
         run: cargo fmt --all -- --check
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.58.1  # MSRV
+          profile: minimal
+          override: true
+          components: clippy
+      - uses: Swatinem/rust-cache@v1
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --workspace --all-features --all-targets -- -D warnings --allow deprecated

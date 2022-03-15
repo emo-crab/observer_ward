@@ -48,18 +48,18 @@ pub struct NmapFingerPrint {
 }
 
 impl NmapFingerPrint {
-    pub async fn match_rules(&self, response: &Vec<u8>) -> HashSet<String> {
+    pub async fn match_rules(&self, response: &[u8]) -> HashSet<String> {
         let mut server_name: HashSet<String> = HashSet::new();
         let mut futures = FuturesUnordered::new();
         let mut matches_iter = self.matches.iter();
         for _ in 0..matches_iter.len() {
             if let Some(rule) = matches_iter.next() {
-                futures.push(self.what_server(&rule, response));
+                futures.push(self.what_server(rule, response));
             }
         }
         while let Some(result) = futures.next().await {
             if let Some(rule) = matches_iter.next() {
-                futures.push(self.what_server(&rule, response));
+                futures.push(self.what_server(rule, response));
             }
             if !result.is_empty() {
                 server_name.insert(result);
@@ -68,10 +68,10 @@ impl NmapFingerPrint {
         }
         server_name
     }
-    async fn what_server(&self, rule: &Matches, text: &Vec<u8>) -> String {
+    async fn what_server(&self, rule: &Matches, text: &[u8]) -> String {
         let regex_str = std::str::from_utf8(&rule.pattern);
         if let Ok(ok_regex_str) = regex_str {
-            return match Regex::new(&ok_regex_str) {
+            return match Regex::new(ok_regex_str) {
                 Ok(re) => {
                     if re.captures(text).is_some() {
                         rule.service.clone()
@@ -110,7 +110,7 @@ impl WhatServer {
                 ex_probes.push(nmap_fingerprint);
             }
         }
-        return (in_probes, ex_probes);
+        (in_probes, ex_probes)
     }
     fn send_directive_str_request(&self, socket: SocketAddr, payload: Vec<u8>) -> Vec<u8> {
         let received: Vec<u8> = Vec::new();
@@ -140,7 +140,7 @@ impl WhatServer {
     async fn exec_run(&self, probe: &NmapFingerPrint, host_port: SocketAddr) -> HashSet<String> {
         let response = self.send_directive_str_request(host_port, probe.directive_str.clone());
         let server = probe.match_rules(&response).await;
-        return server;
+        server
     }
     pub async fn scan(&self, what_web_result: WhatWebResult) -> WhatWebResult {
         if self.fingerprint.is_empty() {
@@ -185,14 +185,14 @@ impl WhatServer {
             }
             Err(_) => return what_web_result,
         }
-        return what_web_result;
+        what_web_result
     }
 }
 
 lazy_static! {
     static ref NMAP_FINGERPRINT_LIB_DATA: Vec<NmapFingerPrint> = {
-        let self_path: PathBuf = env::current_exe().unwrap_or(PathBuf::new());
-        let path = Path::new(&self_path).parent().unwrap_or(Path::new(""));
+        let self_path: PathBuf = env::current_exe().unwrap_or_default();
+        let path = Path::new(&self_path).parent().unwrap_or_else(||Path::new(""));
         let mut file = match File::open(path.join("nmap_service_probes.json")) {
             Err(_) => {
                 println!("The nmap fingerprint library cannot be found in the current directory!");

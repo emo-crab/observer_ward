@@ -43,11 +43,11 @@ pub async fn check(
         if is_match {
             web_name_set.insert(
                 match_web_fingerprint.name.clone(),
-                match_web_fingerprint.priority.clone(),
+                match_web_fingerprint.priority,
             );
         }
     }
-    return web_name_set;
+    web_name_set
 }
 
 pub async fn what_web(
@@ -97,5 +97,5 @@ pub async fn what_web(
     if is_output {
         println!("Matching fingerprint{:?}", fingerprint);
     }
-    return default_result;
+    default_result
 }

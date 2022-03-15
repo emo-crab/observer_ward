@@ -62,11 +62,9 @@ lazy_static! {
 fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
     let (html, _, _) = UTF_8.decode(byte);
     let mut default_encoding = "utf-8";
-    for charset in RE_COMPILE_BY_CHARSET.captures(&html) {
-        for cs in charset.iter() {
-            if let Some(c) = cs {
-                default_encoding = c.as_str();
-            }
+    if let Some(charset) = RE_COMPILE_BY_CHARSET.captures(&html) {
+        for cs in charset.iter().flatten() {
+            default_encoding = cs.as_str();
         }
     }
     let content_type = headers
@@ -109,18 +107,18 @@ async fn fetch_raw_data(
             .and_then(|location| url.join(location).ok());
         if next_url.is_none() && text.len() <= 1024 {
             for reg in RE_COMPILE_BY_JUMP.iter() {
-                if let Some(x) = reg.captures(&text) {
+                if let Some(x) = reg.captures(text) {
                     let u = x.name("name").map_or("", |m| m.as_str());
                     if u.starts_with("http://") || u.starts_with("https://") {
-                        next_url = Some(Url::parse(u).unwrap_or(url.clone()));
+                        next_url = Some(Url::parse(u).unwrap_or_else(|_| url.clone()));
                         break;
                     }
-                    next_url = Some(url.join(u).unwrap_or(url.clone()));
+                    next_url = Some(url.join(u).unwrap_or_else(|_| url.clone()));
                     break;
                 }
             }
         }
-        return next_url;
+        next_url
     };
     let next_url = get_next_url(&headers, &url, &text);
     let raw_data = Arc::new(RawData {
@@ -164,20 +162,20 @@ async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<S
 // 从HTML标签中提取favicon的链接
 async fn find_favicon_tag(
     base_url: reqwest::Url,
-    text: &String,
+    text: &str,
     config: RequestOption,
 ) -> HashMap<String, String> {
     let mut link_tags = HashMap::new();
     for reg in RE_COMPILE_BY_ICON.iter() {
-        if let Some(x) = reg.captures(&text) {
+        if let Some(x) = reg.captures(text) {
             let u = x.name("name").map_or("", |m| m.as_str());
             if u.starts_with("http://") || u.starts_with("https://") {
-                let favicon_url = Url::parse(u).unwrap_or(base_url.clone());
+                let favicon_url = Url::parse(u).unwrap_or_else(|_| base_url.clone());
                 if let Ok(favicon_md5) = get_favicon_hash(&favicon_url, &config).await {
                     link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
                 };
             } else {
-                let favicon_url = base_url.join(u).unwrap_or(base_url.clone());
+                let favicon_url = base_url.join(u).unwrap_or_else(|_| base_url.clone());
                 if let Ok(favicon_md5) = get_favicon_hash(&favicon_url, &config).await {
                     link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
                 };
@@ -186,12 +184,14 @@ async fn find_favicon_tag(
     }
     // 补充默认路径
     let favicon_url = base_url.join("/favicon.ico").expect("favicon.icon");
-    if !link_tags.contains_key(&String::from(favicon_url.clone())) {
+    if let std::collections::hash_map::Entry::Vacant(e) =
+        link_tags.entry(String::from(favicon_url.clone()))
+    {
         if let Ok(favicon_md5) = get_favicon_hash(&favicon_url, &config).await {
-            link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
+            e.insert(favicon_md5);
         };
     }
-    return link_tags;
+    link_tags
 }
 // 支持部分正文跳转
 lazy_static! {
@@ -226,11 +226,11 @@ lazy_static! {
         Regex::new(r#"(?im)<title>(?P<name>.*?)</title>"#).expect("compiled regular expression");
 }
 pub fn get_title(raw_data: &Arc<RawData>) -> String {
-    for charset in RE_COMPILE_BY_TITLE.captures_iter(&raw_data.text) {
+    if let Some(charset) = RE_COMPILE_BY_TITLE.captures_iter(&raw_data.text).next() {
         let title = charset.name("name").map_or("", |m| m.as_str());
         return title.to_string();
     }
-    return String::new();
+    String::new()
 }
 
 // 首页请求
@@ -241,7 +241,7 @@ pub fn get_title(raw_data: &Arc<RawData>) -> String {
     convert = r#"{ format!("{}{:?}", url_str.to_owned(), special_wfp) }"#
 )]
 pub async fn index_fetch(
-    url_str: &String,
+    url_str: &str,
     special_wfp: &WebFingerPrintRequest,
     is_index: bool,
     is_special: bool,
@@ -254,15 +254,15 @@ pub async fn index_fetch(
     for mut scheme in schemes {
         //最大重定向跳转次数
         let mut max_redirect = 3;
-        let mut scheme_url = url_str.clone();
+        let mut scheme_url = url_str;
         if !url_str.to_lowercase().starts_with("http://")
             && !url_str.to_lowercase().starts_with("https://")
         {
-            scheme.push_str(url_str.as_str());
-            scheme_url = scheme;
+            scheme.push_str(url_str);
+            scheme_url = scheme.as_str();
             is_start_with_http = false;
         }
-        let mut url = Url::parse(scheme_url.as_str())?;
+        let mut url = Url::parse(scheme_url)?;
         loop {
             let mut next_url: Option<Url> = Option::None;
             if let Ok(res) = send_requests(&url, special_wfp, &config).await {
@@ -293,5 +293,5 @@ pub async fn index_fetch(
             break;
         }
     }
-    return Ok(raw_data_list);
+    Ok(raw_data_list)
 }
