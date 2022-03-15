@@ -192,7 +192,9 @@ impl WhatServer {
 lazy_static! {
     static ref NMAP_FINGERPRINT_LIB_DATA: Vec<NmapFingerPrint> = {
         let self_path: PathBuf = env::current_exe().unwrap_or_default();
-        let path = Path::new(&self_path).parent().unwrap_or_else(||Path::new(""));
+        let path = Path::new(&self_path)
+            .parent()
+            .unwrap_or_else(|| Path::new(""));
         let mut file = match File::open(path.join("nmap_service_probes.json")) {
             Err(_) => {
                 println!("The nmap fingerprint library cannot be found in the current directory!");

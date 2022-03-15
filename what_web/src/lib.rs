@@ -92,8 +92,7 @@ pub struct WhatWeb {
 
 impl WhatWeb {
     pub fn new(config: RequestOption, web_fingerprint: Vec<WebFingerPrint>) -> Self {
-        let fingerprint: Arc<WebFingerPrintLib> =
-            Arc::new(WebFingerPrintLib::new(web_fingerprint));
+        let fingerprint: Arc<WebFingerPrintLib> = Arc::new(WebFingerPrintLib::new(web_fingerprint));
         Self {
             fingerprint,
             config,

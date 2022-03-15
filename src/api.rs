@@ -147,8 +147,8 @@ pub fn run_server() {
         thread::spawn(move || {
             api_server(address, config.token);
         })
-            .join()
-            .expect("API service startup failed")
+        .join()
+        .expect("API service startup failed")
     } else {
         println!("Invalid listening address");
     }

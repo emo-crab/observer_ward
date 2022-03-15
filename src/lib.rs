@@ -167,7 +167,7 @@ impl Helper {
                 .to_str()
                 .unwrap_or("web_fingerprint_v3.json"),
         )
-            .await;
+        .await;
         // self.download_file_from_github(
         //     "https://0x727.github.io/FingerprintHub/nmap_service_probes.json",
         //     "nmap_service_probes.json",
@@ -181,7 +181,7 @@ impl Helper {
             "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
             plugins_zip_path.to_str().unwrap_or("plugins.zip"),
         )
-            .await;
+        .await;
         match extract_plugins_zip(&plugins_zip_path, &extract_target_path) {
             Ok(_) => {
                 println!("It has been extracted to the {:?}", extract_target_path);
@@ -347,8 +347,8 @@ pub fn read_file_to_target(file_path: &str) -> HashSet<String> {
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-    where
-        P: AsRef<Path>,
+where
+    P: AsRef<Path>,
 {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
@@ -435,10 +435,7 @@ pub fn print_results_and_save(
     }
 }
 
-fn extract_plugins_zip(
-    f_name: &Path,
-    extract_target_path: &Path,
-) -> Result<(), std::io::Error> {
+fn extract_plugins_zip(f_name: &Path, extract_target_path: &Path) -> Result<(), std::io::Error> {
     let plugins_path = extract_target_path.join("plugins");
     if plugins_path.exists() {
         std::fs::remove_dir_all(plugins_path)?;
