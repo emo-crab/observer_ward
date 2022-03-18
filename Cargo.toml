@@ -2,7 +2,7 @@
 name = "observer_ward"
 version = "2022.3.13"
 authors = ["Kali-Team <root@kali-team.cn>"]
-edition = "2018"
+edition = "2021"
 description = "Cross platform community web fingerprint identification tool."
 license = "MIT"
 include = ["LICENSE", "Cargo.toml", "src/**/*.rs"]

@@ -42,6 +42,7 @@ async fn send_requests(
     let client = reqwest::Client::builder()
         .pool_max_idle_per_host(0)
         .danger_accept_invalid_certs(true)
+        .danger_accept_invalid_hostnames(true)
         .default_headers(headers.clone())
         .redirect(Policy::none())
         .timeout(Duration::new(config.timeout, 0));
