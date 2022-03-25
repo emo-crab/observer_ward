@@ -297,3 +297,43 @@ pub async fn index_fetch(
     }
     Ok(raw_data_list)
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::request::send_requests;
+    use crate::{RequestOption, WebFingerPrintRequest};
+    use url::Url;
+    // https://docs.rs/tokio/latest/tokio/attr.test.html
+    #[tokio::test]
+    async fn test_send_requests() {
+        let test_url = Url::parse("https://httpbin.org/").unwrap();
+        let fingerprint = WebFingerPrintRequest {
+            path: String::from("/"),
+            request_method: String::from("GET"),
+            request_headers: Default::default(),
+            request_data: String::from(""),
+        };
+        let timeout = 10_u64;
+        let request_config = RequestOption::new(&timeout, "");
+        let res = send_requests(&test_url, &fingerprint, &request_config)
+            .await
+            .unwrap();
+        assert!(res.text().await.unwrap().contains("swagger-ui"));
+    }
+    #[tokio::test]
+    async fn test_bad_ssl_send_requests() {
+        let test_url = Url::parse("https://expired.badssl.com/").unwrap();
+        let fingerprint = WebFingerPrintRequest {
+            path: String::from("/"),
+            request_method: String::from("GET"),
+            request_headers: Default::default(),
+            request_data: String::from(""),
+        };
+        let timeout = 10_u64;
+        let request_config = RequestOption::new(&timeout, "");
+        let res = send_requests(&test_url, &fingerprint, &request_config)
+            .await
+            .unwrap();
+        assert!(res.text().await.unwrap().contains("swagger-ui"));
+    }
+}
