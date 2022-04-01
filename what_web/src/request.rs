@@ -199,8 +199,8 @@ lazy_static! {
     static ref RE_COMPILE_BY_JUMP: Vec<Regex> = {
         let js_reg = vec![
             r#"(?im)[ |.|:]location\.href.*?=.*?['|"](?P<name>.*?)['|"]"#,
-            r#"(?im)window\.open\(['|"](?P<name>.*?)['|"]"#,
-            r#"(?im)window\.location=['|"](?P<name>.*?)['|"]"#,
+            r#"(?im)window.*?\.open\(['|"](?P<name>.*?)['|"]"#,
+            r#"(?im)window.*?\.location=['|"](?P<name>.*?)['|"]"#,
             r#"(?im)<meta.*?http-equiv=.*?refresh.*?url=(?P<name>.*?)['|"]/?>"#,
         ];
         let re_list: Vec<Regex> = js_reg
