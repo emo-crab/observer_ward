@@ -159,7 +159,7 @@ impl Helper {
             msg: Default::default(),
         }
     }
-    async fn update_fingerprint(&mut self) {
+    fn update_fingerprint(&mut self) {
         let fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
         self.download_file_from_github(
             "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
@@ -192,7 +192,7 @@ impl Helper {
     }
     pub async fn run(&mut self) -> HashMap<String, String> {
         if self.config.update_fingerprint {
-            self.update_fingerprint().await;
+            self.update_fingerprint();
         }
         if self.config.update_self {
             self.update_self().await;
@@ -201,7 +201,7 @@ impl Helper {
             self.update_plugins().await;
         }
         if !self.msg.is_empty() {
-            for (k, v) in self.msg {
+            for (k, v) in &self.msg {
                 print!("{}:{}", k, v);
             }
         }

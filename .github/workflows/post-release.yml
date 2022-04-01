@@ -18,6 +18,8 @@ on:
   push:
     tags:
       - "v*"
+    branches: [ main ]
+  pull_request:
 env:
   BIN_NAME: observer_ward
 jobs:
