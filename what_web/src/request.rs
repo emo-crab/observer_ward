@@ -213,8 +213,7 @@ lazy_static! {
 lazy_static! {
     static ref RE_COMPILE_BY_ICON: Vec<Regex> = {
         let js_reg = vec![
-            r#"(?im)<link rel=["|']icon.*?href=["|'](?P<name>.*?)["|']/{0,1}>"#,
-            r#"(?im)<link rel=["|']shortcut icon.*?href=["|'](?P<name>.*?)["|']/{0,1}>"#,
+            r#"(?im)<link rel=.*?icon.*?href=.*?(?P<name>.*?)['"/]{0,1}>"#,
         ];
         let re_list: Vec<Regex> = js_reg
             .iter()
@@ -303,6 +302,7 @@ mod tests {
     use crate::request::send_requests;
     use crate::{RequestOption, WebFingerPrintRequest};
     use url::Url;
+
     // https://docs.rs/tokio/latest/tokio/attr.test.html
     #[tokio::test]
     async fn test_send_requests() {
@@ -320,6 +320,7 @@ mod tests {
             .unwrap();
         assert!(res.text().await.unwrap().contains("swagger-ui"));
     }
+
     #[tokio::test]
     async fn test_bad_ssl_send_requests() {
         let test_url = Url::parse("https://expired.badssl.com/").unwrap();
