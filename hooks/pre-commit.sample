@@ -1,0 +1,7 @@
+#!/bin/sh
+# 执行 fmt 脚本，如果不正确需要将退出码设为非零
+cargo fmt --all
+
+# 获取上面脚本的退出码
+exitCode="$?"
+exit $exitCode
