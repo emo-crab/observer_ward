@@ -333,6 +333,10 @@ mod tests {
         let res = send_requests(&test_url, &fingerprint, &request_config)
             .await
             .unwrap();
-        assert!(res.text().await.unwrap().contains("<title>expired.badssl.com</title>"));
+        assert!(res
+            .text()
+            .await
+            .unwrap()
+            .contains("<title>expired.badssl.com</title>"));
     }
 }
