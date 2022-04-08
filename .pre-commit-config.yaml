@@ -14,11 +14,6 @@ repos:
       stages: [commit]
     - id: detect-private-key
       stages: [commit]
-  - repo: https://github.com/crate-ci/typos
-    rev: v1.4.1
-    hooks:
-    - id: typos
-      stages: [commit]
   - repo: https://github.com/crate-ci/committed
     rev: v1.0.1
     hooks:
