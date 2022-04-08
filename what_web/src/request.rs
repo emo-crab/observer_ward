@@ -212,9 +212,7 @@ lazy_static! {
 }
 lazy_static! {
     static ref RE_COMPILE_BY_ICON: Vec<Regex> = {
-        let js_reg = vec![
-            r#"(?im)<link rel=.*?icon.*?href=.*?(?P<name>.*?)['"/]{0,1}>"#,
-        ];
+        let js_reg = vec![r#"(?im)<link rel=.*?icon.*?href=.*?(?P<name>.*?)['"/]{0,1}>"#];
         let re_list: Vec<Regex> = js_reg
             .iter()
             .map(|reg| Regex::new(reg).expect("compiled regular expression"))
@@ -335,6 +333,6 @@ mod tests {
         let res = send_requests(&test_url, &fingerprint, &request_config)
             .await
             .unwrap();
-        assert!(res.text().await.unwrap().contains("swagger-ui"));
+        assert!(res.text().await.unwrap().contains("<title>expired.badssl.com</title>"));
     }
 }
