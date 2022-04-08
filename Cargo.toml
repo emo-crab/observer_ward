@@ -35,7 +35,7 @@ term = "*"
 observer_ward_what_web = { path = "what_web", package = "what_web" }
 observer_ward_what_server = { path = "what_server", package = "what_server" }
 lazy_static = "1.4.0"
-zip = "0.5.13"
+zip = "0.6.0"
 openssl = { version = "0.10", features = ["vendored"] }
 env_logger = "0.9.0"
 actix-web-httpauth = "0.6.0"
