@@ -159,14 +159,15 @@ impl Helper {
             msg: Default::default(),
         }
     }
-    fn update_fingerprint(&mut self) {
+    async fn update_fingerprint(&mut self) {
         let fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
         self.download_file_from_github(
             "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
             fingerprint_path
                 .to_str()
                 .unwrap_or("web_fingerprint_v3.json"),
-        );
+        )
+        .await;
         // self.download_file_from_github(
         //     "https://0x727.github.io/FingerprintHub/nmap_service_probes.json",
         //     "nmap_service_probes.json",
@@ -179,7 +180,8 @@ impl Helper {
         self.download_file_from_github(
             "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
             plugins_zip_path.to_str().unwrap_or("plugins.zip"),
-        );
+        )
+        .await;
         match extract_plugins_zip(&plugins_zip_path, &extract_target_path) {
             Ok(_) => {
                 println!("It has been extracted to the {:?}", extract_target_path);
@@ -192,7 +194,7 @@ impl Helper {
     }
     pub async fn run(&mut self) -> HashMap<String, String> {
         if self.config.update_fingerprint {
-            self.update_fingerprint();
+            self.update_fingerprint().await;
         }
         if self.config.update_self {
             self.update_self().await;
@@ -226,7 +228,8 @@ impl Helper {
         };
         base_url.push_str(download_name);
         let save_filename = "update_".to_owned() + download_name;
-        self.download_file_from_github(&base_url, &save_filename);
+        self.download_file_from_github(&base_url, &save_filename)
+            .await;
         println!(
             "Please rename the file {} => {}",
             save_filename, download_name
@@ -278,7 +281,6 @@ impl Helper {
         } else {
             println!("The fingerprint library cannot be found in the current directory!");
             println!("Update fingerprint library with `-u` parameter!");
-            self.update_fingerprint();
         }
         Vec::new()
     }
@@ -310,14 +312,14 @@ impl Helper {
         }
         results
     }
-    pub fn download_file_from_github(&mut self, update_url: &str, filename: &str) {
+    async fn download_file_from_github(&mut self, update_url: &str, filename: &str) {
         let proxy = self.request_option.proxy.clone();
         let proxy_obj = Proxy::custom(move |_url| proxy.clone());
-        let client = reqwest::blocking::Client::builder().proxy(proxy_obj);
+        let client = reqwest::Client::builder().proxy(proxy_obj);
         if let Ok(downloading_client) = client.build() {
-            if let Ok(response) = downloading_client.get(update_url).send() {
+            if let Ok(response) = downloading_client.get(update_url).send().await {
                 let mut file = std::fs::File::create(filename).unwrap();
-                let mut content = Cursor::new(response.bytes().unwrap_or_default());
+                let mut content = Cursor::new(response.bytes().await.unwrap_or_default());
                 std::io::copy(&mut content, &mut file).unwrap_or_default();
                 self.msg.insert(
                     String::from("info"),
