@@ -105,7 +105,13 @@ async fn fetch_raw_data(
         let mut next_url = headers
             .get(LOCATION)
             .and_then(|location| location.to_str().ok())
-            .and_then(|location| url.join(location).ok());
+            .and_then(|location| {
+                if location.starts_with("http://") || location.starts_with("https://") {
+                    Some(Url::parse(location).unwrap_or_else(|_| url.clone()))
+                } else {
+                    url.join(location).ok()
+                }
+            });
         if next_url.is_none() && text.len() <= 1024 {
             for reg in RE_COMPILE_BY_JUMP.iter() {
                 if let Some(x) = reg.captures(text) {
@@ -252,7 +258,7 @@ pub async fn index_fetch(
     let schemes: [String; 2] = [String::from("https://"), String::from("http://")];
     for mut scheme in schemes {
         //最大重定向跳转次数
-        let mut max_redirect = 3;
+        let mut max_redirect = 5;
         let mut scheme_url = url_str;
         if !url_str.to_lowercase().starts_with("http://")
             && !url_str.to_lowercase().starts_with("https://")

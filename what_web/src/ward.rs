@@ -18,7 +18,10 @@ pub struct RawData {
 
 impl fmt::Display for RawData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut s = format!("Url: {}\r\n", self.url);
+        let mut s = String::new();
+        if let Ok(u) = self.url.join(&self.path) {
+            s.push_str(&format!("Url: {}\r\n", u.to_string()));
+        }
         s.push_str("Headers:\r\n");
         s.push_str(&header_to_string(&self.headers));
         s.push_str(&format!("StatusCode: {}\r\n", self.status_code));
@@ -26,7 +29,7 @@ impl fmt::Display for RawData {
         s.push_str(&self.text);
         s.push_str(&format!("Favicon: {:#?}\r\n", self.favicon));
         if let Some(next_url) = &self.next_url {
-            s.push_str(&format!("NextUrl: {:#?}\r\n", next_url));
+            s.push_str(&format!("NextUrl: {}\r\n", next_url.to_string()));
         }
         write!(f, "{}", s)
     }
