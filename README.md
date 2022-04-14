@@ -12,10 +12,6 @@
 | 语言  | Rust                                                   |
 | 功能  | 命令行Web指纹识别工具                                           |
 
-## 关于
-
-- 我的Github帐号被标记了，现在还没解封，所以我在`issues`的评论是不公开的，你们也看不见
-- 如果有什么问题可以直接添加我的微信：`Kali-Team`
 
 ## 安装
 
@@ -77,7 +73,8 @@ OPTIONS:
 
 ### 更新指纹
 
-- 使用`-u`参数从指纹库中更新指纹，也可以自己从[指纹库项目](https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json)当前系统对应目录。
+- 使用`-u`参数从指纹库中更新指纹，也可以自己从[指纹库项目](https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json)下载当前系统对应目录。
+- 如果在程序的运行目录有`web_fingerprint_v3.json`文件会使用运行目录下的指纹库，不会读取下面表格中系统对于的目录。
 
 | 系统      | 路径                                                                             |
 |---------|--------------------------------------------------------------------------------|
@@ -105,18 +102,100 @@ update: /home/kali-team/.config/observer_ward/web_fingerprint_v3.json file size 
 
 ### 验证指纹是否有效
 
-- `--verify`指定要验证的指纹yaml文件路径，`-t`指定要识别的目标。
+- `--verify`指定要验证的指纹yaml文件路径，`-t`指定要识别的目标，输出请求过程和识别结果。
 
 ```bash
-➜  ~ ./observer_ward --verify verification.yaml -t https://httpbin.org
-[ https://httpbin.org |["swagger"] | 9593 | 200 | httpbin.org ]
+➜  ~ ./observer_ward -t https://www.example.com --verify 0example.yaml
+Url: https://www.example.com/
+Headers:
+x-cache: HIT
+accept-ranges: bytes
+age: 212697
+cache-control: max-age=604800
+content-type: text/html; charset=UTF-8
+date: Thu, 14 Apr 2022 03:09:03 GMT
+etag: "3147526947"
+expires: Thu, 21 Apr 2022 03:09:03 GMT
+last-modified: Thu, 17 Oct 2019 07:18:26 GMT
+server: ECS (sab/5783)
+vary: Accept-Encoding
+StatusCode: 200 OK
+Text:
+<!doctype html>
+<html>
+<head>
+    <title>example domain</title>
+
+    <meta charset="utf-8" />
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type="text/css">
+    body {
+        background-color: #f0f0f2;
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, system-ui, blinkmacsystemfont, "segoe ui", "open sans", "helvetica neue", helvetica, arial, sans-serif;
+        
+    }
+    div {
+        width: 600px;
+        margin: 5em auto;
+        padding: 2em;
+        background-color: #fdfdff;
+        border-radius: 0.5em;
+        box-shadow: 2px 3px 7px 2px rgba(0,0,0,0.02);
+    }
+    a:link, a:visited {
+        color: #38488f;
+        text-decoration: none;
+    }
+    @media (max-width: 700px) {
+        div {
+            margin: 0 auto;
+            width: auto;
+        }
+    }
+    </style>    
+</head>
+
+<body>
+<div>
+    <h1>example domain</h1>
+    <p>this domain is for use in illustrative examples in documents. you may use this
+    domain in literature without prior coordination or asking for permission.</p>
+    <p><a href="https://www.iana.org/domains/example">more information...</a></p>
+</div>
+</body>
+</html>
+Favicon: {}
+
+Matching fingerprintV3WebFingerPrint {
+    name: "0example",
+    priority: 3,
+    request: WebFingerPrintRequest {
+        path: "/",
+        request_method: "get",
+        request_headers: {},
+        request_data: "",
+    },
+    match_rules: WebFingerPrintMatch {
+        status_code: 0,
+        favicon_hash: [],
+        headers: {},
+        keyword: [
+            "<title>Example Domain</title>",
+        ],
+    },
+}
+[ https://www.example.com |["0example"] | 1256 | 200 | example domain ]
 Important technology:
 
-+---------------------+---------+--------+-------------+-------------+----------+
-| url                 | name    | length | status_code | title       | priority |
-+=====================+=========+========+=============+=============+==========+
-| https://httpbin.org | swagger | 9593   | 200         | httpbin.org | 5        |
-+---------------------+---------+--------+-------------+-------------+----------+
++-------------------------+----------+--------+-------------+----------------+----------+
+| url                     | name     | length | status_code | title          | priority |
++=========================+==========+========+=============+================+==========+
+| https://www.example.com | 0example | 1256   | 200         | example domain | 5        |
++-------------------------+----------+--------+-------------+----------------+----------+
+
 ```
 
 ### 单个目标识别
@@ -241,7 +320,7 @@ app = Flask(__name__)
 
 
 @app.route("/webhook", methods=['POST'])
-def xray_webhook():
+def observer_ward_webhook():
     print(request.json)
     return 'ok'
 

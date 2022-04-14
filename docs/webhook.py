@@ -4,7 +4,7 @@ app = Flask(__name__)
 
 
 @app.route('/webhook', methods=['POST'])
-def xray_webhook():
+def observer_ward_webhook():
     print(request.json)
     return 'ok'
 

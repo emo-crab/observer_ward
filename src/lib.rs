@@ -545,13 +545,14 @@ impl ObserverWard {
         let (mut results_sender, mut results_receiver) = unbounded();
         let mut vec_results: Vec<WhatWebResult> = vec![];
         let config_thread = config.thread;
+        let is_debug = !config.verify.is_empty();
         let webhook = config.webhook.clone();
         let what_web_handle = tokio::task::spawn(async move {
             let mut worker = FuturesUnordered::new();
             let mut targets_iter = targets.iter();
             for _ in 0..config_thread {
                 match targets_iter.next() {
-                    Some(target) => worker.push(what_web_ins.scan(target.to_string())),
+                    Some(target) => worker.push(what_web_ins.scan(target.to_string(), is_debug)),
                     None => {
                         break;
                     }
@@ -559,7 +560,7 @@ impl ObserverWard {
             }
             while let Some(result) = worker.next().await {
                 if let Some(target) = targets_iter.next() {
-                    worker.push(what_web_ins.scan(target.to_string()));
+                    worker.push(what_web_ins.scan(target.to_string(), is_debug));
                 }
                 what_web_sender.unbounded_send(result).unwrap_or_default();
             }
