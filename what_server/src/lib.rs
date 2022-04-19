@@ -1,11 +1,8 @@
-#![feature(once_cell)]
-
 use std::collections::HashSet;
 use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::io::{BufRead, Write};
-use std::lazy::SyncLazy;
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -15,6 +12,7 @@ use std::{io, net::SocketAddr, time::Duration};
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use observer_ward_what_web::WhatWebResult;
+use once_cell::sync::Lazy;
 use regex::bytes::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -190,8 +188,8 @@ impl WhatServer {
 }
 
 #[allow(dead_code)]
-static NMAP_FINGERPRINT_LIB_DATA: SyncLazy<Vec<NmapFingerPrint>> =
-    SyncLazy::new(|| -> Vec<NmapFingerPrint> {
+static NMAP_FINGERPRINT_LIB_DATA: Lazy<Vec<NmapFingerPrint>> =
+    Lazy::new(|| -> Vec<NmapFingerPrint> {
         let self_path: PathBuf = env::current_exe().unwrap_or_default();
         let path = Path::new(&self_path)
             .parent()
