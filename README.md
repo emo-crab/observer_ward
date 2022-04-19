@@ -12,7 +12,6 @@
 | 语言  | Rust                                                   |
 | 功能  | 命令行Web指纹识别工具                                           |
 
-
 ## 安装
 
 ### 1. 源码手动安装
@@ -421,6 +420,56 @@ curl --request POST \
 - 如果需要获取指纹库和提交指纹规则，请查看[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
 
 ## 为ObserverWard_0x727做贡献
+
+### 提交代码
+
+- 点击Fork按钮克隆这个项目到你的仓库
+
+```bash
+git clone git@github.com:你的个人github用户名/ObserverWard.git
+```
+
+- 添加上游接收更新
+
+```bash
+cd ObserverWard
+git remote add upstream git@github.com:0x727/ObserverWard.git
+git fetch upstream
+```
+
+- 配置你的github个人信息
+
+```bash
+git config --global user.name "$GITHUB_USERNAME"
+git config --global user.email "$GITHUB_EMAIL"
+git config --global github.user "$GITHUB_USERNAME"
+```
+
+- 拉取所有分支的规则
+
+```bash
+git fetch --all
+git fetch upstream
+```
+
+- **不要**直接在`main`分支上修改，例如我想修改某个bug，创建一个新的分支并切换到新的分支。
+
+```bash
+git checkout -b dev
+```
+
+- 修改完成后，测试通过
+- 跟踪修改和提交Pull-Requests。
+
+```
+git add 你添加或者修改的文件名
+git commit -m "添加你的描述"
+git push origin dev
+```
+
+- 打开你Fork这个项目的地址，点击与上游合并，等待审核合并代码。
+
+### 提交建议
 
 ObserverWard 是一个免费且开源的项目，我们欢迎任何人为其开发和进步贡献力量。
 
