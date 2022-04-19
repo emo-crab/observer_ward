@@ -110,13 +110,13 @@ async fn api_server(listening_address: SocketAddr, token: String) {
         s = s.replace("http://", "https://");
         if let Ok(server) = https_server {
             print_help(&s, &token);
-            server.run().await.unwrap_or_default();
+            server.workers(32).run().await.unwrap_or_default();
         }
     } else {
         let http_server = http_server.bind(listening_address);
         if let Ok(server) = http_server {
             print_help(&s, &token);
-            server.run().await.unwrap_or_default();
+            server.workers(32).run().await.unwrap_or_default();
         }
     }
 }

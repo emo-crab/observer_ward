@@ -156,13 +156,13 @@ jobs:
           asset_name: ${{ matrix.file }}
           tag: default
           overwrite: true
-#  homebrew:
-#    runs-on: ubuntu-latest
-#    needs:
-#      - build-release
-#    steps:
-#      - name: Bump Homebrew formula
-#        uses: dawidd6/action-homebrew-bump-formula@v3
-#        with:
-#          token: ${{secrets.BUMP_API_TOKEN}}
-#          formula: observer_ward
+  homebrew:
+    runs-on: ubuntu-latest
+    needs:
+      - build-release
+    steps:
+      - name: Bump Homebrew formula
+        uses: dawidd6/action-homebrew-bump-formula@v3
+        with:
+          token: ${{secrets.BUMP_API_TOKEN}}
+          formula: observer_ward
