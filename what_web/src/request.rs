@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::lazy::SyncLazy;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -9,6 +8,7 @@ use cached::SizedCache;
 use encoding_rs::{Encoding, UTF_8};
 use md5::{Digest, Md5};
 use mime::Mime;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, LOCATION};
 use reqwest::redirect::Policy;
@@ -58,7 +58,7 @@ async fn send_requests(
         .await?);
 }
 
-static RE_COMPILE_BY_CHARSET: SyncLazy<Regex> = SyncLazy::new(|| -> Regex {
+static RE_COMPILE_BY_CHARSET: Lazy<Regex> = Lazy::new(|| -> Regex {
     Regex::new(r#"(?im)charset="(.*?)"|charset=(.*?)""#).expect("RE_COMPILE_BY_CHARSET")
 });
 
@@ -203,7 +203,7 @@ async fn find_favicon_tag(
     link_tags
 }
 // 支持部分正文跳转
-static RE_COMPILE_BY_JUMP: SyncLazy<Vec<Regex>> = SyncLazy::new(|| -> Vec<Regex> {
+static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
     let js_reg = vec![
         r#"(?im)[ |.|:]location\.href.*?=.*?['|"](?P<name>.*?)['|"]"#,
         r#"(?im)window.*?\.open\(['|"](?P<name>.*?)['|"]"#,
@@ -217,7 +217,7 @@ static RE_COMPILE_BY_JUMP: SyncLazy<Vec<Regex>> = SyncLazy::new(|| -> Vec<Regex>
     re_list
 });
 
-static RE_COMPILE_BY_ICON: SyncLazy<Vec<Regex>> = SyncLazy::new(|| -> Vec<Regex> {
+static RE_COMPILE_BY_ICON: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
     let js_reg = vec![r#"(?im)<link rel=.*?icon.*?href=.*?(?P<name>.*?)['"/]{0,1}>"#];
     let re_list: Vec<Regex> = js_reg
         .iter()
@@ -226,7 +226,7 @@ static RE_COMPILE_BY_ICON: SyncLazy<Vec<Regex>> = SyncLazy::new(|| -> Vec<Regex>
     re_list
 });
 
-static RE_COMPILE_BY_TITLE: SyncLazy<Regex> = SyncLazy::new(|| -> Regex {
+static RE_COMPILE_BY_TITLE: Lazy<Regex> = Lazy::new(|| -> Regex {
     Regex::new(r#"(?im)<title>(?P<name>.*?)</title>"#).expect("compiled regular expression")
 });
 

@@ -1,5 +1,3 @@
-#![feature(once_cell)]
-
 use crate::cli::ObserverWardConfig;
 use error::Error;
 use futures::channel::mpsc::unbounded;
@@ -8,6 +6,7 @@ use futures::StreamExt;
 use observer_ward_what_server::{NmapFingerPrint, WhatServer};
 use observer_ward_what_web::fingerprint::WebFingerPrint;
 use observer_ward_what_web::{RequestOption, TemplateResult, WhatWeb, WhatWebResult};
+use once_cell::sync::Lazy;
 use prettytable::csv::Reader;
 use prettytable::{color, Attr, Cell, Row, Table};
 use reqwest::redirect::Policy;
@@ -19,7 +18,6 @@ use std::io;
 use std::io::Cursor;
 use std::io::{BufRead, Read};
 use std::iter::FromIterator;
-use std::lazy::SyncLazy;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use term::color::Color;
@@ -138,7 +136,7 @@ pub struct Helper {
     msg: HashMap<String, String>,
 }
 
-static OBSERVER_WARD_PATH: SyncLazy<PathBuf> = SyncLazy::new(|| -> PathBuf {
+static OBSERVER_WARD_PATH: Lazy<PathBuf> = Lazy::new(|| -> PathBuf {
     let mut config_path = PathBuf::new();
     if let Some(cp) = dirs::config_dir() {
         config_path = cp;

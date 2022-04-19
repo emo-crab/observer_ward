@@ -1,5 +1,3 @@
-#![feature(once_cell)]
-
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
