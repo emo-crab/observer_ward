@@ -24,10 +24,13 @@ impl fmt::Display for RawData {
         }
         s.push_str("Headers:\r\n");
         s.push_str(&header_to_string(&self.headers));
-        s.push_str(&format!("StatusCode: {}\r\n", self.status_code));
+        s.push_str(&format!("StatusCode: {}\r\n", self.status_code.as_u16()));
         s.push_str("Text:\r\n");
         s.push_str(&self.text);
-        s.push_str(&format!("Favicon: {:#?}\r\n", self.favicon));
+        s.push_str("\r\n");
+        if !self.favicon.is_empty(){
+            s.push_str(&format!("Favicon: {:#?}\r\n", self.favicon));
+        }
         if let Some(next_url) = &self.next_url {
             s.push_str(&format!("NextUrl: {}\r\n", next_url));
         }
@@ -47,6 +50,9 @@ pub async fn check(
     let mut web_name_set: HashMap<String, u32> = HashMap::new();
     if is_special {
         for fingerprint in fingerprint_lib.special.iter() {
+            futures_e.push(what_web(raw_data.clone(), fingerprint, false, debug));
+        }
+        for fingerprint in fingerprint_lib.index.iter() {
             futures_e.push(what_web(raw_data.clone(), fingerprint, false, debug));
         }
     } else {
