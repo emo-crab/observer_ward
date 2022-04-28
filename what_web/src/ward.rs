@@ -28,7 +28,7 @@ impl fmt::Display for RawData {
         s.push_str("Text:\r\n");
         s.push_str(&self.text);
         s.push_str("\r\n");
-        if !self.favicon.is_empty(){
+        if !self.favicon.is_empty() {
             s.push_str(&format!("Favicon: {:#?}\r\n", self.favicon));
         }
         if let Some(next_url) = &self.next_url {
