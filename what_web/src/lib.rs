@@ -170,6 +170,15 @@ pub struct TemplateResult {
     pub matched_at: String,
     #[serde(default)]
     pub meta: HashMap<String, String>,
+    #[serde(default)]
+    pub info: TemplateInfo,
+    #[serde(rename = "curl-command")]
+    pub curl_command: String,
+}
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct TemplateInfo {
+    #[serde(default)]
+    pub severity: String,
 }
 
 fn string_to_hashset<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Error>

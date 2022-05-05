@@ -1,4 +1,8 @@
 use crate::cli::ObserverWardConfig;
+use crossterm::{
+    style::{Color, Print, ResetColor, SetForegroundColor},
+    ExecutableCommand,
+};
 use error::Error;
 use futures::channel::mpsc::unbounded;
 use futures::stream::FuturesUnordered;
@@ -15,12 +19,11 @@ use serde_json::json;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io;
-use std::io::Cursor;
+use std::io::{stdout, Cursor};
 use std::io::{BufRead, Read};
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use term::color::Color;
 use tokio::process::Command;
 
 pub mod api;
@@ -36,15 +39,19 @@ pub struct VerifyWebFingerPrint {
     fingerprint: Vec<WebFingerPrint>,
 }
 
+fn print_color_func(string: &str, color: Color) -> Result<(), Error> {
+    stdout()
+        .execute(SetForegroundColor(color))?
+        .execute(Print(string))?
+        .execute(ResetColor)?;
+    Ok(())
+}
+
 pub fn print_color(mut string: String, color: Color, nl: bool) {
     if nl {
         string.push('\n')
     }
-    if let Some(mut t) = term::stdout() {
-        t.fg(color).ok();
-        write!(t, "{}", string).expect("print_color err");
-        t.reset().ok();
-    } else {
+    if print_color_func(&string, color).is_err() {
         print!("{}", string);
     };
 }
@@ -55,12 +62,12 @@ pub fn print_what_web(what_web_result: &WhatWebResult) {
         reqwest::StatusCode::from_u16(what_web_result.status_code).unwrap_or_default();
     if !what_web_result.name.is_empty() {
         print!("[ {} |", what_web_result.url);
-        print_color(format!("{:?}", color_web_name), term::color::GREEN, false);
+        print_color(format!("{:?}", color_web_name), Color::Green, false);
         print!(" | {} | ", what_web_result.length);
         if status_code.is_success() {
-            print_color(format!("{:?}", status_code), term::color::GREEN, false);
+            print_color(format!("{:?}", status_code), Color::Green, false);
         } else {
-            print_color(format!("{:?}", status_code), term::color::RED, false);
+            print_color(format!("{:?}", status_code), Color::Red, false);
         }
         println!(" | {} ]", what_web_result.title);
     } else {
@@ -77,12 +84,13 @@ pub fn print_what_web(what_web_result: &WhatWebResult) {
 
 pub fn print_nuclei(what_web_result: &WhatWebResult) {
     for template in what_web_result.template_result.iter() {
-        print_color(
-            format!("[{}]", template.template_id),
-            term::color::RED,
-            false,
-        );
-        println!(" | [{}] ", template.matched_at);
+        print_color(format!("[{}] ", template.info.severity), Color::Blue, false);
+        print_color(format!("[{}] ", template.template_id), Color::Red, false);
+        println!("| [{}] ", template.matched_at);
+        if !template.curl_command.is_empty() {
+            let patch_curl_command = format!("{} --path-as-is -k", template.curl_command);
+            print_color(patch_curl_command, Color::DarkBlue, true);
+        }
     }
 }
 
@@ -121,12 +129,12 @@ pub fn print_opening() {
  \ \__/".~\_\  \ \_\ \_\  \ \_\ \_\  \ \____-
   \/_/   \/_/   \/_/\/_/   \/_/ /_/   \/____/
 Community based web fingerprint analysis tool."#;
-    print_color(s.to_string(), term::color::GREEN, true);
+    print_color(s.to_string(), Color::Green, true);
     let info = r#"_____________________________________________
 :  https://github.com/0x727/FingerprintHub  :
 :  https://github.com/0x727/ObserverWard    :
  --------------------------------------------"#;
-    print_color(info.to_string(), term::color::YELLOW, true);
+    print_color(info.to_string(), Color::Yellow, true);
 }
 
 pub struct Helper {
@@ -432,11 +440,7 @@ pub fn print_results_and_save(
         table.add_row(Row::new(rows));
     }
     if !table.is_empty() {
-        print_color(
-            String::from("Important technology:\n"),
-            term::color::YELLOW,
-            true,
-        );
+        print_color(String::from("Important technology:\n"), Color::Yellow, true);
         table.printstd();
     }
 }

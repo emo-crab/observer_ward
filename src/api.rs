@@ -6,6 +6,7 @@ use crate::{print_color, Helper, ObserverWard, ObserverWardConfig, OBSERVER_WARD
 use actix_web::web::Data;
 use actix_web::{get, middleware, post, web, App, HttpResponse, HttpServer, Responder};
 use actix_web_httpauth::extractors::bearer::{BearerAuth, Config};
+use crossterm::style::Color;
 #[cfg(not(target_os = "windows"))]
 use daemonize::Daemonize;
 use openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslFiletype, SslMethod};
@@ -133,9 +134,9 @@ fn print_help(s: &str, t: &str) {
     );
     let result = r#"[{"url":"http://httpbin.org/","name":["swagger"],"priority":5,"length":9593,"title":"httpbin.org","status_code":200,"is_web":true,"plugins":[]}]"#;
     println!("Request:");
-    print_color(api_doc, term::color::BRIGHT_GREEN, true);
+    print_color(api_doc, Color::DarkBlue, true);
     println!("Response:");
-    print_color(result.to_string(), term::color::GREEN, true);
+    print_color(result.to_string(), Color::Green, true);
 }
 
 pub fn run_server() {
