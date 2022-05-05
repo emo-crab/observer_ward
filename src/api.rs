@@ -181,7 +181,7 @@ fn background() {
 fn background() {
     print_color(
         "Windows does not support background services".to_string(),
-        term::color::GREEN,
+        Color::Green,
         true,
     );
 }
