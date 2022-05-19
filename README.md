@@ -56,6 +56,7 @@ OPTIONS:
         --proxy <PROXY>         Proxy to use for requests (ex: [http(s)|socks5(h)]://host:port)
     -s, --rest_api <SERVER>     Start a web API service (ex: 127.0.0.1:8080)
         --service               Using nmap fingerprint identification service (slow)
+        --silent                Silent mode
         --stdin                 Read url(s) from STDIN
     -t, --target <TARGET>       The target URL(s) (required, unless --stdin used)
         --thread <THREAD>       Number of concurrent threads. [default: 100]
@@ -413,6 +414,10 @@ curl --request POST \
   "service": false
 }
 ```
+
+### 静默模式
+
+- `--silent`参数为静默模式，不会输出任何信息，结果需要保存在文件，方便在webshell执行。
 
 ## 提交指纹
 

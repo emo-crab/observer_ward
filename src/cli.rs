@@ -48,6 +48,8 @@ pub struct ObserverWardConfig {
     pub token: String,
     #[serde(skip)]
     pub daemon: bool,
+    #[serde(skip)]
+    pub silent: bool,
 }
 
 fn default_thread() -> u32 {
@@ -80,6 +82,7 @@ impl Default for ObserverWardConfig {
             api_server: String::new(),
             daemon: false,
             token: String::new(),
+            silent: false,
         }
     }
 }
@@ -109,6 +112,12 @@ impl ObserverWardConfig {
                     .long("stdin")
                     .takes_value(false)
                     .help("Read url(s) from STDIN"),
+            )
+            .arg(
+                Arg::new("silent")
+                    .long("silent")
+                    .takes_value(false)
+                    .help("Silent mode"),
             )
             .arg(
                 Arg::new("file")
@@ -213,6 +222,9 @@ impl ObserverWardConfig {
         let mut default = ObserverWardConfig::default();
         if args.is_present("stdin") {
             default.stdin = true;
+        }
+        if args.is_present("silent") {
+            default.silent = true;
         }
         if args.is_present("service") {
             default.service = true;

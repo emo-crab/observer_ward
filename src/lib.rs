@@ -84,7 +84,11 @@ pub fn print_what_web(what_web_result: &WhatWebResult) {
 
 pub fn print_nuclei(what_web_result: &WhatWebResult) {
     for template in what_web_result.template_result.iter() {
-        print_color(format!("[{}] ", template.info.severity), Color::Blue, false);
+        print_color(
+            format!("[{}] ", template.info.severity),
+            Color::Green,
+            false,
+        );
         print_color(format!("[{}] ", template.template_id), Color::Red, false);
         println!("| [{}] ", template.matched_at);
         if !template.curl_command.is_empty() {
@@ -371,6 +375,7 @@ where
 pub fn print_results_and_save(
     json: &str,
     csv: &str,
+    silent: bool,
     results: Vec<WhatWebResult>,
     has_plugins: bool,
 ) {
@@ -439,7 +444,7 @@ pub fn print_results_and_save(
         }
         table.add_row(Row::new(rows));
     }
-    if !table.is_empty() {
+    if !table.is_empty() && !silent {
         print_color(String::from("Important technology:\n"), Color::Yellow, true);
         table.printstd();
     }
@@ -586,7 +591,9 @@ impl ObserverWard {
                 if let Some(v_wwr) = what_web_receiver.next().await {
                     worker.push(what_server_ins.scan(v_wwr));
                 }
-                print_what_web(&wwr);
+                if !config.silent {
+                    print_what_web(&wwr);
+                }
                 what_server_sender.start_send(wwr).unwrap_or_default();
             }
             true
@@ -609,7 +616,9 @@ impl ObserverWard {
                     if let Some(v_wwr) = what_server_receiver.next().await {
                         worker.push(get_plugins_by_nuclei(v_wwr, &config));
                     }
-                    print_nuclei(&wwr);
+                    if !config.silent {
+                        print_nuclei(&wwr);
+                    }
                     verify_sender.start_send(wwr).unwrap_or_default();
                 }
             } else {

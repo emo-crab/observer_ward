@@ -19,7 +19,7 @@ async fn main() {
 
 async fn start() -> Result<(), Error> {
     let config = ObserverWardConfig::new();
-    if !config.stdin {
+    if !(config.stdin || config.silent) {
         print_opening();
     }
     if !config.api_server.is_empty() {
@@ -45,7 +45,12 @@ async fn start() -> Result<(), Error> {
     let observer_ward_ins = ObserverWard::new(config.clone(), web_fingerprint, nmap_fingerprint);
     let vec_results = observer_ward_ins.scan(targets).await;
     let is_enable_plugin = !config.plugins.is_empty();
-
-    print_results_and_save(&config.json, &config.csv, vec_results, is_enable_plugin);
+    print_results_and_save(
+        &config.json,
+        &config.csv,
+        config.silent,
+        vec_results,
+        is_enable_plugin,
+    );
     Ok(())
 }
