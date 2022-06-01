@@ -80,7 +80,7 @@ fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
         .unwrap_or(default_encoding);
     let encoding = Encoding::for_label(encoding_name.as_bytes()).unwrap_or(UTF_8);
     let (text, _, _) = encoding.decode(byte);
-    text.to_lowercase()
+    text.to_string()
 }
 
 async fn fetch_raw_data(
@@ -89,7 +89,6 @@ async fn fetch_raw_data(
     config: RequestOption,
 ) -> anyhow::Result<Arc<RawData>> {
     let path: String = res.url().path().to_string();
-    let url = res.url().join("/")?;
     let status_code = res.status();
     let headers = res.headers().clone();
     let base_url = res.url().clone();
@@ -100,7 +99,7 @@ async fn fetch_raw_data(
     let mut favicon: HashMap<String, String> = HashMap::new();
     if is_index && !status_code.is_server_error() {
         // 只有在首页的时候提取favicon图标链接
-        favicon = find_favicon_tag(base_url, &text, config).await;
+        favicon = find_favicon_tag(&base_url, &text, config).await;
     }
     // 在请求头和正文里匹配下一跳URL
     let get_next_url = |headers: &HeaderMap, url: &Url, text: &String| {
@@ -117,25 +116,26 @@ async fn fetch_raw_data(
         if next_url.is_none() && text.len() <= 1024 {
             for reg in RE_COMPILE_BY_JUMP.iter() {
                 if let Some(x) = reg.captures(text) {
-                    let u = x.name("name").map_or("", |m| m.as_str());
+                    let mut u = x.name("name").map_or("", |m| m.as_str()).to_string();
+                    u = u.replace('\'', "").replace('\"', "");
                     if u.starts_with("http://") || u.starts_with("https://") {
-                        next_url = Some(Url::parse(u).unwrap_or_else(|_| url.clone()));
+                        next_url = Some(Url::parse(&u).unwrap_or_else(|_| url.clone()));
                         break;
                     }
-                    next_url = Some(url.join(u).unwrap_or_else(|_| url.clone()));
+                    next_url = Some(url.join(&u).unwrap_or_else(|_| url.clone()));
                     break;
                 }
             }
         }
         next_url
     };
-    let next_url = get_next_url(&headers, &url, &text);
+    let next_url = get_next_url(&headers, &base_url, &text);
     let raw_data = Arc::new(RawData {
-        url,
+        url: base_url,
         path,
         headers,
         status_code,
-        text,
+        text: text.to_lowercase(),
         favicon,
         next_url,
     });
@@ -170,7 +170,7 @@ async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<S
 
 // 从HTML标签中提取favicon的链接
 async fn find_favicon_tag(
-    base_url: reqwest::Url,
+    base_url: &Url,
     text: &str,
     config: RequestOption,
 ) -> HashMap<String, String> {
@@ -208,7 +208,7 @@ static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
         r#"(?im)[ |.|:]location\.href.*?=.*?['|"](?P<name>.*?)['|"]"#,
         r#"(?im)window.*?\.open\(['|"](?P<name>.*?)['|"]"#,
         r#"(?im)window.*?\.location=['|"](?P<name>.*?)['|"]"#,
-        r#"(?im)<meta.*?http-equiv=.*?refresh.*?url=(?P<name>.*?)['|"]/?>"#,
+        r#"(?im)<meta.*?http-equiv=.*?refresh.*?url=['|"](?P<name>.*?)['|"]/?>"#,
     ];
     let re_list: Vec<Regex> = js_reg
         .iter()
@@ -269,7 +269,7 @@ pub async fn index_fetch(
         }
         let mut url = Url::parse(scheme_url)?;
         loop {
-            let mut next_url: Option<Url> = Option::None;
+            let mut next_url: Option<Url> = None;
             if let Ok(res) = send_requests(&url, special_wfp, &config).await {
                 if let Ok(raw_data) = fetch_raw_data(res, is_index, config.clone()).await {
                     next_url = raw_data.next_url.clone();
