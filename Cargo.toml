@@ -15,7 +15,6 @@ lto = true
 opt-level = "z"
 codegen-units = 1
 panic = "abort"
-strip = true
 
 [dependencies]
 once_cell = "1.12.0"
