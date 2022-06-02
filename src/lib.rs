@@ -266,17 +266,17 @@ impl Helper {
 
     pub fn read_web_fingerprint(&mut self, verify: &str) -> Vec<WebFingerPrint> {
         if !verify.is_empty() {
-            if let Ok(mut file) = File::open(verify) {
-                let mut data = String::new();
-                file.read_to_string(&mut data).ok();
+            if let Ok(file) = File::open(verify) {
                 let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
-                let verify_fingerprints: VerifyWebFingerPrint =
-                    serde_yaml::from_str(&data).expect("BAD YAML");
-                for mut verify_fingerprint in verify_fingerprints.fingerprint {
-                    verify_fingerprint.name = verify_fingerprints.name.clone();
-                    verify_fingerprint.priority = verify_fingerprints.priority;
-                    web_fingerprint.push(verify_fingerprint);
-                }
+                if let Ok(verify_fingerprints) =
+                    serde_yaml::from_reader::<_, VerifyWebFingerPrint>(&file)
+                {
+                    for mut verify_fingerprint in verify_fingerprints.fingerprint {
+                        verify_fingerprint.name = verify_fingerprints.name.clone();
+                        verify_fingerprint.priority = verify_fingerprints.priority;
+                        web_fingerprint.push(verify_fingerprint);
+                    }
+                };
                 return web_fingerprint;
             } else {
                 println!("The verification file cannot be found in the current directory!");
@@ -286,12 +286,12 @@ impl Helper {
         if !web_fingerprint_path.exists() {
             web_fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
         }
-        if let Ok(mut file) = File::open(web_fingerprint_path) {
-            let mut data = String::new();
-            file.read_to_string(&mut data).ok();
-            let web_fingerprint: Vec<WebFingerPrint> =
-                serde_json::from_str(&data).expect("BAD JSON");
-            return web_fingerprint;
+        if let Ok(file) = File::open(web_fingerprint_path) {
+            if let Ok(web_fingerprint) = serde_json::from_reader::<_, Vec<WebFingerPrint>>(&file) {
+                return web_fingerprint;
+            } else {
+                println!("The fingerprint format is incorrect. Please update the fingerprint library again");
+            };
         } else {
             println!("The fingerprint library cannot be found in the current directory!");
             println!("Update fingerprint library with `-u` parameter!");
