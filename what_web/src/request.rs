@@ -175,20 +175,18 @@ async fn find_favicon_tag(
     config: RequestOption,
 ) -> HashMap<String, String> {
     let mut link_tags = HashMap::new();
-    for reg in RE_COMPILE_BY_ICON.iter() {
-        if let Some(x) = reg.captures(text) {
-            let u = x.name("name").map_or("", |m| m.as_str());
-            if u.starts_with("http://") || u.starts_with("https://") {
-                let favicon_url = Url::parse(u).unwrap_or_else(|_| base_url.clone());
-                if let Ok(favicon_md5) = get_favicon_hash(&favicon_url, &config).await {
-                    link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
-                };
-            } else {
-                let favicon_url = base_url.join(u).unwrap_or_else(|_| base_url.clone());
-                if let Ok(favicon_md5) = get_favicon_hash(&favicon_url, &config).await {
-                    link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
-                };
-            }
+    if let Some(x) = RE_COMPILE_BY_ICON.captures(text) {
+        let u = x.name("name").map_or("", |m| m.as_str());
+        if u.starts_with("http://") || u.starts_with("https://") {
+            let favicon_url = Url::parse(u).unwrap_or_else(|_| base_url.clone());
+            if let Ok(favicon_md5) = get_favicon_hash(&favicon_url, &config).await {
+                link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
+            };
+        } else {
+            let favicon_url = base_url.join(u).unwrap_or_else(|_| base_url.clone());
+            if let Ok(favicon_md5) = get_favicon_hash(&favicon_url, &config).await {
+                link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
+            };
         }
     }
     // 补充默认路径
@@ -208,7 +206,7 @@ static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
         r#"(?im)[ |.|:]location\.href.*?=.*?['|"](?P<name>.*?)['|"]"#,
         r#"(?im)window.*?\.open\(['|"](?P<name>.*?)['|"]"#,
         r#"(?im)window.*?\.location=['|"](?P<name>.*?)['|"]"#,
-        r#"(?im)<meta.*?http-equiv=.*?refresh.*?url=['|"](?P<name>.*?)['|"]/?>"#,
+        r#"(?im)<meta.*?http-equiv=.*?refresh.*?url=['" ]?(?P<name>.*?)['"]/?>"#,
     ];
     let re_list: Vec<Regex> = js_reg
         .iter()
@@ -217,13 +215,9 @@ static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
     re_list
 });
 
-static RE_COMPILE_BY_ICON: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
-    let js_reg = vec![r#"(?im)<link rel=.*?icon.*?href=.*?(?P<name>.*?)['"/]{0,1}>"#];
-    let re_list: Vec<Regex> = js_reg
-        .iter()
-        .map(|reg| Regex::new(reg).expect("compiled regular expression"))
-        .collect();
-    re_list
+static RE_COMPILE_BY_ICON: Lazy<Regex> = Lazy::new(|| -> Regex {
+    Regex::new(r#"(?im)<link rel=.*?icon.*?href=["'](?P<name>.*?)["'].*?>"#)
+        .expect("compiled regular expression")
 });
 
 static RE_COMPILE_BY_TITLE: Lazy<Regex> = Lazy::new(|| -> Regex {
@@ -303,8 +297,9 @@ pub async fn index_fetch(
 
 #[cfg(test)]
 mod tests {
-    use crate::request::send_requests;
+    use crate::request::{send_requests, RE_COMPILE_BY_ICON};
     use crate::{RequestOption, WebFingerPrintRequest};
+    use std::collections::HashMap;
     use url::Url;
 
     // https://docs.rs/tokio/latest/tokio/attr.test.html
@@ -344,5 +339,19 @@ mod tests {
             .await
             .unwrap()
             .contains("<title>expired.badssl.com</title>"));
+    }
+    #[test]
+    fn test_regex_icon() {
+        let test_text_list = vec![(
+            r#"<link rel="icon" href=/uistyle/themes/default/images/favicon.ico type="image/x-icon" />"#.to_string(),
+            "/uistyle/themes/default/images/favicon.ico".to_string(),
+        )];
+        let test_test_verify_map: HashMap<String, String> = HashMap::from_iter(test_text_list);
+        for (text, verify) in test_test_verify_map {
+            if let Some(x) = RE_COMPILE_BY_ICON.captures(&text) {
+                let u = x.name("name").map_or("", |m| m.as_str());
+                assert_eq!(u, verify);
+            }
+        }
     }
 }

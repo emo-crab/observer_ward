@@ -42,7 +42,7 @@ jobs:
           override: true
       - uses: Swatinem/rust-cache@v1
       - name: Build
-        run: cargo test --no-run --workspace --all-features
+        run: cargo test --no-run --workspace --all-features --all
       - name: Default features
         run: cargo test --workspace
   rustfmt:
