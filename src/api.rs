@@ -46,12 +46,28 @@ async fn what_web_api(
     if !validator(token, auth) {
         return HttpResponse::Unauthorized().finish();
     }
-    let vec_results = observer_ward_ins
-        .read()
-        .await
-        .scan(config.targets.clone())
-        .await;
-    HttpResponse::Ok().json(vec_results)
+    if config.webhook.is_empty() {
+        let vec_results = observer_ward_ins
+            .read()
+            .await
+            .scan(config.targets.clone())
+            .await;
+        HttpResponse::Ok().json(vec_results)
+    } else {
+        tokio::task::spawn(async move {
+            observer_ward_ins
+                .read()
+                .await
+                .scan(config.targets.clone())
+                .await
+        });
+        let mut data: HashMap<String, String> = HashMap::new();
+        data.insert(
+            "results".to_string(),
+            "The results will be pushed to the set webhook server".to_string(),
+        );
+        HttpResponse::Ok().json(data)
+    }
 }
 
 #[post("/v1/config")]

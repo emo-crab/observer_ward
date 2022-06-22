@@ -157,7 +157,7 @@ async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<S
         request_data: String::new(),
     };
     let res = send_requests(url, &default_request, config).await?;
-    if !res.status().is_success() {
+    if !res.status().as_u16() == 200 {
         return Err(anyhow::Error::from(std::io::Error::last_os_error()));
     }
     let content = res.bytes().await?;
@@ -220,14 +220,26 @@ static RE_COMPILE_BY_ICON: Lazy<Regex> = Lazy::new(|| -> Regex {
         .expect("compiled regular expression")
 });
 
-static RE_COMPILE_BY_TITLE: Lazy<Regex> = Lazy::new(|| -> Regex {
-    Regex::new(r#"(?im)<title>(?P<name>.*?)</title>"#).expect("compiled regular expression")
+static RE_COMPILE_BY_TITLE: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
+    let js_reg = vec![
+        r#"(?im)<title>(?P<name>.*?)</title>"#,
+        r#"(?im)<meta property="title" content="(?P<name>.*?)">"#,
+    ];
+    let re_list: Vec<Regex> = js_reg
+        .iter()
+        .map(|reg| Regex::new(reg).expect("RE_COMPILE_BY_TITLE"))
+        .collect();
+    re_list
 });
 
 pub fn get_title(raw_data: &Arc<RawData>) -> String {
-    if let Some(charset) = RE_COMPILE_BY_TITLE.captures_iter(&raw_data.text).next() {
-        let title = charset.name("name").map_or("", |m| m.as_str());
-        return title.to_string();
+    for reg in RE_COMPILE_BY_TITLE.iter() {
+        if let Some(x) = reg.captures(&raw_data.text) {
+            let title = x.name("name").map_or("", |m| m.as_str()).to_string();
+            if !title.is_empty() {
+                return title;
+            }
+        }
     }
     String::new()
 }

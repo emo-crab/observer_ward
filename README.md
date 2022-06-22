@@ -400,6 +400,7 @@ curl --request POST \
 ```
 
 - 其他可选参数，`update_fingerprint`，`update_plugins`只能在更新配置接口下使用；其他参数可以在提交任务时和目标附加在一起。
+- 当`webhook`不为空时会异步将结果推到设置的WebHook服务器，并立即返回提示响应。
 
 ```json
 {

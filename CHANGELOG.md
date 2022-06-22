@@ -4,6 +4,13 @@
 
 ## [Unreleased] - ReleaseDate
 
+## [2022.6.22] - 2022.6.22
+
+### Fixes
+
+- 从meta标签获取标题
+- 如果api的webhook不为空，则将任务结果异步推送到webhook服务器
+
 ## [2022.6.1] - 2022.6.1
 
 ### Fixes
