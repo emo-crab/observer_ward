@@ -97,7 +97,7 @@ async fn fetch_raw_data(
         Ok(byte) => get_default_encoding(&byte, headers.clone()),
         Err(_) => String::from(""),
     };
-    let mut favicon: HashMap<Url, String> = HashMap::new();
+    let mut favicon: HashMap<String, String> = HashMap::new();
     if is_index && !status_code.is_server_error() {
         // 只有在首页的时候提取favicon图标链接
         favicon = find_favicon_tag(&base_url, &text, config).await;
@@ -158,6 +158,14 @@ async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<S
         request_data: String::new(),
     };
     let res = send_requests(url, &default_request, config).await?;
+    let content_type = res.headers().get(reqwest::header::CONTENT_TYPE);
+
+    if let Some(content_type) = content_type {
+        let content_type = Mime::from_str(content_type.to_str()?)?;
+        if content_type.type_() != mime::IMAGE {
+            return Err(anyhow::Error::from(std::io::Error::last_os_error()));
+        }
+    }
     if res.status().as_u16() != 200 {
         return Err(anyhow::Error::from(std::io::Error::last_os_error()));
     }
@@ -198,13 +206,13 @@ async fn find_favicon_tag(
     base_url: &Url,
     text: &str,
     config: RequestOption,
-) -> HashMap<Url, String> {
+) -> HashMap<String, String> {
     // 补充默认路径
     let mut link_tags = HashMap::new();
     let icon_sets = get_favicon_link(text, base_url);
     for link in icon_sets {
         if let Ok(favicon_md5) = get_favicon_hash(&link, &config).await {
-            link_tags.insert(link, favicon_md5);
+            link_tags.insert(link.to_string(), favicon_md5);
         };
     }
     link_tags
