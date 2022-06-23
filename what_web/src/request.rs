@@ -204,7 +204,7 @@ async fn find_favicon_tag(
 static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
     let js_reg = vec![
         r#"(?im)[ |.|:]location\.href.*?=.*?['|"](?P<name>.*?)['|"]"#,
-        r#"(?im)window.*?\.open\(['|"](?P<name>.*?)['|"]"#,
+        r#"(?im)window.*?\.(open|replace)\(['|"](?P<name>.*?)['|"]"#,
         r#"(?im)window.*?\.location=['|"](?P<name>.*?)['|"]"#,
         r#"(?im)<meta.*?http-equiv=.*?refresh.*?url=['" ]?(?P<name>.*?)['"]/?>"#,
     ];
@@ -309,7 +309,7 @@ pub async fn index_fetch(
 
 #[cfg(test)]
 mod tests {
-    use crate::request::{send_requests, RE_COMPILE_BY_ICON};
+    use crate::request::{send_requests, RE_COMPILE_BY_ICON, RE_COMPILE_BY_JUMP};
     use crate::{RequestOption, WebFingerPrintRequest};
     use std::collections::HashMap;
     use url::Url;
@@ -365,5 +365,25 @@ mod tests {
                 assert_eq!(u, verify);
             }
         }
+    }
+    #[test]
+    fn test_js_jump() {
+        let test_text_list = vec![(
+            r#"<script> window.location.replace("login.jsp?up=1");</script>"#.to_string(),
+            "login.jsp?up=1".to_string(),
+        )];
+        let test_test_verify_map: HashMap<String, String> = HashMap::from_iter(test_text_list);
+        let mut flag = false;
+        for (text, verify) in test_test_verify_map {
+            for reg in RE_COMPILE_BY_JUMP.iter() {
+                if let Some(x) = reg.captures(&text) {
+                    let u = x.name("name").map_or("", |m| m.as_str()).to_string();
+                    if u == verify {
+                        flag = true;
+                    }
+                }
+            }
+        }
+        assert!(flag);
     }
 }
