@@ -35,3 +35,4 @@ tokio = { version = "1.19.2", default-features = false, features = [
     "process",
     "macros",
 ] }
+scraper = "0.13.0"

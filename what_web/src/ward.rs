@@ -12,7 +12,7 @@ pub struct RawData {
     pub headers: reqwest::header::HeaderMap,
     pub status_code: reqwest::StatusCode,
     pub text: String,
-    pub favicon: HashMap<String, String>,
+    pub favicon: HashMap<Url, String>,
     pub next_url: Option<Url>,
 }
 

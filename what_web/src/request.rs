@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -13,6 +13,7 @@ use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, LOCATION};
 use reqwest::redirect::Policy;
 use reqwest::{header, Body, Method, Proxy, Response};
+use scraper::{Html, Selector};
 use url::Url;
 
 use crate::fingerprint::WebFingerPrintRequest;
@@ -96,7 +97,7 @@ async fn fetch_raw_data(
         Ok(byte) => get_default_encoding(&byte, headers.clone()),
         Err(_) => String::from(""),
     };
-    let mut favicon: HashMap<String, String> = HashMap::new();
+    let mut favicon: HashMap<Url, String> = HashMap::new();
     if is_index && !status_code.is_server_error() {
         // 只有在首页的时候提取favicon图标链接
         favicon = find_favicon_tag(&base_url, &text, config).await;
@@ -157,7 +158,7 @@ async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<S
         request_data: String::new(),
     };
     let res = send_requests(url, &default_request, config).await?;
-    if !res.status().as_u16() == 200 {
+    if res.status().as_u16() != 200 {
         return Err(anyhow::Error::from(std::io::Error::last_os_error()));
     }
     let content = res.bytes().await?;
@@ -168,34 +169,42 @@ async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<S
     Ok(favicon_md5)
 }
 
+fn get_favicon_link(text: &str, base_url: &Url) -> HashSet<Url> {
+    let parsed_html = Html::parse_fragment(text);
+    let selector = Selector::parse("link").unwrap();
+    let mut icon_links = HashSet::new();
+    let path_list = parsed_html.select(&selector);
+    for link in path_list {
+        if let (Some(href), Some(rel)) = (link.value().attr("href"), link.value().attr("rel")) {
+            if ["icon", "shortcut icon"].contains(&rel) {
+                if href.starts_with("http://") || href.starts_with("https://") {
+                    let favicon_url = Url::parse(href).unwrap_or_else(|_| base_url.clone());
+                    icon_links.insert(favicon_url);
+                } else {
+                    let favicon_url = base_url.join(href).unwrap_or_else(|_| base_url.clone());
+                    icon_links.insert(favicon_url);
+                }
+            }
+        }
+    }
+    if let Ok(favicon_url) = base_url.join("/favicon.ico") {
+        icon_links.insert(favicon_url);
+    }
+    icon_links
+}
+
 // 从HTML标签中提取favicon的链接
 async fn find_favicon_tag(
     base_url: &Url,
     text: &str,
     config: RequestOption,
-) -> HashMap<String, String> {
-    let mut link_tags = HashMap::new();
-    if let Some(x) = RE_COMPILE_BY_ICON.captures(text) {
-        let u = x.name("name").map_or("", |m| m.as_str());
-        if u.starts_with("http://") || u.starts_with("https://") {
-            let favicon_url = Url::parse(u).unwrap_or_else(|_| base_url.clone());
-            if let Ok(favicon_md5) = get_favicon_hash(&favicon_url, &config).await {
-                link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
-            };
-        } else {
-            let favicon_url = base_url.join(u).unwrap_or_else(|_| base_url.clone());
-            if let Ok(favicon_md5) = get_favicon_hash(&favicon_url, &config).await {
-                link_tags.insert(String::from(favicon_url.clone()), favicon_md5);
-            };
-        }
-    }
+) -> HashMap<Url, String> {
     // 补充默认路径
-    let favicon_url = base_url.join("/favicon.ico").expect("favicon.icon");
-    if let std::collections::hash_map::Entry::Vacant(e) =
-        link_tags.entry(String::from(favicon_url.clone()))
-    {
-        if let Ok(favicon_md5) = get_favicon_hash(&favicon_url, &config).await {
-            e.insert(favicon_md5);
+    let mut link_tags = HashMap::new();
+    let icon_sets = get_favicon_link(text, base_url);
+    for link in icon_sets {
+        if let Ok(favicon_md5) = get_favicon_hash(&link, &config).await {
+            link_tags.insert(link, favicon_md5);
         };
     }
     link_tags
@@ -213,11 +222,6 @@ static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
         .map(|reg| Regex::new(reg).expect("RE_COMPILE_BY_JUMP"))
         .collect();
     re_list
-});
-
-static RE_COMPILE_BY_ICON: Lazy<Regex> = Lazy::new(|| -> Regex {
-    Regex::new(r#"(?im)<link rel=.*?icon.*?href=["'](?P<name>.*?)["'].*?>"#)
-        .expect("compiled regular expression")
 });
 
 static RE_COMPILE_BY_TITLE: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
@@ -309,7 +313,7 @@ pub async fn index_fetch(
 
 #[cfg(test)]
 mod tests {
-    use crate::request::{send_requests, RE_COMPILE_BY_ICON, RE_COMPILE_BY_JUMP};
+    use crate::request::{get_favicon_link, send_requests, RE_COMPILE_BY_JUMP};
     use crate::{RequestOption, WebFingerPrintRequest};
     use std::collections::HashMap;
     use url::Url;
@@ -354,17 +358,24 @@ mod tests {
     }
     #[test]
     fn test_regex_icon() {
-        let test_text_list = vec![(
-            r#"<link rel="icon" href=/uistyle/themes/default/images/favicon.ico type="image/x-icon" />"#.to_string(),
-            "/uistyle/themes/default/images/favicon.ico".to_string(),
-        )];
-        let test_test_verify_map: HashMap<String, String> = HashMap::from_iter(test_text_list);
+        let test_text_list = vec![
+            (
+                r#"<link rel="icon" href=/uistyle/themes/default/images/favicon.ico type="image/x-icon" />"#,
+                "/uistyle/themes/default/images/favicon.ico",
+            ),
+            (r#"<link rel=icon href=/logo.png>"#, "/logo.png"),
+        ];
+        let test_test_verify_map: HashMap<&str, &str> = HashMap::from_iter(test_text_list);
+        let base_url = Url::parse("https://kali-team.cn").unwrap();
+        let mut flag = false;
         for (text, verify) in test_test_verify_map {
-            if let Some(x) = RE_COMPILE_BY_ICON.captures(&text) {
-                let u = x.name("name").map_or("", |m| m.as_str());
-                assert_eq!(u, verify);
+            for link in get_favicon_link(text, &base_url) {
+                if link.path() == verify {
+                    flag = true;
+                }
             }
         }
+        assert!(flag);
     }
     #[test]
     fn test_js_jump() {
