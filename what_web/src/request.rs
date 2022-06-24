@@ -27,9 +27,9 @@ async fn send_requests(
     config: &RequestOption,
 ) -> anyhow::Result<Response> {
     let mut url = url.clone();
-    let mut headers = header::HeaderMap::new();
+    let mut headers = HeaderMap::new();
     let ua = "Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0";
-    headers.insert(header::USER_AGENT, header::HeaderValue::from_static(ua));
+    headers.insert(header::USER_AGENT, HeaderValue::from_static(ua));
     let method =
         Method::from_str(&fingerprint.request_method.to_uppercase()).unwrap_or(Method::GET);
     let body_data =
@@ -84,7 +84,44 @@ fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
     let (text, _, _) = encoding.decode(byte);
     text.to_string()
 }
-
+fn get_next_jump(headers: &HeaderMap, url: &Url, text: &str) -> Option<Url> {
+    let mut next_url_list = Vec::new();
+    if let Some(location) = headers
+        .get(LOCATION)
+        .and_then(|location| location.to_str().ok())
+    {
+        next_url_list.push(location.to_string());
+    }
+    if next_url_list.is_empty() {
+        for metas in Document::from(text).find(Name("meta")) {
+            if let Some(url) = metas.attr("url") {
+                next_url_list.push(url.to_string());
+            }
+        }
+    }
+    if next_url_list.is_empty() && text.len() <= 1024 {
+        for reg in RE_COMPILE_BY_JUMP.iter() {
+            if let Some(x) = reg.captures(text) {
+                let mut u = x.name("name").map_or("", |m| m.as_str()).to_string();
+                u = u.replace('\'', "").replace('\"', "");
+                next_url_list.push(u);
+            }
+        }
+    }
+    if let Some(next_url) = next_url_list.into_iter().next() {
+        return if next_url.starts_with("http://") || next_url.starts_with("https://") {
+            match Url::parse(&next_url) {
+                Ok(next_path) => Some(next_path),
+                Err(_) => None,
+            }
+        } else if let Ok(next_path) = url.join(&next_url) {
+            Some(next_path)
+        } else {
+            None
+        };
+    };
+    None
+}
 async fn fetch_raw_data(
     res: Response,
     is_index: bool,
@@ -104,34 +141,8 @@ async fn fetch_raw_data(
         favicon = find_favicon_tag(&base_url, &text, config).await;
     }
     // 在请求头和正文里匹配下一跳URL
-    let get_next_url = |headers: &HeaderMap, url: &Url, text: &String| {
-        let mut next_url = headers
-            .get(LOCATION)
-            .and_then(|location| location.to_str().ok())
-            .and_then(|location| {
-                if location.starts_with("http://") || location.starts_with("https://") {
-                    Some(Url::parse(location).unwrap_or_else(|_| url.clone()))
-                } else {
-                    url.join(location).ok()
-                }
-            });
-        if next_url.is_none() && text.len() <= 1024 {
-            for reg in RE_COMPILE_BY_JUMP.iter() {
-                if let Some(x) = reg.captures(text) {
-                    let mut u = x.name("name").map_or("", |m| m.as_str()).to_string();
-                    u = u.replace('\'', "").replace('\"', "");
-                    if u.starts_with("http://") || u.starts_with("https://") {
-                        next_url = Some(Url::parse(&u).unwrap_or_else(|_| url.clone()));
-                        break;
-                    }
-                    next_url = Some(url.join(&u).unwrap_or_else(|_| url.clone()));
-                    break;
-                }
-            }
-        }
-        next_url
-    };
-    let next_url = get_next_url(&headers, &base_url, &text);
+
+    let next_url = get_next_jump(&headers, &base_url, &text);
     let raw_data = Arc::new(RawData {
         url: base_url,
         path,
@@ -159,7 +170,7 @@ async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<S
         request_data: String::new(),
     };
     let res = send_requests(url, &default_request, config).await?;
-    let content_type = res.headers().get(reqwest::header::CONTENT_TYPE);
+    let content_type = res.headers().get(header::CONTENT_TYPE);
 
     if let Some(content_type) = content_type {
         let content_type = Mime::from_str(content_type.to_str()?)?;
@@ -218,10 +229,8 @@ async fn find_favicon_tag(
 // 支持部分正文跳转
 static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
     let js_reg = vec![
-        r#"(?im)[ |.|:]location\.href.*?=.*?['|"](?P<name>.*?)['|"]"#,
+        r#"(?im)\.location.*?=['|"](?P<name>.*?)['"]"#,
         r#"(?im)window.*?\.(open|replace)\(['|"](?P<name>.*?)['|"]"#,
-        r#"(?im)window.*?\.location=['|"](?P<name>.*?)['|"]"#,
-        r#"(?im)<meta.*?http-equiv=.*?refresh.*?url=['" ]?(?P<name>.*?)['"]/?>"#,
     ];
     let re_list: Vec<Regex> = js_reg
         .iter()
@@ -309,8 +318,9 @@ pub async fn index_fetch(
 
 #[cfg(test)]
 mod tests {
-    use crate::request::{get_favicon_link, send_requests, RE_COMPILE_BY_JUMP};
+    use crate::request::{get_favicon_link, get_next_jump, send_requests};
     use crate::{RequestOption, WebFingerPrintRequest};
+    use reqwest::header::HeaderMap;
     use std::collections::HashMap;
     use url::Url;
 
@@ -363,34 +373,37 @@ mod tests {
         ];
         let test_test_verify_map: HashMap<&str, &str> = HashMap::from_iter(test_text_list);
         let base_url = Url::parse("https://kali-team.cn").unwrap();
-        let mut flag = false;
         for (text, verify) in test_test_verify_map {
+            let mut flag = false;
             for link in get_favicon_link(text, &base_url) {
                 if link.path() == verify {
                     flag = true;
                 }
             }
+            assert!(flag);
         }
-        assert!(flag);
     }
     #[test]
     fn test_js_jump() {
-        let test_text_list = vec![(
-            r#"<script> window.location.replace("login.jsp?up=1");</script>"#.to_string(),
-            "login.jsp?up=1".to_string(),
-        )];
-        let test_test_verify_map: HashMap<String, String> = HashMap::from_iter(test_text_list);
-        let mut flag = false;
+        let test_text_list = vec![
+            (
+                r#"<script> window.location.replace("login.jsp?up=1");</script>"#,
+                "login.jsp?up=1",
+            ),
+            (
+                r#"<html><meta charset='utf-8'/><style>body{background:white}</style><script>self.location='/index.php?m=user&f=login&referer=lw==';</script>"#,
+                "/index.php?m=user&f=login&referer=lw==",
+            ),
+        ];
+        let test_test_verify_map: HashMap<&str, &str> = HashMap::from_iter(test_text_list);
+        let base_url = Url::parse("https://kali-team.cn").unwrap();
         for (text, verify) in test_test_verify_map {
-            for reg in RE_COMPILE_BY_JUMP.iter() {
-                if let Some(x) = reg.captures(&text) {
-                    let u = x.name("name").map_or("", |m| m.as_str()).to_string();
-                    if u == verify {
-                        flag = true;
-                    }
-                }
-            }
+            if let Some(next_url) = get_next_jump(&HeaderMap::new(), &base_url, text) {
+                let verify_url = base_url.join(verify).unwrap();
+                assert_eq!(next_url, verify_url);
+            } else {
+                assert_eq!(verify, "");
+            };
         }
-        assert!(flag);
     }
 }
