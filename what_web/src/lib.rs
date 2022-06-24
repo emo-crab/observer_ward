@@ -124,7 +124,7 @@ impl WhatWeb {
                     what_web_result.url = String::from(raw_data.url.clone());
                 }
                 if raw_data.next_url.is_none() {
-                    what_web_result.title = get_title(&raw_data);
+                    what_web_result.title = get_title(&raw_data.text);
                     what_web_result.priority += 1;
                 }
                 what_web_result.length = raw_data.text.len();

@@ -13,7 +13,8 @@ use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, LOCATION};
 use reqwest::redirect::Policy;
 use reqwest::{header, Body, Method, Proxy, Response};
-use scraper::{Html, Selector};
+use select::document::Document;
+use select::predicate::Name;
 use url::Url;
 
 use crate::fingerprint::WebFingerPrintRequest;
@@ -59,18 +60,18 @@ async fn send_requests(
         .await?);
 }
 
-static RE_COMPILE_BY_CHARSET: Lazy<Regex> = Lazy::new(|| -> Regex {
-    Regex::new(r#"(?im)charset="(.*?)"|charset=(.*?)""#).expect("RE_COMPILE_BY_CHARSET")
-});
-
-fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
-    let (html, _, _) = UTF_8.decode(byte);
-    let mut default_encoding = "utf-8";
-    if let Some(charset) = RE_COMPILE_BY_CHARSET.captures(&html) {
-        for cs in charset.iter().flatten() {
-            default_encoding = cs.as_str();
+fn get_charset_from_html(text: &str) -> String {
+    let mut default_encoding = String::from("utf-8");
+    for metas in Document::from(text).find(Name("meta")) {
+        if let Some(charset) = metas.attr("charset") {
+            default_encoding = charset.to_string();
         }
     }
+    default_encoding
+}
+fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
+    let (html, _, _) = UTF_8.decode(byte);
+    let default_encoding = get_charset_from_html(&html);
     let content_type = headers
         .get(header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
@@ -78,7 +79,7 @@ fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
     let encoding_name = content_type
         .as_ref()
         .and_then(|mime| mime.get_param("charset").map(|charset| charset.as_str()))
-        .unwrap_or(default_encoding);
+        .unwrap_or(&default_encoding);
     let encoding = Encoding::for_label(encoding_name.as_bytes()).unwrap_or(UTF_8);
     let (text, _, _) = encoding.decode(byte);
     text.to_string()
@@ -178,12 +179,9 @@ async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<S
 }
 
 fn get_favicon_link(text: &str, base_url: &Url) -> HashSet<Url> {
-    let parsed_html = Html::parse_fragment(text);
-    let selector = Selector::parse("link").unwrap();
     let mut icon_links = HashSet::new();
-    let path_list = parsed_html.select(&selector);
-    for link in path_list {
-        if let (Some(href), Some(rel)) = (link.value().attr("href"), link.value().attr("rel")) {
+    for links in Document::from(text).find(Name("link")) {
+        if let (Some(rel), Some(href)) = (links.attr("rel"), links.attr("href")) {
             if ["icon", "shortcut icon"].contains(&rel) {
                 if href.starts_with("http://") || href.starts_with("https://") {
                     let favicon_url = Url::parse(href).unwrap_or_else(|_| base_url.clone());
@@ -232,25 +230,15 @@ static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
     re_list
 });
 
-static RE_COMPILE_BY_TITLE: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
-    let js_reg = vec![
-        r#"(?im)<title>(?P<name>.*?)</title>"#,
-        r#"(?im)<meta property="title" content="(?P<name>.*?)">"#,
-    ];
-    let re_list: Vec<Regex> = js_reg
-        .iter()
-        .map(|reg| Regex::new(reg).expect("RE_COMPILE_BY_TITLE"))
-        .collect();
-    re_list
-});
-
-pub fn get_title(raw_data: &Arc<RawData>) -> String {
-    for reg in RE_COMPILE_BY_TITLE.iter() {
-        if let Some(x) = reg.captures(&raw_data.text) {
-            let title = x.name("name").map_or("", |m| m.as_str()).to_string();
-            if !title.is_empty() {
-                return title;
-            }
+pub fn get_title(text: &str) -> String {
+    for titles in Document::from(text).find(Name("title")) {
+        if !titles.text().is_empty() {
+            return titles.text();
+        }
+    }
+    for titles in Document::from(text).find(Name("meta")) {
+        if titles.attr("property") == Some("title") {
+            return titles.attr("content").unwrap_or_default().to_string();
         }
     }
     String::new()
