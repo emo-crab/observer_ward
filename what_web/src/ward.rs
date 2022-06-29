@@ -40,7 +40,6 @@ impl fmt::Display for RawData {
 pub async fn check(
     raw_data: &Arc<RawData>,
     fingerprint_lib: &WebFingerPrintLib,
-    is_special: bool,
     debug: bool,
 ) -> HashMap<String, u32> {
     if debug {
@@ -48,17 +47,12 @@ pub async fn check(
     }
     let mut futures_e = vec![];
     let mut web_name_set: HashMap<String, u32> = HashMap::new();
-    if is_special {
-        for fingerprint in fingerprint_lib.special.iter() {
-            futures_e.push(what_web(raw_data.clone(), fingerprint, false, debug));
-        }
-        for fingerprint in fingerprint_lib.index.iter() {
-            futures_e.push(what_web(raw_data.clone(), fingerprint, false, debug));
-        }
-    } else {
-        for fingerprint in fingerprint_lib.index.iter() {
-            futures_e.push(what_web(raw_data.clone(), fingerprint, false, debug));
-        }
+
+    for fingerprint in fingerprint_lib.special.iter() {
+        futures_e.push(what_web(raw_data.clone(), fingerprint, false, debug));
+    }
+    for fingerprint in fingerprint_lib.index.iter() {
+        futures_e.push(what_web(raw_data.clone(), fingerprint, false, debug));
     }
     if !raw_data.favicon.is_empty() {
         for fingerprint in fingerprint_lib.favicon.iter() {

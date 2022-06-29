@@ -29,7 +29,12 @@ async fn send_requests(
     let mut url = url.clone();
     let mut headers = HeaderMap::new();
     let ua = "Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0";
+    let apache_shiro_cookie = "rememberMe=admin;rememberMe-K=admin";
     headers.insert(header::USER_AGENT, HeaderValue::from_static(ua));
+    headers.insert(
+        header::COOKIE,
+        HeaderValue::from_static(apache_shiro_cookie),
+    );
     let method =
         Method::from_str(&fingerprint.request_method.to_uppercase()).unwrap_or(Method::GET);
     let body_data =
@@ -94,8 +99,14 @@ fn get_next_jump(headers: &HeaderMap, url: &Url, text: &str) -> Option<Url> {
     }
     if next_url_list.is_empty() {
         for metas in Document::from(text).find(Name("meta")) {
-            if let Some(url) = metas.attr("url") {
-                next_url_list.push(url.to_string());
+            if let (Some(http_equiv), Some(content)) =
+                (metas.attr("http-equiv"), metas.attr("content"))
+            {
+                if http_equiv.to_lowercase() == "refresh" {
+                    if let Some((_, u)) = content.split_once('=') {
+                        next_url_list.push(u.to_string());
+                    }
+                }
             }
         }
     }

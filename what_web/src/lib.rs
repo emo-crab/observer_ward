@@ -112,8 +112,7 @@ impl WhatWeb {
             }
             //首页请求允许跳转
             for raw_data in raw_data_list {
-                let web_name_set =
-                    check(&raw_data, &self.fingerprint.to_owned(), false, debug).await;
+                let web_name_set = check(&raw_data, &self.fingerprint.to_owned(), debug).await;
                 for (k, v) in web_name_set {
                     name.insert(k);
                     what_web_result.priority = v;
@@ -143,8 +142,7 @@ impl WhatWeb {
                 index_fetch(&url, &special_wfp.request, false, true, self.config.clone()).await
             {
                 for raw_data in raw_data_list {
-                    let web_name_set =
-                        check(&raw_data, &self.fingerprint.to_owned(), true, debug).await;
+                    let web_name_set = check(&raw_data, &self.fingerprint.to_owned(), debug).await;
                     for (k, v) in web_name_set {
                         name.insert(k);
                         what_web_result.priority = v;

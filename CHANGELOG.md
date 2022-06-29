@@ -4,6 +4,14 @@
 
 ## [Unreleased] - ReleaseDate
 
+## [2022.6.29] - 2022.6.29
+
+### Fixes
+
+- 内置apache-shiro的指纹
+- 判断icon响应是否为图片格式
+- 修复跳转链接提取
+
 ## [2022.6.22] - 2022.6.22
 
 ### Fixes
