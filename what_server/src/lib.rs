@@ -110,7 +110,7 @@ impl WhatServer {
         }
         (in_probes, ex_probes)
     }
-    fn send_directive_str_request(&self, socket: SocketAddr, payload: Vec<u8>) -> Vec<u8> {
+    fn send_directive_str_request(&self, socket: SocketAddr, payload: &[u8]) -> Vec<u8> {
         let received: Vec<u8> = Vec::new();
         if let Ok(mut stream) = self.connect(socket) {
             stream
@@ -136,7 +136,7 @@ impl WhatServer {
         Ok(stream)
     }
     async fn exec_run(&self, probe: &NmapFingerPrint, host_port: SocketAddr) -> HashSet<String> {
-        let response = self.send_directive_str_request(host_port, probe.directive_str.clone());
+        let response = self.send_directive_str_request(host_port, &probe.directive_str);
         let server = probe.match_rules(&response).await;
         server
     }
@@ -144,7 +144,7 @@ impl WhatServer {
         if self.fingerprint.is_empty() {
             return what_web_result;
         }
-        let mut what_web_result = what_web_result.clone();
+        let mut what_web_result = what_web_result;
         match SocketAddr::from_str(&what_web_result.url) {
             Ok(socket) => {
                 let (in_probes, ex_probes) = self.filter_probes_by_port(socket.port());
