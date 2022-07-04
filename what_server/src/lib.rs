@@ -140,11 +140,10 @@ impl WhatServer {
         let server = probe.match_rules(&response).await;
         server
     }
-    pub async fn scan(&self, what_web_result: WhatWebResult) -> WhatWebResult {
+    pub async fn scan(&self, mut what_web_result: WhatWebResult) -> WhatWebResult {
         if self.fingerprint.is_empty() {
             return what_web_result;
-        }
-        let mut what_web_result = what_web_result;
+        }        
         match SocketAddr::from_str(&what_web_result.url) {
             Ok(socket) => {
                 let (in_probes, ex_probes) = self.filter_probes_by_port(socket.port());
