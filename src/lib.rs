@@ -141,10 +141,10 @@ Community based web fingerprint analysis tool."#;
     print_color(info.to_string(), Color::Yellow, true);
 }
 
-pub struct Helper {
+pub struct Helper<'a> {
     request_option: RequestOption,
-    config_path: PathBuf,
-    config: ObserverWardConfig,
+    config_path: &'a PathBuf,
+    config: &'a ObserverWardConfig,
     msg: HashMap<String, String>,
 }
 
@@ -163,13 +163,13 @@ static OBSERVER_WARD_PATH: Lazy<PathBuf> = Lazy::new(|| -> PathBuf {
     observer_ward
 });
 
-impl Helper {
-    pub fn new(config: &ObserverWardConfig) -> Self {
+impl<'a> Helper<'a> {
+    pub fn new(config: &'a ObserverWardConfig) -> Self {
         let ro = RequestOption::new(&config.timeout, &config.proxy);
         Self {
             request_option: ro,
-            config_path: OBSERVER_WARD_PATH.clone(),
-            config: config.clone(),
+            config_path: &OBSERVER_WARD_PATH,
+            config,
             msg: Default::default(),
         }
     }
@@ -190,13 +190,13 @@ impl Helper {
     }
     async fn update_plugins(&mut self) {
         let plugins_zip_path = self.config_path.join("plugins.zip");
-        let extract_target_path = self.config_path.clone();
+        let extract_target_path = self.config_path;
         self.download_file_from_github(
             "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
             plugins_zip_path.to_str().unwrap_or("plugins.zip"),
         )
         .await;
-        match extract_plugins_zip(&plugins_zip_path, &extract_target_path) {
+        match extract_plugins_zip(&plugins_zip_path, extract_target_path) {
             Ok(_) => {
                 println!("It has been extracted to the {:?}", extract_target_path);
             }
@@ -225,7 +225,7 @@ impl Helper {
     }
 }
 
-impl Helper {
+impl<'a> Helper<'_> {
     pub async fn update_self(&mut self) {
         // https://doc.rust-lang.org/reference/conditional-compilation.html
         let mut base_url =
@@ -326,8 +326,8 @@ impl Helper {
         }
         results
     }
-    async fn download_file_from_github(&mut self, update_url: &str, filename: &str) {
-        let proxy = self.request_option.proxy.clone();
+    async fn download_file_from_github(&mut self, update_url: &'a str, filename: &'a str) {
+        let proxy = self.request_option.proxy.as_ref().cloned();
         let proxy_obj = Proxy::custom(move |_url| proxy.clone());
         let client = reqwest::Client::builder().proxy(proxy_obj);
         if let Ok(downloading_client) = client.build() {
@@ -461,8 +461,10 @@ fn extract_plugins_zip(f_name: &Path, extract_target_path: &Path) -> Result<(), 
     Ok(())
 }
 
-pub async fn get_plugins_by_nuclei(w: WhatWebResult, config: &ObserverWardConfig) -> WhatWebResult {
-    let mut wwr = w.clone();
+pub async fn get_plugins_by_nuclei(
+    mut wwr: WhatWebResult,
+    config: &ObserverWardConfig,
+) -> WhatWebResult {
     let mut plugins_set: HashSet<String> = HashSet::new();
     let mut exist_plugins: Vec<String> = Vec::new();
     for name in wwr.name.iter() {
@@ -527,7 +529,7 @@ impl Default for ObserverWard {
         if config.service {
             nmap_fingerprint = helper.read_nmap_fingerprint();
         }
-        ObserverWard::new(config.clone(), web_fingerprint, nmap_fingerprint)
+        ObserverWard::new(config, web_fingerprint, nmap_fingerprint)
     }
 }
 
