@@ -119,7 +119,7 @@ impl WhatServer {
             stream
                 .set_read_timeout(Some(Duration::from_millis(self.timeout)))
                 .unwrap_or_default();
-            stream.write_all(&payload).unwrap();
+            stream.write_all(payload).unwrap();
             stream.flush().unwrap();
             let mut reader = io::BufReader::new(&mut stream);
             let received: Vec<u8> = reader.fill_buf().unwrap_or_default().to_vec();
@@ -143,7 +143,7 @@ impl WhatServer {
     pub async fn scan(&self, mut what_web_result: WhatWebResult) -> WhatWebResult {
         if self.fingerprint.is_empty() {
             return what_web_result;
-        }        
+        }
         match SocketAddr::from_str(&what_web_result.url) {
             Ok(socket) => {
                 let (in_probes, ex_probes) = self.filter_probes_by_port(socket.port());
