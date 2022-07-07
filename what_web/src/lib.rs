@@ -118,16 +118,22 @@ impl WhatWeb {
                     what_web_result.priority = v;
                 }
                 if url.starts_with("http://") || url.starts_with("https://") {
+                    // 本来有的协议
                     what_web_result.url = url.clone();
+                } else if what_web_result.url.starts_with("http://")
+                    || what_web_result.url.starts_with("https://")
+                {
                 } else {
-                    what_web_result.url = String::from(raw_data.url.clone());
+                    what_web_result.url = raw_data.url.as_str().to_string();
                 }
-                if raw_data.next_url.is_none() {
+                if raw_data.next_url.is_none() && what_web_result.title.is_empty() {
                     what_web_result.title = get_title(&raw_data.text);
                     what_web_result.priority += 1;
                 }
                 what_web_result.length = raw_data.text.len();
-                what_web_result.status_code = raw_data.status_code.as_u16();
+                if what_web_result.status_code == 0 {
+                    what_web_result.status_code = raw_data.status_code.as_u16();
+                }
                 if raw_data.status_code.is_success() {
                     what_web_result.priority += 1;
                 }
@@ -138,8 +144,14 @@ impl WhatWeb {
             return what_web_result;
         }
         for special_wfp in self.fingerprint.to_owned().special.iter() {
-            if let Ok(raw_data_list) =
-                index_fetch(&url, &special_wfp.request, false, true, self.config.clone()).await
+            if let Ok(raw_data_list) = index_fetch(
+                &what_web_result.url,
+                &special_wfp.request,
+                false,
+                true,
+                self.config.clone(),
+            )
+            .await
             {
                 for raw_data in raw_data_list {
                     let web_name_set = check(&raw_data, &self.fingerprint.to_owned(), debug).await;

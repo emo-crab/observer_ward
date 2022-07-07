@@ -240,8 +240,8 @@ async fn find_favicon_tag(
 // 支持部分正文跳转
 static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
     let js_reg = vec![
-        r#"(?im)\.location.*?=['|"](?P<name>.*?)['"]"#,
-        r#"(?im)window.*?\.(open|replace)\(['|"](?P<name>.*?)['|"]"#,
+        r#"(?im)\.location.*?=\s*?['"](?P<name>.*?)['"]"#,
+        r#"(?im)\.location\.(open|replace)\((?P<name>.*?)\)"#,
     ];
     let re_list: Vec<Regex> = js_reg
         .iter()
@@ -254,6 +254,9 @@ pub fn get_title(text: &str) -> String {
     for titles in Document::from(text).find(Name("title")) {
         if !titles.text().is_empty() {
             return titles.text();
+        }
+        if let Some(title) = titles.attr("_html") {
+            return title.to_string();
         }
     }
     for titles in Document::from(text).find(Name("meta")) {
@@ -404,6 +407,10 @@ mod tests {
             (
                 r#"<html><meta charset='utf-8'/><style>body{background:white}</style><script>self.location='/index.php?m=user&f=login&referer=lw==';</script>"#,
                 "/index.php?m=user&f=login&referer=lw==",
+            ),
+            (
+                r#"window.location.href = "../cgi-bin/login.cgi?requestname=2&cmd=0";"#,
+                "/cgi-bin/login.cgi?requestname=2&cmd=0",
             ),
         ];
         let test_test_verify_map: HashMap<&str, &str> = HashMap::from_iter(test_text_list);
