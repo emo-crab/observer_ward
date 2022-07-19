@@ -259,6 +259,14 @@ url,name,length,status_code,title,priority
 https://httpbin.org,swagger,9593,200,httpbin.org,5
 ```
 
+- 关于打开csv文件中文乱码问题，和系统环境变量有关，会导致保存文件的编码为UTF-8，Mac系统或者Linux可以使用以下命令转换导出文件编码：
+
+```bash
+iconv -f UTF-8 -t GB18030 Result.csv > Result.csv
+```
+
+- Window系统可以使用记事本打开csv文件后另存为，选择保存编码ANSI或者Unicode。
+
 ### 调用Nuclei检测漏洞
 
 - **请确保nuclei更新至`2.5.3`以上版本**
