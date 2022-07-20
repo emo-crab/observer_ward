@@ -162,7 +162,7 @@ impl WhatWeb {
                 }
             }
         }
-        if name.len() > 5 {
+        if name.len() > 10 {
             let count = name.len();
             name.clear();
             name.insert(format!("Honeypot 蜜罐{}", count));
