@@ -126,13 +126,15 @@ impl WhatWeb {
                 } else {
                     what_web_result.url = raw_data.url.as_str().to_string();
                 }
-                if raw_data.next_url.is_none() && what_web_result.title.is_empty() {
+                what_web_result.length = raw_data.text.len();
+                if what_web_result.status_code == 0 || raw_data.status_code.is_success() {
+                    what_web_result.status_code = raw_data.status_code.as_u16();
+                }
+                if (raw_data.next_url.is_none() && what_web_result.title.is_empty())
+                    || raw_data.status_code.is_success()
+                {
                     what_web_result.title = get_title(&raw_data.text);
                     what_web_result.priority += 1;
-                }
-                what_web_result.length = raw_data.text.len();
-                if what_web_result.status_code == 0 {
-                    what_web_result.status_code = raw_data.status_code.as_u16();
                 }
                 if raw_data.status_code.is_success() {
                     what_web_result.priority += 1;
