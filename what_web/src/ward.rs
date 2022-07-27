@@ -2,6 +2,7 @@ use crate::fingerprint::{V3WebFingerPrint, WebFingerPrintLib};
 use futures::future::join_all;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::fmt::Write as FmtWrite;
 use std::sync::Arc;
 use url::Url;
 
@@ -20,19 +21,19 @@ impl fmt::Display for RawData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = String::new();
         if let Ok(u) = self.url.join(&self.path) {
-            s.push_str(&format!("Url: {}\r\n", u));
+            let _ = write!(s, "Url: {}\r\n", u);
         }
         s.push_str("Headers:\r\n");
         s.push_str(&header_to_string(&self.headers));
-        s.push_str(&format!("StatusCode: {}\r\n", self.status_code.as_u16()));
+        let _ = write!(s, "StatusCode: {}\r\n", self.status_code.as_u16());
         s.push_str("Text:\r\n");
         s.push_str(&self.text);
         s.push_str("\r\n");
         if !self.favicon.is_empty() {
-            s.push_str(&format!("Favicon: {:#?}\r\n", self.favicon));
+            let _ = write!(s, "Favicon: {:#?}\r\n", self.favicon);
         }
         if let Some(next_url) = &self.next_url {
-            s.push_str(&format!("NextUrl: {}\r\n", next_url));
+            let _ = write!(s, "NextUrl: {}\r\n", next_url);
         }
         write!(f, "{}", s)
     }
