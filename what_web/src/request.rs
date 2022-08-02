@@ -253,15 +253,19 @@ static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
 pub fn get_title(text: &str) -> String {
     for titles in Document::from(text).find(Name("title")) {
         if !titles.text().is_empty() {
-            return titles.text();
+            return titles.text().trim().to_string();
         }
         if let Some(title) = titles.attr("_html") {
-            return title.to_string();
+            return title.trim().to_string();
         }
     }
     for titles in Document::from(text).find(Name("meta")) {
         if titles.attr("property") == Some("title") {
-            return titles.attr("content").unwrap_or_default().to_string();
+            return titles
+                .attr("content")
+                .unwrap_or_default()
+                .trim()
+                .to_string();
         }
     }
     String::new()
