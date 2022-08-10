@@ -38,6 +38,7 @@ impl fmt::Display for RawData {
         write!(f, "{}", s)
     }
 }
+
 pub async fn check(
     raw_data: &Arc<RawData>,
     fingerprint_lib: &WebFingerPrintLib,
@@ -102,16 +103,18 @@ pub async fn what_web(
             return default_result;
         }
     }
-    let mut hash_set = HashSet::new();
-    for (_key, value) in raw_data.favicon.iter() {
-        hash_set.insert(value);
-    }
-    let mut fph_set = HashSet::new();
-    for fph in fingerprint.match_rules.favicon_hash.iter() {
-        fph_set.insert(fph);
-    }
-    if hash_set.intersection(&fph_set).count() == 0 {
-        return default_result;
+    if !fingerprint.match_rules.favicon_hash.is_empty() {
+        let mut hash_set = HashSet::new();
+        for (_key, value) in raw_data.favicon.iter() {
+            hash_set.insert(value);
+        }
+        let mut fph_set = HashSet::new();
+        for fph in fingerprint.match_rules.favicon_hash.iter() {
+            fph_set.insert(fph);
+        }
+        if hash_set.intersection(&fph_set).count() == 0 {
+            return default_result;
+        }
     }
     default_result.0 = true;
     if debug {
