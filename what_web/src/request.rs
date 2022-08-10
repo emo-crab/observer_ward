@@ -133,6 +133,14 @@ fn get_next_jump(headers: &HeaderMap, url: &Url, text: &str) -> Option<Url> {
     };
     None
 }
+fn is_image(headers: &HeaderMap) -> bool {
+    return headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| Mime::from_str(value).ok())
+        .map(|value| value.type_() == mime::IMAGE)
+        .unwrap_or_default();
+}
 async fn fetch_raw_data(
     res: Response,
     is_index: bool,
@@ -142,17 +150,18 @@ async fn fetch_raw_data(
     let status_code = res.status();
     let headers = res.headers().clone();
     let base_url = res.url().clone();
-    let text = match res.bytes().await {
-        Ok(byte) => get_default_encoding(&byte, headers.clone()),
-        Err(_) => String::from(""),
-    };
     let mut favicon: HashMap<String, String> = HashMap::new();
+    let text_byte = res.bytes().await.unwrap_or_default();
+    let mut text = get_default_encoding(&text_byte, headers.clone());
+    if is_image(&headers) {
+        favicon.insert(base_url.to_string(), favicon_hash(&text_byte));
+        text = String::new();
+    }
     if is_index && !status_code.is_server_error() {
         // 只有在首页的时候提取favicon图标链接
-        favicon = find_favicon_tag(&base_url, &text, config).await;
+        favicon.extend(find_favicon_tag(&base_url, &text, config).await);
     }
     // 在请求头和正文里匹配下一跳URL
-
     let next_url = get_next_jump(&headers, &base_url, &text);
     let raw_data = Arc::new(RawData {
         url: base_url,
@@ -181,23 +190,19 @@ async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<S
         request_data: String::new(),
     };
     let res = send_requests(url, &default_request, config).await?;
-    let content_type = res.headers().get(header::CONTENT_TYPE);
-
-    if let Some(content_type) = content_type {
-        let content_type = Mime::from_str(content_type.to_str()?)?;
-        if content_type.type_() != mime::IMAGE {
-            return Err(anyhow::Error::from(std::io::Error::last_os_error()));
-        }
-    }
-    if res.status().as_u16() != 200 {
+    if res.status().as_u16() != 200 || !is_image(res.headers()) {
         return Err(anyhow::Error::from(std::io::Error::last_os_error()));
     }
     let content = res.bytes().await?;
+    Ok(favicon_hash(&content))
+}
+
+fn favicon_hash(content: &[u8]) -> String {
     let mut hasher = Md5::new();
     hasher.update(content);
     let result = hasher.finalize();
     let favicon_md5: String = format!("{:x}", &result);
-    Ok(favicon_md5)
+    favicon_md5
 }
 
 fn get_favicon_link(text: &str, base_url: &Url) -> HashSet<Url> {
@@ -282,7 +287,6 @@ pub async fn index_fetch(
     url_str: &str,
     special_wfp: &WebFingerPrintRequest,
     is_index: bool,
-    is_special: bool,
     config: RequestOption,
 ) -> anyhow::Result<Vec<Arc<RawData>>> {
     let mut is_index: bool = is_index;
@@ -310,7 +314,7 @@ pub async fn index_fetch(
                 };
                 is_index = false;
             };
-            if is_special {
+            if !is_index {
                 break;
             }
             match next_url.clone() {

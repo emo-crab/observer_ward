@@ -104,14 +104,12 @@ impl WhatWeb {
             request_headers: Default::default(),
             request_data: String::new(),
         };
-        if let Ok(raw_data_list) =
-            index_fetch(&url, &default_request, true, false, self.config.clone()).await
-        {
-            if raw_data_list.is_empty() {
+        if let Ok(rdl) = index_fetch(&url, &default_request, true, self.config.clone()).await {
+            if rdl.is_empty() {
                 what_web_result.is_web = false;
             }
             //首页请求允许跳转
-            for raw_data in raw_data_list {
+            for raw_data in rdl {
                 let web_name_set = check(&raw_data, &self.fingerprint.to_owned(), debug).await;
                 for (k, v) in web_name_set {
                     name.insert(k);
@@ -146,16 +144,15 @@ impl WhatWeb {
             return what_web_result;
         }
         for special_wfp in self.fingerprint.to_owned().special.iter() {
-            if let Ok(raw_data_list) = index_fetch(
+            if let Ok(rdl) = index_fetch(
                 &what_web_result.url,
                 &special_wfp.request,
                 false,
-                true,
                 self.config.clone(),
             )
             .await
             {
-                for raw_data in raw_data_list {
+                for raw_data in rdl {
                     let web_name_set = check(&raw_data, &self.fingerprint.to_owned(), debug).await;
                     for (k, v) in web_name_set {
                         name.insert(k);

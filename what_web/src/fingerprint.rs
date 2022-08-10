@@ -104,7 +104,10 @@ impl WebFingerPrintLib {
             {
                 index.push(v3_web_fingerprint);
             } else if !f_rule.favicon_hash.is_empty() {
-                favicon.push(v3_web_fingerprint);
+                favicon.push(v3_web_fingerprint.clone());
+                if f_rule.path != "/" {
+                    special.push(v3_web_fingerprint);
+                }
             } else {
                 special.push(v3_web_fingerprint);
             }
