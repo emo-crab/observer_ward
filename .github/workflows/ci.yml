@@ -7,8 +7,6 @@ on:
       - '!/docs/**'
       - "!/LICENSE-*"
   push:
-    branches-ignore:
-      - "dependabot/**"
     branches:
       - main
     paths:
