@@ -96,15 +96,19 @@ impl WebFingerPrintLib {
                 request,
                 match_rules,
             };
-            if f_rule.path == "/"
-                && f_rule.request_headers.is_empty()
-                && f_rule.request_method.to_uppercase() == "GET"
-                && f_rule.request_data.is_empty()
-                && f_rule.favicon_hash.is_empty()
-            {
+            let is_index = || {
+                f_rule.path == "/"
+                    && f_rule.request_headers.is_empty()
+                    && f_rule.request_method.to_uppercase() == "GET"
+                    && f_rule.request_data.is_empty()
+                    && f_rule.favicon_hash.is_empty()
+            };
+            // 首页请求，有FaviconHash
+            if is_index() {
                 index.push(v3_web_fingerprint);
             } else if !f_rule.favicon_hash.is_empty() {
                 favicon.push(v3_web_fingerprint.clone());
+                // 固定路径的FaviconHash
                 if f_rule.path != "/" {
                     special.push(v3_web_fingerprint);
                 }

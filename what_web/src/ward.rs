@@ -78,10 +78,32 @@ pub async fn what_web(
     fingerprint: &V3WebFingerPrint,
     debug: bool,
 ) -> (bool, &V3WebFingerPrint) {
+    // 默认匹配不到
     let mut default_result = (false, fingerprint);
-    if fingerprint.match_rules.status_code != 0
-        && raw_data.status_code.as_u16() != fingerprint.match_rules.status_code
-    {
+    // 匹配FaviconHash
+    if !fingerprint.match_rules.favicon_hash.is_empty() {
+        let mut hash_set = HashSet::new();
+        for (_key, value) in raw_data.favicon.iter() {
+            hash_set.insert(value);
+        }
+        // 请求中没有找到FaviconHash
+        if hash_set.is_empty() {
+            return default_result;
+        }
+        let mut fph_set = HashSet::new();
+        for fph in fingerprint.match_rules.favicon_hash.iter() {
+            fph_set.insert(fph);
+        }
+        if hash_set.intersection(&fph_set).count() == 0 {
+            return default_result;
+        }
+    }
+    // 关键词匹配
+    let not_match_status_code = || {
+        fingerprint.match_rules.status_code != 0
+            && raw_data.status_code.as_u16() != fingerprint.match_rules.status_code
+    };
+    if not_match_status_code() {
         return default_result;
     }
     for (k, v) in &fingerprint.match_rules.headers {
@@ -100,19 +122,6 @@ pub async fn what_web(
     }
     for keyword in &fingerprint.match_rules.keyword {
         if raw_data.text.find(&keyword.to_lowercase()) == None {
-            return default_result;
-        }
-    }
-    if !fingerprint.match_rules.favicon_hash.is_empty() {
-        let mut hash_set = HashSet::new();
-        for (_key, value) in raw_data.favicon.iter() {
-            hash_set.insert(value);
-        }
-        let mut fph_set = HashSet::new();
-        for fph in fingerprint.match_rules.favicon_hash.iter() {
-            fph_set.insert(fph);
-        }
-        if hash_set.intersection(&fph_set).count() == 0 {
             return default_result;
         }
     }
