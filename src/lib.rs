@@ -376,6 +376,7 @@ pub fn print_results_and_save(
     json: &str,
     csv: &str,
     silent: bool,
+    filter: bool,
     results: Vec<WhatWebResult>,
     has_plugins: bool,
 ) {
@@ -424,6 +425,9 @@ pub fn print_results_and_save(
     let mut table = Table::new();
     table.set_titles(Row::new(headers.clone()));
     for res in &results {
+        if filter && res.name.is_empty() {
+            continue;
+        }
         let wwn: Vec<String> = res.name.iter().map(String::from).collect();
         let status_code = reqwest::StatusCode::from_u16(res.status_code).unwrap_or_default();
         let mut status_code_color = Attr::ForegroundColor(color::RED);

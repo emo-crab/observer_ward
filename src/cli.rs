@@ -50,6 +50,8 @@ pub struct ObserverWardConfig {
     pub daemon: bool,
     #[serde(skip)]
     pub silent: bool,
+    #[serde(skip)]
+    pub filter: bool,
 }
 
 fn default_thread() -> u32 {
@@ -83,6 +85,7 @@ impl Default for ObserverWardConfig {
             daemon: false,
             token: String::new(),
             silent: false,
+            filter: false,
         }
     }
 }
@@ -118,6 +121,12 @@ impl ObserverWardConfig {
                     .long("silent")
                     .takes_value(false)
                     .help("Silent mode"),
+            )
+            .arg(
+                Arg::new("filter")
+                    .long("filter")
+                    .takes_value(false)
+                    .help("Filter mode,Display only the fingerprint that is not empty"),
             )
             .arg(
                 Arg::new("file")
@@ -225,6 +234,9 @@ impl ObserverWardConfig {
         }
         if args.is_present("silent") {
             default.silent = true;
+        }
+        if args.is_present("filter") {
+            default.filter = true;
         }
         if args.is_present("service") {
             default.service = true;

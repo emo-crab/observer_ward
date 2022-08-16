@@ -49,6 +49,7 @@ async fn start() -> Result<(), Error> {
         &config.json,
         &config.csv,
         config.silent,
+        config.filter,
         vec_results,
         is_enable_plugin,
     );
