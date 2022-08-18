@@ -10,9 +10,9 @@ use md5::{Digest, Md5};
 use mime::Mime;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, LOCATION};
+use reqwest::header::{HeaderMap, HeaderValue, LOCATION};
 use reqwest::redirect::Policy;
-use reqwest::{header, Body, Method, Proxy, Response};
+use reqwest::{header, Proxy, Response};
 use select::document::Document;
 use select::predicate::Name;
 use url::Url;
@@ -35,15 +35,9 @@ async fn send_requests(
         header::COOKIE,
         HeaderValue::from_static(apache_shiro_cookie),
     );
-    let method =
-        Method::from_str(&fingerprint.request_method.to_uppercase()).unwrap_or(Method::GET);
-    let body_data =
-        Body::from(base64::decode(fingerprint.request_data.clone()).unwrap_or_default());
-    if !fingerprint.request_headers.is_empty() {
-        for (k, v) in fingerprint.request_headers.clone() {
-            headers.insert(HeaderName::from_str(&k)?, HeaderValue::from_str(&v)?);
-        }
-    }
+    let method = fingerprint.get_method();
+    let body_data = fingerprint.get_body();
+    fingerprint.set_header(&mut headers);
     if fingerprint.path != "/" {
         url.set_path(fingerprint.path.as_str());
     }
@@ -141,11 +135,7 @@ fn is_image(headers: &HeaderMap) -> bool {
         .map(|value| value.type_() == mime::IMAGE)
         .unwrap_or_default();
 }
-async fn fetch_raw_data(
-    res: Response,
-    is_index: bool,
-    config: RequestOption,
-) -> anyhow::Result<Arc<RawData>> {
+async fn fetch_raw_data(res: Response, config: RequestOption) -> anyhow::Result<Arc<RawData>> {
     let path: String = res.url().path().to_string();
     let status_code = res.status();
     let headers = res.headers().clone();
@@ -156,8 +146,7 @@ async fn fetch_raw_data(
     if is_image(&headers) {
         favicon.insert(base_url.to_string(), favicon_hash(&text_byte));
         text = String::new();
-    }
-    if is_index && !status_code.is_server_error() {
+    } else if !status_code.is_server_error() {
         // 只有在首页的时候提取favicon图标链接
         favicon.extend(find_favicon_tag(&base_url, &text, config).await);
     }
@@ -209,6 +198,9 @@ fn get_favicon_link(text: &str, base_url: &Url) -> HashSet<Url> {
     let mut icon_links = HashSet::new();
     for links in Document::from(text).find(Name("link")) {
         if let (Some(rel), Some(href)) = (links.attr("rel"), links.attr("href")) {
+            if RE_COMPILE_BY_SIZE.is_match(href) {
+                continue;
+            }
             if ["icon", "shortcut icon"].contains(&rel) {
                 if href.starts_with("http://") || href.starts_with("https://") {
                     let favicon_url = Url::parse(href).unwrap_or_else(|_| base_url.clone());
@@ -242,6 +234,8 @@ async fn find_favicon_tag(
     }
     link_tags
 }
+static RE_COMPILE_BY_SIZE: Lazy<Regex> =
+    Lazy::new(|| -> Regex { Regex::new(r#"(?im)-\d{1,3}x\d{1,3}"#).expect("RE_COMPILE_BY_SIZE") });
 // 支持部分正文跳转
 static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
     let js_reg = vec![
@@ -289,7 +283,6 @@ pub async fn index_fetch(
     is_index: bool,
     config: RequestOption,
 ) -> anyhow::Result<Vec<Arc<RawData>>> {
-    let mut is_index: bool = is_index;
     let mut is_start_with_http: bool = true;
     let mut raw_data_list: Vec<Arc<RawData>> = vec![];
     let schemes: [String; 2] = [String::from("https://"), String::from("http://")];
@@ -308,11 +301,10 @@ pub async fn index_fetch(
         loop {
             let mut next_url: Option<Url> = None;
             if let Ok(res) = send_requests(&url, special_wfp, &config).await {
-                if let Ok(raw_data) = fetch_raw_data(res, is_index, config.clone()).await {
+                if let Ok(raw_data) = fetch_raw_data(res, config.clone()).await {
                     next_url = raw_data.next_url.clone();
                     raw_data_list.push(raw_data);
                 };
-                is_index = false;
             };
             if !is_index {
                 break;

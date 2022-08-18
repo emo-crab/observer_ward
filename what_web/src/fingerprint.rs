@@ -1,4 +1,7 @@
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use reqwest::{Body, Method};
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
@@ -120,6 +123,24 @@ impl WebFingerPrintLib {
             index,
             special,
             favicon,
+        }
+    }
+}
+
+impl WebFingerPrintRequest {
+    pub fn get_method(&self) -> Method {
+        Method::from_str(&self.request_method.to_uppercase()).unwrap_or(Method::GET)
+    }
+    pub fn get_body(&self) -> Body {
+        Body::from(base64::decode(self.request_data.clone()).unwrap_or_default())
+    }
+    pub fn set_header(&self, headers: &mut HeaderMap) {
+        if !self.request_headers.is_empty() {
+            for (k, v) in self.request_headers.clone() {
+                if let (Ok(k), Ok(v)) = (HeaderName::from_str(&k), HeaderValue::from_str(&v)) {
+                    headers.insert(k, v);
+                }
+            }
         }
     }
 }
