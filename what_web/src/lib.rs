@@ -132,8 +132,16 @@ impl WhatWeb {
                     || raw_data.status_code.is_success()
                 {
                     what_web_result.title = get_title(&raw_data.text);
-                    what_web_result.url = raw_data.url.as_str().to_string();
                     what_web_result.priority += 1;
+                    if what_web_result.url.starts_with("http://")
+                        && raw_data.url.as_str().starts_with("https://")
+                    {
+                        what_web_result.url = what_web_result.url.replace("http://", "https://");
+                    } else if what_web_result.url.starts_with("https://")
+                        && raw_data.url.as_str().starts_with("http://")
+                    {
+                        what_web_result.url = what_web_result.url.replace("https://", "http://");
+                    }
                 }
                 if raw_data.status_code.is_success() {
                     what_web_result.priority += 1;
