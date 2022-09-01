@@ -23,7 +23,7 @@ url = { version = "2.1.1", features = ["serde"] }
 csv = "1.1.6"
 dirs = "4.0.0"
 tokio = { version = "1.20.1", default-features = false }
-prettytable-rs = "^0.8"
+prettytable-rs = "^0.9"
 textwrap = "0.15"
 log = "0.4.17"
 futures = { version = "0.3", features = ["compat"] }
