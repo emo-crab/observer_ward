@@ -127,13 +127,15 @@ fn get_next_jump(headers: &HeaderMap, url: &Url, text: &str) -> Option<Url> {
     };
     None
 }
-fn is_image(headers: &HeaderMap) -> bool {
-    return headers
+fn is_image(headers: &HeaderMap, body: &[u8]) -> bool {
+    let ct = headers
         .get(header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| Mime::from_str(value).ok())
         .map(|value| value.type_() == mime::IMAGE)
         .unwrap_or_default();
+    let is_text = String::from_utf8(body.to_vec()).is_ok();
+    ct || !is_text
 }
 async fn fetch_raw_data(res: Response, config: RequestOption) -> anyhow::Result<Arc<RawData>> {
     let path: String = res.url().path().to_string();
@@ -143,7 +145,7 @@ async fn fetch_raw_data(res: Response, config: RequestOption) -> anyhow::Result<
     let mut favicon: HashMap<String, String> = HashMap::new();
     let text_byte = res.bytes().await.unwrap_or_default();
     let mut text = get_default_encoding(&text_byte, headers.clone());
-    if is_image(&headers) {
+    if is_image(&headers, &text_byte) {
         favicon.insert(base_url.to_string(), favicon_hash(&text_byte));
         text = String::new();
     } else if !status_code.is_server_error() {
@@ -179,10 +181,12 @@ async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<S
         request_data: String::new(),
     };
     let res = send_requests(url, &default_request, config).await?;
-    if res.status().as_u16() != 200 || !is_image(res.headers()) {
+    let status_code = res.status().as_u16();
+    let headers = res.headers().clone();
+    let content = res.bytes().await?;
+    if status_code != 200 || !is_image(&headers, &content) {
         return Err(anyhow::Error::from(std::io::Error::last_os_error()));
     }
-    let content = res.bytes().await?;
     Ok(favicon_hash(&content))
 }
 
