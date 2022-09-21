@@ -268,13 +268,17 @@ impl<'a> Helper<'_> {
         if !verify.is_empty() {
             if let Ok(file) = File::open(verify) {
                 let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
-                if let Ok(verify_fingerprints) =
-                    serde_yaml::from_reader::<_, VerifyWebFingerPrint>(&file)
-                {
-                    for mut verify_fingerprint in verify_fingerprints.fingerprint {
-                        verify_fingerprint.name = verify_fingerprints.name.clone();
-                        verify_fingerprint.priority = verify_fingerprints.priority;
-                        web_fingerprint.push(verify_fingerprint);
+                match serde_yaml::from_reader::<_, VerifyWebFingerPrint>(&file) {
+                    Ok(verify_fingerprints) => {
+                        for mut verify_fingerprint in verify_fingerprints.fingerprint {
+                            verify_fingerprint.name = verify_fingerprints.name.clone();
+                            verify_fingerprint.priority = verify_fingerprints.priority;
+                            web_fingerprint.push(verify_fingerprint);
+                        }
+                    }
+                    Err(err) => {
+                        println!("{}", err);
+                        std::process::exit(0);
                     }
                 };
                 return web_fingerprint;

@@ -86,7 +86,7 @@ pub async fn what_web(
         for (_key, value) in raw_data.favicon.iter() {
             hash_set.insert(value);
         }
-        // 请求中没有找到FaviconHash
+        // 规则中有，但是请求中没有找到FaviconHash
         if hash_set.is_empty() {
             return default_result;
         }
@@ -94,6 +94,7 @@ pub async fn what_web(
         for fph in fingerprint.match_rules.favicon_hash.iter() {
             fph_set.insert(fph);
         }
+        // 规则和请求数据没有交集
         if hash_set.intersection(&fph_set).count() == 0 {
             return default_result;
         }
@@ -103,6 +104,7 @@ pub async fn what_web(
         fingerprint.match_rules.status_code != 0
             && raw_data.status_code.as_u16() != fingerprint.match_rules.status_code
     };
+    // 匹配了状态码，规则中状态码不为0,并且和请求的状态码不相等
     if not_match_status_code() {
         return default_result;
     }

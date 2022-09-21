@@ -147,7 +147,7 @@ async fn fetch_raw_data(res: Response, config: RequestOption) -> anyhow::Result<
     let mut text = get_default_encoding(&text_byte, headers.clone());
     if is_image(&headers, &text_byte) {
         favicon.insert(base_url.to_string(), favicon_hash(&text_byte));
-        text = String::new();
+        text = String::from("响应内容为图片");
     } else if !status_code.is_server_error() {
         // 只有在首页的时候提取favicon图标链接
         favicon.extend(find_favicon_tag(&base_url, &text, config).await);
