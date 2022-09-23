@@ -25,15 +25,15 @@ async fn send_requests(
     url: &Url,
     fingerprint: &WebFingerPrintRequest,
     config: &RequestOption,
+    redirect: Policy,
 ) -> anyhow::Result<Response> {
     let mut url = url.clone();
     let mut headers = HeaderMap::new();
     let ua = "Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0";
-    let apache_shiro_cookie = "rememberMe=admin;rememberMe-K=admin";
     headers.insert(header::USER_AGENT, HeaderValue::from_static(ua));
     headers.insert(
         header::COOKIE,
-        HeaderValue::from_static(apache_shiro_cookie),
+        HeaderValue::from_static("rememberMe=admin;rememberMe-K=admin"),
     );
     let method = fingerprint.get_method();
     let body_data = fingerprint.get_body();
@@ -46,7 +46,7 @@ async fn send_requests(
         .danger_accept_invalid_certs(true)
         .danger_accept_invalid_hostnames(true)
         .default_headers(headers.clone())
-        .redirect(Policy::none())
+        .redirect(redirect)
         .timeout(Duration::new(config.timeout, 0));
     let config_proxy = config.proxy.clone();
     let proxy_obj = Proxy::custom(move |_| config_proxy.clone());
@@ -180,7 +180,7 @@ async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<S
         request_headers: Default::default(),
         request_data: String::new(),
     };
-    let res = send_requests(url, &default_request, config).await?;
+    let res = send_requests(url, &default_request, config, Policy::default()).await?;
     let status_code = res.status().as_u16();
     let headers = res.headers().clone();
     let content = res.bytes().await?;
@@ -304,7 +304,7 @@ pub async fn index_fetch(
         let mut url = Url::parse(scheme_url)?;
         loop {
             let mut next_url: Option<Url> = None;
-            if let Ok(res) = send_requests(&url, special_wfp, &config).await {
+            if let Ok(res) = send_requests(&url, special_wfp, &config, Policy::none()).await {
                 if let Ok(raw_data) = fetch_raw_data(res, config.clone()).await {
                     next_url = raw_data.next_url.clone();
                     raw_data_list.push(raw_data);
@@ -339,6 +339,7 @@ mod tests {
     use crate::request::{get_favicon_link, get_next_jump, send_requests};
     use crate::{RequestOption, WebFingerPrintRequest};
     use reqwest::header::HeaderMap;
+    use reqwest::redirect::Policy;
     use std::collections::HashMap;
     use url::Url;
 
@@ -354,7 +355,7 @@ mod tests {
         };
         let timeout = 10_u64;
         let request_config = RequestOption::new(&timeout, "");
-        let res = send_requests(&test_url, &fingerprint, &request_config)
+        let res = send_requests(&test_url, &fingerprint, &request_config, Policy::none())
             .await
             .unwrap();
         assert!(res.text().await.unwrap().contains("swagger-ui"));
@@ -371,7 +372,7 @@ mod tests {
         };
         let timeout = 10_u64;
         let request_config = RequestOption::new(&timeout, "");
-        let res = send_requests(&test_url, &fingerprint, &request_config)
+        let res = send_requests(&test_url, &fingerprint, &request_config, Policy::none())
             .await
             .unwrap();
         assert!(res
