@@ -2662,6 +2662,7 @@ dependencies = [
  "anyhow",
  "base64",
  "cached",
+ "crossterm",
  "encoding_rs",
  "futures 0.3.24",
  "md-5",

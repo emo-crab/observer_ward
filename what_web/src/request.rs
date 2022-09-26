@@ -354,7 +354,7 @@ mod tests {
             request_data: String::from(""),
         };
         let timeout = 10_u64;
-        let request_config = RequestOption::new(&timeout, "");
+        let request_config = RequestOption::new(&timeout, "", "");
         let res = send_requests(&test_url, &fingerprint, &request_config, Policy::none())
             .await
             .unwrap();
@@ -371,7 +371,7 @@ mod tests {
             request_data: String::from(""),
         };
         let timeout = 10_u64;
-        let request_config = RequestOption::new(&timeout, "");
+        let request_config = RequestOption::new(&timeout, "", "");
         let res = send_requests(&test_url, &fingerprint, &request_config, Policy::none())
             .await
             .unwrap();

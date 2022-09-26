@@ -2,11 +2,11 @@
 extern crate daemonize;
 
 use crate::error::Error;
-use crate::{print_color, Helper, ObserverWard, ObserverWardConfig, OBSERVER_WARD_PATH};
+use crate::{Helper, ObserverWard, ObserverWardConfig, OBSERVER_WARD_PATH};
 use actix_web::web::Data;
 use actix_web::{get, middleware, post, web, App, HttpResponse, HttpServer, Responder};
 use actix_web_httpauth::extractors::bearer::{BearerAuth, Config};
-use crossterm::style::Color;
+use crossterm::style::Stylize;
 #[cfg(not(target_os = "windows"))]
 use daemonize::Daemonize;
 use openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslFiletype, SslMethod};
@@ -150,9 +150,9 @@ fn print_help(s: &str, t: &str) {
     );
     let result = r#"[{"url":"http://httpbin.org/","name":["swagger"],"priority":5,"length":9593,"title":"httpbin.org","status_code":200,"is_web":true,"plugins":[]}]"#;
     println!("Request:");
-    print_color(api_doc, Color::DarkBlue, true);
+    println!("{}", api_doc.dark_blue());
     println!("Response:");
-    print_color(result.to_string(), Color::Green, true);
+    println!("{}", result.green());
 }
 
 pub fn run_server() {

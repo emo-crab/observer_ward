@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
+use std::path::PathBuf;
 use std::str;
 use std::sync::Arc;
 use std::{fmt, process};
@@ -54,10 +55,13 @@ impl WhatWebResult {
 pub struct RequestOption {
     timeout: u64,
     pub proxy: Option<Url>,
+    pub verify_keyword: String,
+    pub is_path: bool,
 }
 
 impl RequestOption {
-    pub fn new(timeout: &u64, proxy: &str) -> Self {
+    pub fn new(timeout: &u64, proxy: &str, verify_keyword: &str) -> Self {
+        let is_exists = PathBuf::from(verify_keyword).exists();
         if !proxy.is_empty() {
             match Url::parse(proxy) {
                 Ok(u) => {
@@ -65,6 +69,8 @@ impl RequestOption {
                     Self {
                         timeout: *timeout,
                         proxy: proxy_url,
+                        verify_keyword: verify_keyword.to_string(),
+                        is_path: is_exists,
                     }
                 }
                 Err(err) => {
@@ -76,6 +82,8 @@ impl RequestOption {
             Self {
                 timeout: *timeout,
                 proxy: None,
+                verify_keyword: verify_keyword.to_string(),
+                is_path: is_exists,
             }
         }
     }
@@ -95,7 +103,7 @@ impl WhatWeb {
             config,
         }
     }
-    pub async fn scan(&self, url: String, debug: bool) -> WhatWebResult {
+    pub async fn scan(&self, url: String) -> WhatWebResult {
         let mut name: HashSet<String> = HashSet::new();
         let mut what_web_result: WhatWebResult = WhatWebResult::new(url.clone());
         let default_request = WebFingerPrintRequest {
@@ -110,7 +118,8 @@ impl WhatWeb {
             }
             //首页请求允许跳转
             for raw_data in rdl {
-                let web_name_set = check(&raw_data, &self.fingerprint.to_owned(), debug).await;
+                let web_name_set =
+                    check(&raw_data, &self.fingerprint.to_owned(), &self.config).await;
                 for (k, v) in web_name_set {
                     name.insert(k);
                     what_web_result.priority = v;
@@ -162,7 +171,8 @@ impl WhatWeb {
             .await
             {
                 for raw_data in rdl {
-                    let web_name_set = check(&raw_data, &self.fingerprint.to_owned(), debug).await;
+                    let web_name_set =
+                        check(&raw_data, &self.fingerprint.to_owned(), &self.config).await;
                     for (k, v) in web_name_set {
                         name.insert(k);
                         what_web_result.priority = v;

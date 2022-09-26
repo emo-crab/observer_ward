@@ -1,8 +1,5 @@
 use crate::cli::ObserverWardConfig;
-use crossterm::{
-    style::{Color, Print, ResetColor, SetForegroundColor},
-    ExecutableCommand,
-};
+use crossterm::style::Stylize;
 use error::Error;
 use futures::channel::mpsc::unbounded;
 use futures::stream::FuturesUnordered;
@@ -19,7 +16,7 @@ use serde_json::json;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io;
-use std::io::{stdout, Cursor};
+use std::io::Cursor;
 use std::io::{BufRead, Read};
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
@@ -39,35 +36,18 @@ pub struct VerifyWebFingerPrint {
     fingerprint: Vec<WebFingerPrint>,
 }
 
-fn print_color_func(string: &str, color: Color) -> Result<(), Error> {
-    stdout()
-        .execute(SetForegroundColor(color))?
-        .execute(Print(string))?
-        .execute(ResetColor)?;
-    Ok(())
-}
-
-pub fn print_color(mut string: String, color: Color, nl: bool) {
-    if nl {
-        string.push('\n')
-    }
-    if print_color_func(&string, color).is_err() {
-        print!("{}", string);
-    };
-}
-
 pub fn print_what_web(what_web_result: &WhatWebResult) {
     let color_web_name: Vec<String> = what_web_result.name.iter().map(String::from).collect();
     let status_code =
         reqwest::StatusCode::from_u16(what_web_result.status_code).unwrap_or_default();
     if !what_web_result.name.is_empty() {
         print!("[ {} |", what_web_result.url);
-        print_color(format!("{:?}", color_web_name), Color::Green, false);
+        print!("{}", format!("{:?}", color_web_name).green());
         print!(" | {} | ", what_web_result.length);
         if status_code.is_success() {
-            print_color(format!("{:?}", status_code), Color::Green, false);
+            print!("{}", status_code.to_string().green());
         } else {
-            print_color(format!("{:?}", status_code), Color::Red, false);
+            print!("{:?}", status_code.to_string().red());
         }
         println!(" | {} ]", what_web_result.title);
     } else {
@@ -84,16 +64,12 @@ pub fn print_what_web(what_web_result: &WhatWebResult) {
 
 pub fn print_nuclei(what_web_result: &WhatWebResult) {
     for template in what_web_result.template_result.iter() {
-        print_color(
-            format!("[{}] ", template.info.severity),
-            Color::Green,
-            false,
-        );
-        print_color(format!("[{}] ", template.template_id), Color::Red, false);
+        print!("[{}] ", template.info.severity.to_string().green());
+        print!("[{}] ", template.template_id.to_string().red());
         println!("| [{}] ", template.matched_at);
         if !template.curl_command.is_empty() {
             let patch_curl_command = format!("{} --path-as-is -k", template.curl_command);
-            print_color(patch_curl_command, Color::DarkBlue, true);
+            println!("{}", patch_curl_command.dark_blue());
         }
     }
 }
@@ -133,12 +109,12 @@ pub fn print_opening() {
  \ \__/".~\_\  \ \_\ \_\  \ \_\ \_\  \ \____-
   \/_/   \/_/   \/_/\/_/   \/_/ /_/   \/____/
 Community based web fingerprint analysis tool."#;
-    print_color(s.to_string(), Color::Green, true);
+    println!("{}", s.green());
     let info = r#"_____________________________________________
 :  https://github.com/0x727/FingerprintHub  :
 :  https://github.com/0x727/ObserverWard    :
  --------------------------------------------"#;
-    print_color(info.to_string(), Color::Yellow, true);
+    println!("{}", info.yellow());
 }
 
 pub struct Helper<'a> {
@@ -165,7 +141,7 @@ static OBSERVER_WARD_PATH: Lazy<PathBuf> = Lazy::new(|| -> PathBuf {
 
 impl<'a> Helper<'a> {
     pub fn new(config: &'a ObserverWardConfig) -> Self {
-        let ro = RequestOption::new(&config.timeout, &config.proxy);
+        let ro = RequestOption::new(&config.timeout, &config.proxy, &config.verify);
         Self {
             request_option: ro,
             config_path: &OBSERVER_WARD_PATH,
@@ -336,7 +312,7 @@ impl<'a> Helper<'_> {
         let client = reqwest::Client::builder().proxy(proxy_obj);
         if let Ok(downloading_client) = client.build() {
             if let Ok(response) = downloading_client.get(update_url).send().await {
-                let mut file = std::fs::File::create(filename).unwrap();
+                let mut file = File::create(filename).unwrap();
                 let mut content = Cursor::new(response.bytes().await.unwrap_or_default());
                 std::io::copy(&mut content, &mut file).unwrap_or_default();
                 self.msg.insert(
@@ -453,7 +429,7 @@ pub fn print_results_and_save(
         table.add_row(Row::new(rows));
     }
     if !table.is_empty() && !silent {
-        print_color(String::from("Important technology:\n"), Color::Yellow, true);
+        println!("{}", "Important technology:".yellow());
         table.printstd();
     }
 }
@@ -463,7 +439,7 @@ fn extract_plugins_zip(f_name: &Path, extract_target_path: &Path) -> Result<(), 
     if plugins_path.exists() {
         std::fs::remove_dir_all(plugins_path)?;
     }
-    let zipfile = std::fs::File::open(f_name)?;
+    let zipfile = File::open(f_name)?;
     let mut archive = zip::ZipArchive::new(zipfile)?;
     archive.extract(extract_target_path)?;
     Ok(())
@@ -547,7 +523,7 @@ impl ObserverWard {
         web_fingerprint: Vec<WebFingerPrint>,
         nmap_fingerprint: Vec<NmapFingerPrint>,
     ) -> Self {
-        let request_option = RequestOption::new(&config.timeout, &config.proxy);
+        let request_option = RequestOption::new(&config.timeout, &config.proxy, &config.verify);
         let what_server_ins = WhatServer::new(300, nmap_fingerprint);
         let what_web_ins = WhatWeb::new(request_option, web_fingerprint);
         Self {
@@ -566,14 +542,13 @@ impl ObserverWard {
         let (mut results_sender, mut results_receiver) = unbounded();
         let mut vec_results: Vec<WhatWebResult> = vec![];
         let config_thread = config.thread;
-        let is_debug = !config.verify.is_empty();
         let webhook = config.webhook.clone();
         let what_web_handle = tokio::task::spawn(async move {
             let mut worker = FuturesUnordered::new();
             let mut targets_iter = targets.iter();
             for _ in 0..config_thread {
                 match targets_iter.next() {
-                    Some(target) => worker.push(what_web_ins.scan(target.to_string(), is_debug)),
+                    Some(target) => worker.push(what_web_ins.scan(target.to_string())),
                     None => {
                         break;
                     }
@@ -581,7 +556,7 @@ impl ObserverWard {
             }
             while let Some(result) = worker.next().await {
                 if let Some(target) = targets_iter.next() {
-                    worker.push(what_web_ins.scan(target.to_string(), is_debug));
+                    worker.push(what_web_ins.scan(target.to_string()));
                 }
                 what_web_sender.unbounded_send(result).unwrap_or_default();
             }
@@ -686,7 +661,7 @@ impl ObserverWard {
         if config.service {
             nmap_fingerprint = helper.read_nmap_fingerprint();
         }
-        let request_option = RequestOption::new(&config.timeout, &config.proxy);
+        let request_option = RequestOption::new(&config.timeout, &config.proxy, &config.verify);
         let what_server_ins = WhatServer::new(300, nmap_fingerprint);
         let what_web_ins = WhatWeb::new(request_option, web_fingerprint);
         self.config = config.clone();

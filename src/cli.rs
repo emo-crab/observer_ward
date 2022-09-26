@@ -189,7 +189,7 @@ impl ObserverWardConfig {
                 Arg::new("verify")
                     .long("verify")
                     .takes_value(true)
-                    .help("Validate the specified yaml file"),
+                    .help("Validate the specified yaml file or grep keyword"),
             )
             .arg(
                 Arg::new("service")

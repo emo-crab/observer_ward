@@ -1,8 +1,8 @@
 use crate::fingerprint::{V3WebFingerPrint, WebFingerPrintLib};
+use crate::RequestOption;
+use crossterm::style::Stylize;
 use futures::future::join_all;
 use std::collections::{HashMap, HashSet};
-use std::fmt;
-use std::fmt::Write as FmtWrite;
 use std::sync::Arc;
 use url::Url;
 
@@ -17,47 +17,60 @@ pub struct RawData {
     pub next_url: Option<Url>,
 }
 
-impl fmt::Display for RawData {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut s = String::new();
+impl RawData {
+    fn grep(&self, kw: &str, is_path: bool) {
+        let grep_color = |text: &str| {
+            if is_path {
+                println!("{}", text);
+                return;
+            }
+            let mut color_grep = text.to_string();
+            color_grep = color_grep.replace(kw, &kw.red().to_string());
+            println!("{}", color_grep);
+        };
         if let Ok(u) = self.url.join(&self.path) {
-            let _ = write!(s, "Url: {}\r\n", u);
+            println!("URL: {}", u.to_string().green());
         }
-        s.push_str("Headers:\r\n");
-        s.push_str(&header_to_string(&self.headers));
-        let _ = write!(s, "StatusCode: {}\r\n", self.status_code.as_u16());
-        s.push_str("Text:\r\n");
-        s.push_str(&self.text);
-        s.push_str("\r\n");
+        println!("HEADERS:");
+        for (k, v) in self.headers.clone() {
+            if let Some(n) = k {
+                print!("{}: ", n);
+                grep_color(v.to_str().unwrap_or_default());
+            }
+        }
+        // println!(&header_to_string(&self.headers));
+        println!("STATUS_CODE: {}", self.status_code.as_u16());
+        println!("TEXT:");
+        grep_color(&self.text);
         if !self.favicon.is_empty() {
-            let _ = write!(s, "Favicon: {:#?}\r\n", self.favicon);
+            println!("{}", format!("FAVICON: {:#?}", self.favicon).red());
         }
         if let Some(next_url) = &self.next_url {
-            let _ = write!(s, "NextUrl: {}\r\n", next_url);
+            println!("NEXT_URL: {}", next_url);
         }
-        write!(f, "{}", s)
     }
 }
 
 pub async fn check(
     raw_data: &Arc<RawData>,
     fingerprint_lib: &WebFingerPrintLib,
-    debug: bool,
+    config: &RequestOption,
 ) -> HashMap<String, u32> {
-    if debug {
-        println!("{}", raw_data);
+    let is_debug = !config.verify_keyword.is_empty();
+    if is_debug {
+        raw_data.grep(&config.verify_keyword, config.is_path);
     }
     let mut futures_e = vec![];
     let mut web_name_set: HashMap<String, u32> = HashMap::new();
     for fingerprint in fingerprint_lib.special.iter() {
-        futures_e.push(what_web(raw_data.clone(), fingerprint, debug));
+        futures_e.push(what_web(raw_data.clone(), fingerprint, is_debug));
     }
     for fingerprint in fingerprint_lib.index.iter() {
-        futures_e.push(what_web(raw_data.clone(), fingerprint, debug));
+        futures_e.push(what_web(raw_data.clone(), fingerprint, is_debug));
     }
     if !raw_data.favicon.is_empty() {
         for fingerprint in fingerprint_lib.favicon.iter() {
-            futures_e.push(what_web(raw_data.clone(), fingerprint, debug));
+            futures_e.push(what_web(raw_data.clone(), fingerprint, is_debug));
         }
     }
     let results = join_all(futures_e).await;
