@@ -195,9 +195,5 @@ fn background() {
 
 #[cfg(target_os = "windows")]
 fn background() {
-    print_color(
-        "Windows does not support background services".to_string(),
-        Color::Green,
-        true,
-    );
+    println!("Windows does not support background services");
 }
