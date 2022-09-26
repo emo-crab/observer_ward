@@ -141,7 +141,12 @@ static OBSERVER_WARD_PATH: Lazy<PathBuf> = Lazy::new(|| -> PathBuf {
 
 impl<'a> Helper<'a> {
     pub fn new(config: &'a ObserverWardConfig) -> Self {
-        let ro = RequestOption::new(&config.timeout, &config.proxy, &config.verify);
+        let ro = RequestOption::new(
+            &config.timeout,
+            &config.proxy,
+            &config.verify,
+            config.silent,
+        );
         Self {
             request_option: ro,
             config_path: &OBSERVER_WARD_PATH,
@@ -523,7 +528,12 @@ impl ObserverWard {
         web_fingerprint: Vec<WebFingerPrint>,
         nmap_fingerprint: Vec<NmapFingerPrint>,
     ) -> Self {
-        let request_option = RequestOption::new(&config.timeout, &config.proxy, &config.verify);
+        let request_option = RequestOption::new(
+            &config.timeout,
+            &config.proxy,
+            &config.verify,
+            config.silent,
+        );
         let what_server_ins = WhatServer::new(300, nmap_fingerprint);
         let what_web_ins = WhatWeb::new(request_option, web_fingerprint);
         Self {
@@ -661,7 +671,12 @@ impl ObserverWard {
         if config.service {
             nmap_fingerprint = helper.read_nmap_fingerprint();
         }
-        let request_option = RequestOption::new(&config.timeout, &config.proxy, &config.verify);
+        let request_option = RequestOption::new(
+            &config.timeout,
+            &config.proxy,
+            &config.verify,
+            config.silent,
+        );
         let what_server_ins = WhatServer::new(300, nmap_fingerprint);
         let what_web_ins = WhatWeb::new(request_option, web_fingerprint);
         self.config = config.clone();

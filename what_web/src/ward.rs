@@ -18,9 +18,9 @@ pub struct RawData {
 }
 
 impl RawData {
-    fn grep(&self, kw: &str, is_path: bool) {
+    fn grep(&self, kw: &str, is_path: bool, silent: bool) {
         let grep_color = |text: &str| {
-            if is_path {
+            if is_path || silent {
                 println!("{}", text);
                 return;
             }
@@ -58,7 +58,7 @@ pub async fn check(
 ) -> HashMap<String, u32> {
     let is_debug = !config.verify_keyword.is_empty();
     if is_debug {
-        raw_data.grep(&config.verify_keyword, config.is_path);
+        raw_data.grep(&config.verify_keyword, config.is_path, config.silent);
     }
     let mut futures_e = vec![];
     let mut web_name_set: HashMap<String, u32> = HashMap::new();

@@ -55,12 +55,13 @@ impl WhatWebResult {
 pub struct RequestOption {
     timeout: u64,
     pub proxy: Option<Url>,
-    pub verify_keyword: String,
-    pub is_path: bool,
+    verify_keyword: String,
+    is_path: bool,
+    silent: bool,
 }
 
 impl RequestOption {
-    pub fn new(timeout: &u64, proxy: &str, verify_keyword: &str) -> Self {
+    pub fn new(timeout: &u64, proxy: &str, verify_keyword: &str, silent: bool) -> Self {
         let is_exists = PathBuf::from(verify_keyword).exists();
         if !proxy.is_empty() {
             match Url::parse(proxy) {
@@ -71,6 +72,7 @@ impl RequestOption {
                         proxy: proxy_url,
                         verify_keyword: verify_keyword.to_string(),
                         is_path: is_exists,
+                        silent,
                     }
                 }
                 Err(err) => {
@@ -84,6 +86,7 @@ impl RequestOption {
                 proxy: None,
                 verify_keyword: verify_keyword.to_string(),
                 is_path: is_exists,
+                silent,
             }
         }
     }
