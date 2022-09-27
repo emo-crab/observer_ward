@@ -60,28 +60,35 @@ async fn send_requests(
 }
 
 fn get_charset_from_html(text: &str) -> String {
-    let mut default_encoding = String::from("utf-8");
     for metas in Document::from(text).find(Name("meta")) {
         if let Some(charset) = metas.attr("charset") {
-            default_encoding = charset.to_string();
+            return charset.to_lowercase();
         }
     }
-    default_encoding
+    String::from("utf-8")
 }
-fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> String {
+fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> (String, bool) {
     let (html, _, _) = UTF_8.decode(byte);
     let default_encoding = get_charset_from_html(&html);
     let content_type = headers
         .get(header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.parse::<Mime>().ok());
-    let encoding_name = content_type
+    let header_encoding = content_type
         .as_ref()
         .and_then(|mime| mime.get_param("charset").map(|charset| charset.as_str()))
         .unwrap_or(&default_encoding);
-    let encoding = Encoding::for_label(encoding_name.as_bytes()).unwrap_or(UTF_8);
-    let (text, _, _) = encoding.decode(byte);
-    text.to_string()
+    for encoding_name in &[header_encoding, &default_encoding] {
+        let encoding = Encoding::for_label(encoding_name.as_bytes()).unwrap_or(UTF_8);
+        let (text, _, is_errors) = encoding.decode(byte);
+        if !is_errors {
+            return (text.to_string(), false);
+        }
+    }
+    if let Ok(text) = String::from_utf8(byte.to_vec()) {
+        return (text, false);
+    }
+    return (String::from_utf8_lossy(byte).to_string(), true);
 }
 fn get_next_jump(headers: &HeaderMap, url: &Url, text: &str) -> Option<Url> {
     let mut next_url_list = Vec::new();
@@ -144,8 +151,8 @@ async fn fetch_raw_data(res: Response, config: RequestOption) -> anyhow::Result<
     let base_url = res.url().clone();
     let mut favicon: HashMap<String, String> = HashMap::new();
     let text_byte = res.bytes().await.unwrap_or_default();
-    let mut text = get_default_encoding(&text_byte, headers.clone());
-    if is_image(&headers, &text_byte) {
+    let (mut text, encode_error) = get_default_encoding(&text_byte, headers.clone());
+    if is_image(&headers, &text_byte) && encode_error {
         favicon.insert(base_url.to_string(), favicon_hash(&text_byte));
         text = String::from("响应内容为图片");
     } else {
