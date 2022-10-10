@@ -141,8 +141,16 @@ fn is_image(headers: &HeaderMap, body: &[u8]) -> bool {
         .and_then(|value| Mime::from_str(value).ok())
         .map(|value| value.type_() == mime::IMAGE)
         .unwrap_or_default();
-    let is_text = String::from_utf8(body.to_vec()).is_ok();
-    ct || !is_text
+    let encode_error = String::from_utf8(body.to_vec()).is_err();
+    if encode_error {
+        let text = String::from_utf8_lossy(body).to_lowercase();
+        let is_html = vec!["html", "head", "script", "div"]
+            .into_iter()
+            .any(|c| text.contains(c));
+        ct || !is_html
+    } else {
+        ct
+    }
 }
 async fn fetch_raw_data(res: Response, config: RequestOption) -> anyhow::Result<Arc<RawData>> {
     let path: String = res.url().path().to_string();
@@ -151,8 +159,8 @@ async fn fetch_raw_data(res: Response, config: RequestOption) -> anyhow::Result<
     let base_url = res.url().clone();
     let mut favicon: HashMap<String, String> = HashMap::new();
     let text_byte = res.bytes().await.unwrap_or_default();
-    let (mut text, encode_error) = get_default_encoding(&text_byte, headers.clone());
-    if is_image(&headers, &text_byte) && encode_error {
+    let (mut text, _) = get_default_encoding(&text_byte, headers.clone());
+    if is_image(&headers, &text_byte) {
         favicon.insert(base_url.to_string(), favicon_hash(&text_byte));
         text = String::from("响应内容为图片");
     } else {
@@ -361,7 +369,7 @@ mod tests {
             request_data: String::from(""),
         };
         let timeout = 10_u64;
-        let request_config = RequestOption::new(&timeout, "", "", false);
+        let request_config = RequestOption::new(&timeout, &None, &None, false);
         let res = send_requests(&test_url, &fingerprint, &request_config, Policy::none())
             .await
             .unwrap();
@@ -378,7 +386,7 @@ mod tests {
             request_data: String::from(""),
         };
         let timeout = 10_u64;
-        let request_config = RequestOption::new(&timeout, "", "", false);
+        let request_config = RequestOption::new(&timeout, &None, &None, false);
         let res = send_requests(&test_url, &fingerprint, &request_config, Policy::none())
             .await
             .unwrap();

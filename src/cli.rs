@@ -1,55 +1,92 @@
-extern crate clap;
-
 use crate::OBSERVER_WARD_PATH;
-use clap::Arg;
+use argh::FromArgs;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::path::Path;
 use std::process;
 use std::process::{Command, Stdio};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromArgs, Default)]
+#[argh(description = "observer_ward")]
 pub struct ObserverWardConfig {
-    #[serde(skip)]
-    pub target: String,
-    #[serde(default)]
-    pub targets: HashSet<String>,
+    // #[serde(default)]
+    // pub targets: Vec<String>,
+    /// the target (required, unless --stdin used)
+    #[argh(option, short = 't')]
+    pub target: Option<String>,
+    /// read target(s) from STDIN
+    #[argh(switch)]
     #[serde(skip)]
     pub stdin: bool,
+    /// validate the specified yaml file or grep keyword
+    #[argh(option)]
     #[serde(skip)]
-    pub verify: String,
+    pub verify: Option<String>,
+    /// read the target from the file
+    #[argh(option, short = 'f')]
     #[serde(skip)]
-    pub file: String,
+    pub file: Option<String>,
+    /// update web fingerprint
+    #[argh(switch, short = 'u')]
     #[serde(default)]
     pub update_fingerprint: bool,
+    /// export to the csv file or Import form the csv file
+    #[argh(option, short = 'c')]
     #[serde(skip)]
-    pub csv: String,
+    pub csv: Option<String>,
+    /// export to the json file or Import form the json file
+    #[argh(option, short = 'j')]
     #[serde(skip)]
-    pub json: String,
+    pub json: Option<String>,
+    /// proxy to use for requests (ex:[http(s)|socks5(h)]://host:port)
+    #[argh(option)]
     #[serde(default)]
-    pub proxy: String,
+    pub proxy: Option<String>,
+    /// set request timeout.
+    #[argh(option, default = "default_timeout()")]
     #[serde(default = "default_timeout")]
     pub timeout: u64,
+    /// the 'plugins' directory is used when the parameter is the default
+    #[argh(option)]
     #[serde(default)]
-    pub plugins: String,
+    pub plugins: Option<String>,
+    /// update nuclei plugins
+    #[argh(switch)]
     #[serde(default)]
     pub update_plugins: bool,
+    /// an optional nickname for the pilot
+    #[argh(switch)]
     #[serde(skip)]
     pub update_self: bool,
+    /// number of concurrent threads.
+    #[argh(option, default = "default_thread()")]
     #[serde(default = "default_thread")]
     pub thread: u32,
+    /// send results to webhook server (ex:https://host:port/webhook)
+    #[argh(option)]
     #[serde(default)]
-    pub webhook: String,
+    pub webhook: Option<String>,
+    /// using nmap fingerprint identification service (slow)
+    #[argh(switch)]
     #[serde(default)]
     pub service: bool,
+    /// start a web API service (ex:127.0.0.1:8080)
+    #[argh(option, short = 's')]
     #[serde(skip)]
-    pub api_server: String,
+    pub api_server: Option<String>,
+    /// api Bearer authentication
+    #[argh(option, default = "default_token()")]
     #[serde(skip)]
     pub token: String,
+    /// api background service
+    #[argh(switch)]
     #[serde(skip)]
     pub daemon: bool,
+    /// an optional nickname for the pilot
+    #[argh(switch)]
     #[serde(skip)]
     pub silent: bool,
+    /// filter mode,Display only the fingerprint that is not empty
+    #[argh(switch)]
     #[serde(skip)]
     pub filter: bool,
 }
@@ -57,253 +94,52 @@ pub struct ObserverWardConfig {
 fn default_thread() -> u32 {
     100_u32
 }
-
+// fn default_targets() -> Vec<String> {
+//     Vec::new()
+// }
+fn default_token() -> String {
+    let hasher = openssl::hash::Hasher::new(openssl::hash::MessageDigest::md5());
+    if let Ok(mut h) = hasher {
+        let mut test_bytes = vec![0u8; 32];
+        openssl::rand::rand_bytes(&mut test_bytes).unwrap_or_default();
+        h.update(&test_bytes).unwrap_or_default();
+        if let Ok(bytes) = h.finish() {
+            let hex: String = bytes
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<Vec<String>>()
+                .join("");
+            return hex;
+        }
+    }
+    String::new()
+}
 fn default_timeout() -> u64 {
     10
 }
 
-impl Default for ObserverWardConfig {
-    fn default() -> Self {
-        Self {
-            target: String::new(),
-            targets: Default::default(),
-            stdin: false,
-            verify: String::new(),
-            file: String::new(),
-            update_fingerprint: false,
-            csv: String::new(),
-            json: String::new(),
-            proxy: String::new(),
-            timeout: 10,
-            plugins: String::new(),
-            update_plugins: false,
-            update_self: false,
-            thread: 100,
-            webhook: String::new(),
-            service: false,
-            api_server: String::new(),
-            daemon: false,
-            token: String::new(),
-            silent: false,
-            filter: false,
-        }
-    }
-}
-
 impl ObserverWardConfig {
     pub fn new() -> Self {
-        let app = clap::Command::new("observer_ward")
-            .version(env!("CARGO_PKG_VERSION"))
-            .about("about: Community based web fingerprint analysis tool.")
-            .author("author: Kali-Team")
-            .arg(
-                Arg::new("target")
-                    .short('t')
-                    .long("target")
-                    .value_name("TARGET")
-                    .help("The target URL(s) (required, unless --stdin used)"),
-            )
-            .arg(
-                Arg::new("rest_api")
-                    .short('s')
-                    .long("rest_api")
-                    .value_name("SERVER")
-                    .help("Start a web API service (ex: 127.0.0.1:8080)"),
-            )
-            .arg(
-                Arg::new("stdin")
-                    .long("stdin")
-                    .takes_value(false)
-                    .help("Read url(s) from STDIN"),
-            )
-            .arg(
-                Arg::new("silent")
-                    .long("silent")
-                    .takes_value(false)
-                    .help("Silent mode"),
-            )
-            .arg(
-                Arg::new("filter")
-                    .long("filter")
-                    .takes_value(false)
-                    .help("Filter mode,Display only the fingerprint that is not empty"),
-            )
-            .arg(
-                Arg::new("file")
-                    .short('f')
-                    .long("file")
-                    .value_name("FILE")
-                    .help("Read the target from the file"),
-            )
-            .arg(
-                Arg::new("daemon")
-                    .long("daemon")
-                    .takes_value(false)
-                    .help("API background service"),
-            )
-            .arg(
-                Arg::new("csv")
-                    .short('c')
-                    .long("csv")
-                    .value_name("CSV")
-                    .help("Export to the csv file or Import form the csv file"),
-            )
-            .arg(
-                Arg::new("json")
-                    .short('j')
-                    .long("json")
-                    .value_name("JSON")
-                    .help("Export to the json file or Import form the json file"),
-            )
-            .arg(
-                Arg::new("proxy")
-                    .long("proxy")
-                    .takes_value(true)
-                    .value_name("PROXY")
-                    .help("Proxy to use for requests (ex: [http(s)|socks5(h)]://host:port)"),
-            )
-            .arg(
-                Arg::new("webhook")
-                    .long("webhook")
-                    .takes_value(true)
-                    .value_name("WEBHOOK")
-                    .help("Send results to webhook server (ex: https://host:port/webhook)"),
-            )
-            .arg(
-                Arg::new("timeout")
-                    .long("timeout")
-                    .takes_value(true)
-                    .default_value("10")
-                    .value_name("TIMEOUT")
-                    .help("Set request timeout."),
-            )
-            .arg(
-                Arg::new("thread")
-                    .long("thread")
-                    .takes_value(true)
-                    .default_value("100")
-                    .value_name("THREAD")
-                    .help("Number of concurrent threads."),
-            )
-            .arg(
-                Arg::new("verify")
-                    .long("verify")
-                    .takes_value(true)
-                    .help("Validate the specified yaml file or grep keyword"),
-            )
-            .arg(
-                Arg::new("service")
-                    .long("service")
-                    .help("Using nmap fingerprint identification service (slow)"),
-            )
-            .arg(
-                Arg::new("plugins")
-                    .long("plugins")
-                    .takes_value(true)
-                    .help("The 'plugins' directory is used when the parameter is the 'default'"),
-            )
-            .arg(
-                Arg::new("token")
-                    .long("token")
-                    .takes_value(true)
-                    .help("API Bearer authentication"),
-            )
-            .arg(
-                Arg::new("update_plugins")
-                    .long("update_plugins")
-                    .takes_value(false)
-                    .help("Update nuclei plugins"),
-            )
-            .arg(
-                Arg::new("update_self")
-                    .long("update_self")
-                    .takes_value(false)
-                    .help("Update self"),
-            )
-            .arg(
-                Arg::new("update_fingerprint")
-                    .short('u')
-                    .long("update_fingerprint")
-                    .takes_value(false)
-                    .help("Update web fingerprint"),
-            );
-        let args = app.get_matches();
-        let mut default = ObserverWardConfig::default();
-        if args.is_present("stdin") {
-            default.stdin = true;
-        }
-        if args.is_present("silent") {
-            default.silent = true;
-        }
-        if args.is_present("filter") {
-            default.filter = true;
-        }
-        if args.is_present("service") {
-            default.service = true;
-        }
-        if args.is_present("daemon") {
-            default.daemon = true;
-        }
-        if args.is_present("update_plugins") {
-            default.update_plugins = true;
-        }
-        if args.is_present("update_self") {
-            default.update_self = true;
-        }
-        if args.is_present("update_fingerprint") {
-            default.update_fingerprint = true;
-        }
-        if let Some(nuclei) = args.value_of("plugins") {
+        let mut default: ObserverWardConfig = argh::from_env();
+        if let Some(mut nuclei_path) = default.plugins {
             if !has_nuclei_app() {
                 println!("Please install nuclei to the environment variable!");
                 process::exit(0);
             }
-            default.plugins = nuclei.to_string();
-            if default.plugins == "default" {
-                default.plugins = OBSERVER_WARD_PATH
+            if nuclei_path == "default" {
+                nuclei_path = OBSERVER_WARD_PATH
                     .join("plugins")
                     .to_str()
                     .unwrap_or_default()
                     .to_string();
             }
-            if !Path::new(&default.plugins).exists() {
-                println!("The '{}' directory does not exist!", default.plugins);
+            if !Path::new(&nuclei_path).exists() {
+                println!("The '{}' directory does not exist!", nuclei_path);
                 process::exit(0);
+            } else {
+                default.plugins = Some(nuclei_path);
             }
         }
-        if let Some(target) = args.value_of("target") {
-            default.target = target.to_string();
-        };
-        if let Some(webhook) = args.value_of("webhook") {
-            default.webhook = webhook.to_string();
-        };
-        if let Some(server) = args.value_of("rest_api") {
-            default.api_server = server.to_string();
-        };
-        if let Some(file) = args.value_of("file") {
-            default.file = file.to_string();
-        };
-        if let Some(token) = args.value_of("token") {
-            default.token = token.to_string();
-        };
-        if let Some(verify) = args.value_of("verify") {
-            default.verify = verify.to_string();
-        };
-        if let Some(file) = args.value_of("csv") {
-            default.csv = file.to_string();
-        };
-        if let Some(file) = args.value_of("json") {
-            default.json = file.to_string();
-        };
-        if let Some(proxy) = args.value_of("proxy") {
-            default.proxy = proxy.to_string();
-        };
-        if let Some(timeout) = args.value_of("timeout") {
-            default.timeout = timeout.parse().unwrap_or(10);
-        };
-        if let Some(thread) = args.value_of("thread") {
-            default.thread = thread.parse().unwrap_or(100);
-        };
         default
     }
 }

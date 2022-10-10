@@ -26,7 +26,8 @@ cargo build --target x86_64-unknown-linux-musl --release --all-features
 
 ### 2. 下载二进制安装
 
-- 因为添加了`--update_self`参数，方便更新固定了标签，每次更新代码都会自动重新编译发布到`default`版本，所以`default`永远是最新的版本。
+- 因为添加了`--update_self`参数，方便更新固定了标签，每次更新代码都会自动重新编译发布到`default`版本，所以`default`
+  永远是最新的版本。
 - [发行版本](https://github.com/0x727/ObserverWard/releases)下载页面。
 
 ### 3. Mac系统
@@ -39,35 +40,36 @@ brew install observer_ward
 
 ```bash
 ➜  ~ ./observer_ward -h
-observer_ward 2022.3.14
-author: Kali-Team
-about: Community based web fingerprint analysis tool.
+Usage: observer_ward [-t <target>] [--stdin] [--verify <verify>] [-f <file>] [-u] [-c <csv>] [-j <json>] [--proxy <proxy>] [--timeout <timeout>] [--plugins <plugins>] [--update-plugins] [--update-self] [--thread <thread>] [--webhook <webhook>] [-s] [--api-server <api-server>] [--token <token>] [--daemon] [--silent] [--filter]
 
-USAGE:
-    observer_ward [OPTIONS]
+observer_ward
 
-OPTIONS:
-    -c, --csv <CSV>             Export to the csv file or Import form the csv file
-        --daemon                API background service
-    -f, --file <FILE>           Read the target from the file
-    -h, --help                  Print help information
-    -j, --json <JSON>           Export to the json file or Import form the json file
-        --plugins <plugins>     The 'plugins' directory is used when the parameter is the 'default'
-        --proxy <PROXY>         Proxy to use for requests (ex: [http(s)|socks5(h)]://host:port)
-    -s, --rest_api <SERVER>     Start a web API service (ex: 127.0.0.1:8080)
-        --service               Using nmap fingerprint identification service (slow)
-        --silent                Silent mode
-        --stdin                 Read url(s) from STDIN
-    -t, --target <TARGET>       The target URL(s) (required, unless --stdin used)
-        --thread <THREAD>       Number of concurrent threads. [default: 100]
-        --timeout <TIMEOUT>     Set request timeout. [default: 10]
-        --token <token>         API Bearer authentication
-    -u, --update_fingerprint    Update web fingerprint
-        --update_plugins        Update nuclei plugins
-        --update_self           Update self
-    -V, --version               Print version information
-        --verify <verify>       Validate the specified yaml file
-        --webhook <WEBHOOK>     Send results to webhook server (ex: https://host:port/webhook)
+Options:
+  -t, --target      the target (required, unless --stdin used)
+  --stdin           read target(s) from STDIN
+  --verify          validate the specified yaml file or grep keyword
+  -f, --file        read the target from the file
+  -u, --update-fingerprint
+                    update web fingerprint
+  -c, --csv         export to the csv file or Import form the csv file
+  -j, --json        export to the json file or Import form the json file
+  --proxy           proxy to use for requests
+                    (ex:[http(s)|socks5(h)]://host:port)
+  --timeout         set request timeout.
+  --plugins         the 'plugins' directory is used when the parameter is the
+                    default
+  --update-plugins  update nuclei plugins
+  --update-self     an optional nickname for the pilot
+  --thread          number of concurrent threads.
+  --webhook         send results to webhook server
+                    (ex:https://host:port/webhook)
+  -s, --service     using nmap fingerprint identification service (slow)
+  --api-server      start a web API service (ex:127.0.0.1:8080)
+  --token           api Bearer authentication
+  --daemon          api background service
+  --silent          an optional nickname for the pilot
+  --filter          filter mode,Display only the fingerprint that is not empty
+  --help            display usage information
 
 ```
 
@@ -270,8 +272,10 @@ iconv -f UTF-8 -t GB18030 Result.csv > Result.csv
 ### 调用Nuclei检测漏洞
 
 - **请确保nuclei更新至`2.5.3`以上版本**
-- 如果需要使用[nuclei](https://github.com/projectdiscovery/nuclei)检测漏洞，需要首先安装`Nuclei`到当前目录，或者是加入环境变量里面，让`observe_ward`可以正常调用。
-- 再下载[指纹库中的插件](https://github.com/0x727/FingerprintHub/tree/main/plugins)到当前目录下，或者使用`--update_plugins`插件。
+- 如果需要使用[nuclei](https://github.com/projectdiscovery/nuclei)检测漏洞，需要首先安装`Nuclei`
+  到当前目录，或者是加入环境变量里面，让`observe_ward`可以正常调用。
+- 再下载[指纹库中的插件](https://github.com/0x727/FingerprintHub/tree/main/plugins)
+  到当前目录下，或者使用`--update_plugins`插件。
 - 在[指纹库](https://github.com/0x727/FingerprintHub/tree/main/plugins)中已经对部分组件的插件进行了分类。
 - 如果识别到的组件在`plugins`目录下存在和组件同名的文件夹，会对目标调用Nuclei使用匹配到的插件进行检测，存在漏洞会输出到屏幕。
 - 因为经过测试在指纹识别过程中同时调用nuclei检测漏洞会影响Web指纹识别的效果，也会拉长识别的时间，所以选择识别完Web指纹后将结果保存到文件，再解析文件调用nuclei检测。
@@ -365,7 +369,8 @@ Webhook json格式：
 ### 开启API服务
 
 - 使用`rest_api`参数提供监听地址和端口开启rest-api服务，使用`--daemon`参数将服务放到后台进程（不支持Window系统）。
-- 如果需要支持`https`协议,需要生成`cert.pem`和`key.pem`文件放到程序配置目录，例如：Linux系统下的`/home/alice/.config/observer_ward/`。
+- 如果需要支持`https`协议,需要生成`cert.pem`和`key.pem`
+  文件放到程序配置目录，例如：Linux系统下的`/home/alice/.config/observer_ward/`。
 - 生成证书文件
 
 ```shell
@@ -390,7 +395,7 @@ curl --request POST \
   --url https://127.0.0.1:8000/v1/observer_ward \
   --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
   --header 'Content-Type: application/json' \
-  --data '{"targets":["https://httpbin.org/"]}'
+  --data '{"target":"https://httpbin.org/"}'
 Response:
 [{"url":"http://httpbin.org/","name":["swagger"],"priority":5,"length":9593,"title":"httpbin.org","status_code":200,"is_web":true,"plugins":[]}]
 ```
@@ -489,7 +494,8 @@ ObserverWard 是一个免费且开源的项目，我们欢迎任何人为其开�
 
 - 在使用过程中出现任何问题，可以通过 issues 来反馈。
 - Bug 的修复可以直接提交 Pull Request 到 dev 分支。
-- 如果是增加新的功能特性，请先创建一个 issue 并做简单描述以及大致的实现方法，提议被采纳后，就可以创建一个实现新特性的 Pull Request。
+- 如果是增加新的功能特性，请先创建一个 issue 并做简单描述以及大致的实现方法，提议被采纳后，就可以创建一个实现新特性的 Pull
+  Request。
 - 欢迎对说明文档做出改善，帮助更多的人使用 ObserverWard，特别是英文文档。
 - 贡献代码请提交 PR 至 dev 分支，master 分支仅用于发布稳定可用版本。
 - 如果你有任何其他方面的问题或合作，欢迎发送邮件至 0x727Team@gmail.com 。

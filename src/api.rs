@@ -46,21 +46,13 @@ async fn what_web_api(
     if !validator(token, auth) {
         return HttpResponse::Unauthorized().finish();
     }
-    if config.webhook.is_empty() {
-        let vec_results = observer_ward_ins
-            .read()
-            .await
-            .scan(config.targets.clone())
-            .await;
+    let mut targets = HashSet::new();
+    targets.insert(config.target.clone().unwrap_or_default());
+    if config.webhook.is_some() {
+        let vec_results = observer_ward_ins.read().await.scan(targets).await;
         HttpResponse::Ok().json(vec_results)
     } else {
-        tokio::task::spawn(async move {
-            observer_ward_ins
-                .read()
-                .await
-                .scan(config.targets.clone())
-                .await
-        });
+        tokio::task::spawn(async move { observer_ward_ins.read().await.scan(targets).await });
         let mut data: HashMap<String, String> = HashMap::new();
         data.insert(
             "results".to_string(),
@@ -74,7 +66,7 @@ async fn what_web_api(
 async fn set_config_api(
     token: web::Data<TokenAuth>,
     auth: BearerAuth,
-    mut config: web::Json<ObserverWardConfig>,
+    config: web::Json<ObserverWardConfig>,
     observer_ward_ins: web::Data<RwLock<ObserverWard>>,
 ) -> impl Responder {
     if !validator(token, auth) {
@@ -83,7 +75,6 @@ async fn set_config_api(
     let mut helper = Helper::new(&config);
     helper.run().await;
     helper.msg = HashMap::new();
-    config.targets = HashSet::new();
     observer_ward_ins.write().await.reload(&config);
     let config = observer_ward_ins.read().await.config.clone();
     HttpResponse::Ok().json(config)
@@ -145,7 +136,7 @@ fn print_help(s: &str, t: &str) {
   --url {} \
   --header 'Authorization: Bearer {}' \
   --header 'Content-Type: application/json' \
-  --data '{{"targets":["https://httpbin.org/"]}}'"#,
+  --data '{{"target":"https://httpbin.org/"}}'"#,
         s, t
     );
     let result = r#"[{"url":"http://httpbin.org/","name":["swagger"],"priority":5,"length":9593,"title":"httpbin.org","status_code":200,"is_web":true,"plugins":[]}]"#;
@@ -155,12 +146,12 @@ fn print_help(s: &str, t: &str) {
     println!("{}", result.green());
 }
 
-pub fn run_server() {
+pub fn run_server(server: &str) {
     let config = ObserverWardConfig::new();
     if config.daemon {
         background();
     }
-    if let Ok(address) = std::net::SocketAddr::from_str(&config.api_server) {
+    if let Ok(address) = SocketAddr::from_str(server) {
         thread::spawn(move || {
             api_server(address, config.token);
         })

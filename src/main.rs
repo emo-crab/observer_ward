@@ -22,18 +22,20 @@ async fn start() -> Result<(), Error> {
     if !(config.stdin || config.silent) {
         print_opening();
     }
-    if !config.api_server.is_empty() {
-        run_server();
+    if let Some(server) = &config.api_server {
+        run_server(server);
     }
     let mut targets = HashSet::new();
     if config.stdin {
         let mut buffer = String::new();
         io::stdin().read_to_string(&mut buffer)?;
         targets.extend(strings_to_urls(buffer));
-    } else if !config.target.is_empty() {
-        targets.insert(String::from(&config.target));
-    } else if !config.file.is_empty() {
-        targets.extend(read_file_to_target(&config.file));
+    }
+    if let Some(target) = &config.target {
+        targets.insert(String::from(target));
+    }
+    if let Some(file_path) = &config.file {
+        targets.extend(read_file_to_target(file_path));
     }
     let mut helper = Helper::new(&config);
     let web_fingerprint = helper.read_web_fingerprint(&config.verify);
@@ -44,14 +46,13 @@ async fn start() -> Result<(), Error> {
     helper.run().await;
     let observer_ward_ins = ObserverWard::new(config.clone(), web_fingerprint, nmap_fingerprint);
     let vec_results = observer_ward_ins.scan(targets).await;
-    let is_enable_plugin = !config.plugins.is_empty();
     print_results_and_save(
         &config.json,
         &config.csv,
         config.silent,
         config.filter,
         vec_results,
-        is_enable_plugin,
+        &config.plugins,
     );
     Ok(())
 }

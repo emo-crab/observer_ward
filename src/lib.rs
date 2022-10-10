@@ -245,9 +245,9 @@ impl<'a> Helper<'_> {
         Vec::new()
     }
 
-    pub fn read_web_fingerprint(&mut self, verify: &str) -> Vec<WebFingerPrint> {
-        if !verify.is_empty() {
-            if let Ok(file) = File::open(verify) {
+    pub fn read_web_fingerprint(&mut self, verify: &Option<String>) -> Vec<WebFingerPrint> {
+        if let Some(verify_path) = verify {
+            if let Ok(file) = File::open(verify_path) {
                 let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
                 match serde_yaml::from_reader::<_, VerifyWebFingerPrint>(&file) {
                     Ok(verify_fingerprints) => {
@@ -298,13 +298,13 @@ impl<'a> Helper<'_> {
             file.read_to_string(&mut data).ok();
             data
         };
-        if !self.config.json.is_empty() {
-            let data = read_file_data(&self.config.json);
+        if let Some(json_path) = &self.config.json {
+            let data = read_file_data(json_path);
             let wwr: Vec<WhatWebResult> = serde_json::from_str(&data).expect("BAD JSON");
             results.extend(wwr);
         }
-        if !self.config.csv.is_empty() {
-            let rdr = Reader::from_path(&self.config.csv).expect("BAD CSV");
+        if let Some(csv_path) = &self.config.csv {
+            let rdr = Reader::from_path(csv_path).expect("BAD CSV");
             let iter: csv::DeserializeRecordsIntoIter<File, WhatWebResult> = rdr.into_deserialize();
             let wwr: Vec<WhatWebResult> = iter.filter_map(Result::ok).collect();
             results.extend(wwr);
@@ -358,15 +358,15 @@ where
 }
 
 pub fn print_results_and_save(
-    json: &str,
-    csv: &str,
+    config_json: &Option<String>,
+    config_csv: &Option<String>,
     silent: bool,
     filter: bool,
     results: Vec<WhatWebResult>,
-    has_plugins: bool,
+    config_plugins: &Option<String>,
 ) {
-    if !json.is_empty() {
-        let out = File::create(&json).expect("Failed to create file");
+    if let Some(json_path) = config_json {
+        let out = File::create(json_path).expect("Failed to create file");
         serde_json::to_writer(out, &results).expect("Failed to save file")
     }
     let mut table = Table::new();
@@ -378,7 +378,7 @@ pub fn print_results_and_save(
         Cell::new("title"),
         Cell::new("priority"),
     ];
-    if has_plugins {
+    if config_plugins.is_some() {
         headers.push(Cell::new("plugins"))
     }
     table.set_titles(Row::new(headers.clone()));
@@ -397,14 +397,14 @@ pub fn print_results_and_save(
             Cell::new(&textwrap::fill(res.title.as_str(), 40)),
             Cell::new(&res.priority.to_string()),
         ];
-        if has_plugins {
+        if config_plugins.is_some() {
             let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
             rows.push(Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::RED)))
         }
         table.add_row(Row::new(rows));
     }
-    if !csv.is_empty() {
-        let out = File::create(&csv).expect("Failed to create file");
+    if let Some(csv_path) = config_csv {
+        let out = File::create(csv_path).expect("Failed to create file");
         table.to_csv(out).expect("Failed to save file");
     }
     let mut table = Table::new();
@@ -427,7 +427,7 @@ pub fn print_results_and_save(
             Cell::new(&textwrap::fill(res.title.as_str(), 40)),
             Cell::new(&res.priority.to_string()),
         ];
-        if has_plugins {
+        if config_plugins.is_some() {
             let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
             rows.push(Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::RED)))
         }
@@ -457,10 +457,12 @@ pub async fn get_plugins_by_nuclei(
     let mut plugins_set: HashSet<String> = HashSet::new();
     let mut exist_plugins: Vec<String> = Vec::new();
     for name in wwr.name.iter() {
-        let plugins_name_path = Path::new(&config.plugins).join(name);
-        if plugins_name_path.exists() {
-            if let Some(p_path) = plugins_name_path.to_str() {
-                exist_plugins.push(p_path.to_string())
+        if let Some(plugins_path) = &config.plugins {
+            let plugins_name_path = Path::new(plugins_path).join(name);
+            if plugins_name_path.exists() {
+                if let Some(p_path) = plugins_name_path.to_str() {
+                    exist_plugins.push(p_path.to_string())
+                }
             }
         }
     }
@@ -593,9 +595,8 @@ impl ObserverWard {
             }
             true
         });
-        let plugins_path = config.plugins.clone();
         let verify_handle = tokio::task::spawn(async move {
-            if !plugins_path.is_empty() {
+            if config.plugins.is_some() {
                 let mut worker = FuturesUnordered::new();
                 for _ in 0..3 {
                     match what_server_receiver.next().await {
@@ -623,14 +624,13 @@ impl ObserverWard {
             }
             true
         });
-
         let results_handle = tokio::task::spawn(async move {
-            let mut worker = FuturesUnordered::new();
-            if !webhook.is_empty() {
+            if let Some(webhook_url) = webhook {
+                let mut worker = FuturesUnordered::new();
                 for _ in 0..3 {
                     match verify_receiver.next().await {
                         Some(w) => {
-                            worker.push(webhook_results(w, &webhook));
+                            worker.push(webhook_results(w, &webhook_url));
                         }
                         None => {
                             break;
@@ -639,7 +639,7 @@ impl ObserverWard {
                 }
                 while let Some(wwr) = worker.next().await {
                     if let Some(w) = verify_receiver.next().await {
-                        worker.push(webhook_results(w, &webhook));
+                        worker.push(webhook_results(w, &webhook_url));
                     }
                     results_sender.start_send(wwr).unwrap_or_default();
                 }

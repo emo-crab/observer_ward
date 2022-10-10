@@ -61,16 +61,26 @@ pub struct RequestOption {
 }
 
 impl RequestOption {
-    pub fn new(timeout: &u64, proxy: &str, verify_keyword: &str, silent: bool) -> Self {
-        let is_exists = PathBuf::from(verify_keyword).exists();
-        if !proxy.is_empty() {
-            match Url::parse(proxy) {
+    pub fn new(
+        timeout: &u64,
+        proxy: &Option<String>,
+        verify_keyword: &Option<String>,
+        silent: bool,
+    ) -> Self {
+        let mut is_exists = false;
+        let mut default_verify_path = String::new();
+        if let Some(verify_path) = verify_keyword {
+            is_exists = PathBuf::from(&verify_path).exists();
+            default_verify_path = verify_path.clone();
+        }
+        if let Some(proxy_url) = proxy {
+            match Url::parse(proxy_url) {
                 Ok(u) => {
                     let proxy_url = Some(u);
                     Self {
                         timeout: *timeout,
                         proxy: proxy_url,
-                        verify_keyword: verify_keyword.to_string(),
+                        verify_keyword: default_verify_path,
                         is_path: is_exists,
                         silent,
                     }
@@ -84,7 +94,7 @@ impl RequestOption {
             Self {
                 timeout: *timeout,
                 proxy: None,
-                verify_keyword: verify_keyword.to_string(),
+                verify_keyword: default_verify_path,
                 is_path: is_exists,
                 silent,
             }
