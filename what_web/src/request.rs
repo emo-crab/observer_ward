@@ -267,7 +267,9 @@ static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
         .collect();
     re_list
 });
-
+static RE_TITLE: Lazy<Regex> = Lazy::new(|| -> Regex {
+    Regex::new(r#"(?im)<title>(?P<title>.*?)</title>"#).expect("RE_TITLE")
+});
 pub fn get_title(text: &str) -> String {
     for titles in Document::from(text).find(Name("title")) {
         if !titles.text().is_empty() {
@@ -285,6 +287,13 @@ pub fn get_title(text: &str) -> String {
                 .trim()
                 .to_string();
         }
+    }
+    if let Some(m) = RE_TITLE.captures(text) {
+        return m
+            .name("title")
+            .map_or("", |m| m.as_str())
+            .trim()
+            .to_string();
     }
     String::new()
 }

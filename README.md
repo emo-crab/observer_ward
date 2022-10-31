@@ -39,8 +39,10 @@ brew install observer_ward
 ## 使用方法
 
 ```bash
-➜  ~ ./observer_ward -h
-Usage: observer_ward [-t <target>] [--stdin] [--verify <verify>] [-f <file>] [-u] [-c <csv>] [-j <json>] [--proxy <proxy>] [--timeout <timeout>] [--plugins <plugins>] [--update-plugins] [--update-self] [--thread <thread>] [--webhook <webhook>] [-s] [--api-server <api-server>] [--token <token>] [--daemon] [--silent] [--filter]
+➜  ~ ./observer_ward --help
+Usage: observer_ward_amd64 [-t <target>] [--stdin] [--verify <verify>] [-f <file>] [-u] [-c <csv>] [-j <json>] [--proxy <proxy>] [--timeout <timeou
+t>] [--plugins <plugins>] [--update-plugins] [--update-self] [--thread <thread>] [--webhook <webhook>] [--service] [-s <api-server>] [--token <toke
+n>] [--daemon] [--silent] [--filter]
 
 observer_ward
 
@@ -63,13 +65,14 @@ Options:
   --thread          number of concurrent threads.
   --webhook         send results to webhook server
                     (ex:https://host:port/webhook)
-  -s, --service     using nmap fingerprint identification service (slow)
-  --api-server      start a web API service (ex:127.0.0.1:8080)
+  --service         using nmap fingerprint identification service (slow)
+  -s, --api-server  start a web API service (ex:127.0.0.1:8080)
   --token           api Bearer authentication
   --daemon          api background service
   --silent          an optional nickname for the pilot
   --filter          filter mode,Display only the fingerprint that is not empty
   --help            display usage information
+
 
 ```
 
@@ -91,7 +94,7 @@ update: /home/kali-team/.config/observer_ward/web_fingerprint_v3.json file size 
 
 ### 更新插件
 
-- 使用`--update_plugins`
+- 使用`--update-plugins`
   从[指纹库项目](https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip)下载插件压缩包到用户配置目录。
 - 并自动解压到当前系统对应目录，当使用`--plugins default`参数时会默认使用这个目录下的插件。
 - 更新会删除原来的目录，重新解压覆盖。
