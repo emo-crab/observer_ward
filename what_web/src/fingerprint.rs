@@ -7,32 +7,44 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WebFingerPrintRequest {
+    /// 请求路径
     pub path: String,
+    /// 请求方法
     pub request_method: String,
+    /// 请求头
     pub request_headers: HashMap<String, String>,
+    /// 请求数据，base64编码后的
     pub request_data: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WebFingerPrintMatch {
+    /// 匹配状态码
     pub status_code: u16,
+    /// 匹配favicon的hash列表
     #[serde(default)]
     pub favicon_hash: Vec<String>,
+    /// 匹配的请求头
     pub headers: HashMap<String, String>,
+    /// 匹配的关键词列表
     pub keyword: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct V3WebFingerPrint {
+    /// 组件名称
     #[serde(default)]
     pub name: String,
+    /// 权重
     #[serde(default)]
     pub priority: u32,
+    /// 指纹的自定义请求
     pub request: WebFingerPrintRequest,
+    /// 匹配部分
     pub match_rules: WebFingerPrintMatch,
 }
 
-//TODO 整理lib文件
+/// 单个指纹结构
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WebFingerPrint {
     #[serde(default)]
@@ -70,8 +82,11 @@ impl Default for WebFingerPrint {
 // 将指纹分成首页识别，特殊请求识别和favicon的哈希识别
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WebFingerPrintLib {
+    /// 首页的指纹
     pub index: Vec<V3WebFingerPrint>,
+    /// 特殊自定义请求的指纹
     pub special: Vec<V3WebFingerPrint>,
+    /// 存在favicon的指纹
     pub favicon: Vec<V3WebFingerPrint>,
 }
 

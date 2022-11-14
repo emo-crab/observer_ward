@@ -20,17 +20,26 @@ mod ward;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WhatWebResult {
+    /// URL
     pub url: String,
+    /// 组件列表
     #[serde(deserialize_with = "string_to_hashset")]
     pub name: HashSet<String>,
+    /// 权重，状态码200,有标题，有指纹，有漏洞都会累加一
     pub priority: u32,
+    /// 响应长度
     pub length: usize,
+    /// 标题
     pub title: String,
+    /// 状态码
     pub status_code: u16,
+    /// 是否为Web
     #[serde(default)]
     pub is_web: bool,
+    /// nuclei的template-id
     #[serde(default)]
     pub plugins: HashSet<String>,
+    /// nuclei部分数据，在`--irr`参数开启就会保存到json
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plugins_result: Option<Vec<TemplateResult>>,
 }
@@ -53,10 +62,15 @@ impl WhatWebResult {
 
 #[derive(Debug, Clone)]
 pub struct RequestOption {
+    /// 请求的超时
     timeout: u64,
+    /// 请求代理
     pub proxy: Option<Url>,
+    /// 验证规则的关键词
     verify_keyword: String,
+    /// 验证参数是否为文件路径
     is_path: bool,
+    /// 静默模式，不打印
     silent: bool,
 }
 
@@ -104,7 +118,9 @@ impl RequestOption {
 
 #[derive(Clone)]
 pub struct WhatWeb {
+    /// 指纹规则库
     fingerprint: Arc<WebFingerPrintLib>,
+    /// 请求配置
     config: RequestOption,
 }
 
@@ -203,6 +219,7 @@ impl WhatWeb {
     }
 }
 
+/// 部分nuclei的数据结构
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct TemplateResult {
     #[serde(default)]
@@ -239,6 +256,7 @@ pub struct TemplateInfo {
     pub description: String,
 }
 
+/// 字符串转set
 fn string_to_hashset<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Error>
 where
     D: Deserializer<'de>,

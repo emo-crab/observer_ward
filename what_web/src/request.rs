@@ -21,6 +21,7 @@ use crate::fingerprint::WebFingerPrintRequest;
 use crate::ward::RawData;
 use crate::RequestOption;
 
+/// 发送请求，并带上apache-shiro的请求头
 async fn send_requests(
     url: &Url,
     fingerprint: &WebFingerPrintRequest,
@@ -59,6 +60,7 @@ async fn send_requests(
         .await?);
 }
 
+/// reqwest的内部只有从请求头提取编码，这里需要在html里再提取
 fn get_charset_from_html(text: &str) -> String {
     for metas in Document::from(text).find(Name("meta")) {
         if let Some(charset) = metas.attr("charset") {
@@ -67,6 +69,8 @@ fn get_charset_from_html(text: &str) -> String {
     }
     String::from("utf-8")
 }
+
+/// 获取编码并且尝试解码，返回解码后字符串和是否解码成功
 fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> (String, bool) {
     let (html, _, _) = UTF_8.decode(byte);
     let default_encoding = get_charset_from_html(&html);
@@ -90,6 +94,8 @@ fn get_default_encoding(byte: &[u8], headers: HeaderMap) -> (String, bool) {
     }
     return (String::from_utf8_lossy(byte).to_string(), true);
 }
+
+/// 获取下一跳的地址，302请求头，meta标签，和正则匹配
 fn get_next_jump(headers: &HeaderMap, url: &Url, text: &str) -> Option<Url> {
     let mut next_url_list = Vec::new();
     if let Some(location) = headers
@@ -134,6 +140,8 @@ fn get_next_jump(headers: &HeaderMap, url: &Url, text: &str) -> Option<Url> {
     };
     None
 }
+
+/// 判断是否为图片，如果是图片直接算hash就可以了
 fn is_image(headers: &HeaderMap, body: &[u8]) -> bool {
     let ct = headers
         .get(header::CONTENT_TYPE)
@@ -152,6 +160,7 @@ fn is_image(headers: &HeaderMap, body: &[u8]) -> bool {
         ct
     }
 }
+
 async fn fetch_raw_data(res: Response, config: RequestOption) -> anyhow::Result<Arc<RawData>> {
     let path: String = res.url().path().to_string();
     let status_code = res.status();
@@ -237,7 +246,7 @@ fn get_favicon_link(text: &str, base_url: &Url) -> HashSet<Url> {
     icon_links
 }
 
-// 从HTML标签中提取favicon的链接
+/// 从HTML标签中提取favicon的链接
 async fn find_favicon_tag(
     base_url: &Url,
     text: &str,
@@ -253,9 +262,10 @@ async fn find_favicon_tag(
     }
     link_tags
 }
+
 static RE_COMPILE_BY_SIZE: Lazy<Regex> =
     Lazy::new(|| -> Regex { Regex::new(r#"(?im)-\d{1,3}x\d{1,3}"#).expect("RE_COMPILE_BY_SIZE") });
-// 支持部分正文跳转
+/// 支持部分正文跳转
 static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
     let js_reg = vec![
         r#"(?im)\.location.*?=\s*?['"](?P<name>.*?)['"]"#,
@@ -270,6 +280,7 @@ static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
 static RE_TITLE: Lazy<Regex> = Lazy::new(|| -> Regex {
     Regex::new(r#"(?im)<title>(?P<title>.*?)</title>"#).expect("RE_TITLE")
 });
+/// 获取标题
 pub fn get_title(text: &str) -> String {
     for titles in Document::from(text).find(Name("title")) {
         if !titles.text().is_empty() {
@@ -298,7 +309,7 @@ pub fn get_title(text: &str) -> String {
     String::new()
 }
 
-// 首页请求
+/// 首页请求
 #[cached(
     type = "SizedCache<String, Vec<Arc<RawData>>>",
     create = "{ SizedCache::with_size(100) }",
@@ -405,6 +416,7 @@ mod tests {
             .unwrap()
             .contains("<title>expired.badssl.com</title>"));
     }
+
     #[test]
     fn test_regex_icon() {
         let test_text_list = vec![
@@ -426,6 +438,7 @@ mod tests {
             assert!(flag);
         }
     }
+
     #[test]
     fn test_js_jump() {
         let test_text_list = vec![
