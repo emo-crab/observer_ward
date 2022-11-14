@@ -53,7 +53,7 @@ pub struct ObserverWardConfig {
     #[argh(switch)]
     #[serde(default)]
     pub update_plugins: bool,
-    /// an optional nickname for the pilot
+    /// update self
     #[argh(switch)]
     #[serde(skip)]
     pub update_self: bool,
@@ -81,7 +81,7 @@ pub struct ObserverWardConfig {
     #[argh(switch)]
     #[serde(skip)]
     pub daemon: bool,
-    /// an optional nickname for the pilot
+    /// silent mode
     #[argh(switch)]
     #[serde(skip)]
     pub silent: bool,
@@ -89,11 +89,16 @@ pub struct ObserverWardConfig {
     #[argh(switch)]
     #[serde(skip)]
     pub filter: bool,
+    /// include request/response pairs in the JSONL output
+    #[argh(switch)]
+    #[serde(skip)]
+    pub irr: bool,
 }
 
 fn default_thread() -> u32 {
     100_u32
 }
+
 // fn default_targets() -> Vec<String> {
 //     Vec::new()
 // }
@@ -114,6 +119,7 @@ fn default_token() -> String {
     }
     String::new()
 }
+
 fn default_timeout() -> u64 {
     10
 }

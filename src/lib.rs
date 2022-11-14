@@ -45,9 +45,9 @@ pub fn print_what_web(what_web_result: &WhatWebResult) {
         print!("{}", format!("{:?}", color_web_name).green());
         print!(" | {} | ", what_web_result.length);
         if status_code.is_success() {
-            print!("{}", status_code.to_string().green());
+            print!("{}", status_code.as_u16().to_string().green());
         } else {
-            print!("{:?}", status_code.to_string().red());
+            print!("{}", status_code.as_u16().to_string().red());
         }
         println!(" | {} ]", what_web_result.title);
     } else {
@@ -59,18 +59,6 @@ pub fn print_what_web(what_web_result: &WhatWebResult) {
             what_web_result.status_code,
             what_web_result.title,
         );
-    }
-}
-
-pub fn print_nuclei(what_web_result: &WhatWebResult) {
-    for template in what_web_result.template_result.iter() {
-        print!("[{}] ", template.info.severity.to_string().green());
-        print!("[{}] ", template.template_id.to_string().red());
-        println!("| [{}] ", template.matched_at);
-        if !template.curl_command.is_empty() {
-            let patch_curl_command = format!("{} --path-as-is -k", template.curl_command);
-            println!("{}", patch_curl_command.dark_blue());
-        }
     }
 }
 
@@ -484,7 +472,10 @@ pub async fn get_plugins_by_nuclei(
     for p in exist_plugins.iter() {
         command_line.args(["-t", p]);
     }
-    command_line.args(["-silent", "-json"]);
+    command_line.args(["-silent", "-json", "-duc"]);
+    if config.irr {
+        command_line.args(["-irr"]);
+    }
     let output = command_line.output().await.expect("command_line_output");
     if let Ok(template_output) = String::from_utf8(output.stdout) {
         let templates_output: Vec<String> = template_output
@@ -493,7 +484,24 @@ pub async fn get_plugins_by_nuclei(
             .collect();
         for line in templates_output.iter() {
             let template: TemplateResult = serde_json::from_str(line).unwrap_or_default();
-            wwr.template_result.push(template.clone());
+
+            if !config.silent {
+                print!("[{}] ", template.info.severity.to_string().green());
+                print!("[{}] ", template.template_id.to_string().red());
+                println!("| [{}] ", template.matched_at);
+                if !template.curl_command.is_empty() {
+                    let patch_curl_command = format!("{} --path-as-is -k", template.curl_command);
+                    println!("{}", patch_curl_command.dark_blue());
+                }
+            }
+            if config.irr {
+                if let Some(mut t) = wwr.plugins_result {
+                    t.push(template.clone());
+                    wwr.plugins_result = Some(t);
+                } else {
+                    wwr.plugins_result = Some(vec![template.clone()]);
+                }
+            }
             plugins_set.insert(template.template_id);
         }
     }
@@ -611,9 +619,6 @@ impl ObserverWard {
                 while let Some(wwr) = worker.next().await {
                     if let Some(v_wwr) = what_server_receiver.next().await {
                         worker.push(get_plugins_by_nuclei(v_wwr, &config));
-                    }
-                    if !config.silent {
-                        print_nuclei(&wwr);
                     }
                     verify_sender.start_send(wwr).unwrap_or_default();
                 }

@@ -31,8 +31,8 @@ pub struct WhatWebResult {
     pub is_web: bool,
     #[serde(default)]
     pub plugins: HashSet<String>,
-    #[serde(skip)]
-    pub template_result: Vec<TemplateResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plugins_result: Option<Vec<TemplateResult>>,
 }
 
 impl WhatWebResult {
@@ -45,7 +45,7 @@ impl WhatWebResult {
             status_code: 0,
             title: String::new(),
             plugins: HashSet::new(),
-            template_result: vec![],
+            plugins_result: None,
             is_web: true,
         }
     }
@@ -205,6 +205,8 @@ impl WhatWeb {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct TemplateResult {
+    #[serde(default)]
+    pub template: String,
     #[serde(rename = "template-id")]
     pub template_id: String,
     #[serde(rename = "matched-at")]
@@ -215,11 +217,26 @@ pub struct TemplateResult {
     pub info: TemplateInfo,
     #[serde(rename = "curl-command")]
     pub curl_command: String,
+    #[serde(rename = "type", default)]
+    pub p_type: String,
+    #[serde(default)]
+    pub host: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response: Option<String>,
+    #[serde(default)]
+    pub ip: String,
 }
+
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct TemplateInfo {
     #[serde(default)]
     pub severity: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
 }
 
 fn string_to_hashset<'de, D>(deserializer: D) -> Result<HashSet<String>, D::Error>

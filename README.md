@@ -22,11 +22,11 @@ cd ObserverWard
 cargo build --target x86_64-unknown-linux-musl --release --all-features
 ```
 
-- 更多安装细节请查看当前项目的Actions自动化编译构建流程[文件](https://github.com/0x727/ObserverWard/blob/main/.github/workflows/basic.yml)。
+- 更多安装细节请查看当前项目的Actions自动化编译构建流程[文件](https://github.com/0x727/ObserverWard/blob/main/.github/workflows/basic.yml)
 
 ### 2. 下载二进制安装
 
-- 因为添加了`--update_self`参数，方便更新固定了标签，每次更新代码都会自动重新编译发布到`default`版本，所以`default`
+- 因为添加了`--update-self`参数，方便更新固定了标签，每次更新代码都会自动重新编译发布到`default`版本，所以`default`
   永远是最新的版本。
 - [发行版本](https://github.com/0x727/ObserverWard/releases)下载页面。
 
@@ -40,9 +40,7 @@ brew install observer_ward
 
 ```bash
 ➜  ~ ./observer_ward --help
-Usage: observer_ward_amd64 [-t <target>] [--stdin] [--verify <verify>] [-f <file>] [-u] [-c <csv>] [-j <json>] [--proxy <proxy>] [--timeout <timeou
-t>] [--plugins <plugins>] [--update-plugins] [--update-self] [--thread <thread>] [--webhook <webhook>] [--service] [-s <api-server>] [--token <toke
-n>] [--daemon] [--silent] [--filter]
+Usage: observer_ward [-t <target>] [--stdin] [--verify <verify>] [-f <file>] [-u] [-c <csv>] [-j <json>] [--proxy <proxy>] [--timeout <timeout>] [--plugins <plugins>] [--update-plugins] [--update-self] [--thread <thread>] [--webhook <webhook>] [--service] [-s <api-server>] [--token <token>] [--daemon] [--silent] [--filter] [--irr]
 
 observer_ward
 
@@ -61,7 +59,7 @@ Options:
   --plugins         the 'plugins' directory is used when the parameter is the
                     default
   --update-plugins  update nuclei plugins
-  --update-self     an optional nickname for the pilot
+  --update-self     update self
   --thread          number of concurrent threads.
   --webhook         send results to webhook server
                     (ex:https://host:port/webhook)
@@ -69,16 +67,18 @@ Options:
   -s, --api-server  start a web API service (ex:127.0.0.1:8080)
   --token           api Bearer authentication
   --daemon          api background service
-  --silent          an optional nickname for the pilot
+  --silent          silent mode
   --filter          filter mode,Display only the fingerprint that is not empty
+  --irr             include request/response pairs in the JSONL output
   --help            display usage information
-
 
 ```
 
 ### 更新指纹
 
-- 使用`-u`参数从指纹库中更新指纹，也可以自己从[指纹库项目](https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json)下载当前系统对应目录。
+- 使用`-u`
+  参数从指纹库中更新指纹，也可以自己从[指纹库项目](https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json)
+  下载当前系统对应目录。
 - 如果在程序的运行目录有`web_fingerprint_v3.json`文件会使用运行目录下的指纹库，不会读取下面表格中系统对于的目录。
 
 | 系统      | 路径                                                                             |
@@ -324,6 +324,12 @@ Important technology:
 
 ```bash
 ➜  ~ ./observer_ward_amd64 -f target.txt --json result.json --plugins default
+```
+
+- 将nuclei的请求和响应的payload保存到json结果`--irr`
+
+```bash
+➜  ~ ./observer_ward_amd64 -f target.txt --json result.json --plugins default --irr
 ```
 
 ### WebHook
