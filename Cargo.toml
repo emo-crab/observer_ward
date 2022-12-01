@@ -36,7 +36,7 @@ crossterm = "0.25"
 observer_ward_what_web = { path = "what_web", package = "what_web" }
 observer_ward_what_server = { path = "what_server", package = "what_server" }
 openssl = { version = "0.10", features = ["vendored"] }
-env_logger = "0.9.1"
+env_logger = "0.10.0"
 actix-web-httpauth = "0.8.0"
 zip = { git = "https://github.com/zip-rs/zip" }
 actix-web = { version = "4.2.1", features = ["openssl"] }
