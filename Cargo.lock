@@ -2927,8 +2927,8 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "0.6.3"
-source = "git+https://github.com/zip-rs/zip#be73175dd00e07df950924883bab9830474bd082"
+version = "0.6.4"
+source = "git+https://github.com/zip-rs/zip#e32db515a2a4c7d04b0bf5851912a399a4cbff68"
 dependencies = [
  "aes",
  "byteorder",
