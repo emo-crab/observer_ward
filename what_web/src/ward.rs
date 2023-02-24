@@ -126,9 +126,9 @@ pub async fn what_web(
         if k == "set-cookie" && !matcher_part.contains(v) {
             return default_result;
         }
-        if raw_data.headers.contains_key(k) {
-            let is_match = matcher_part.to_lowercase().find(&v.to_lowercase());
-            if is_match == None && v != "*" {
+        if let Some(vv) = raw_data.headers.get(k) {
+            let is_match = vv.to_str().unwrap_or_default().to_lowercase().find(&v.to_lowercase());
+            if is_match.is_none() && v != "*" {
                 return default_result;
             }
         } else {
@@ -136,7 +136,7 @@ pub async fn what_web(
         }
     }
     for keyword in &fingerprint.match_rules.keyword {
-        if raw_data.text.find(&keyword.to_lowercase()) == None {
+        if !raw_data.text.contains(&keyword.to_lowercase()) {
             return default_result;
         }
     }

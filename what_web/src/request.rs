@@ -121,7 +121,7 @@ fn get_next_jump(headers: &HeaderMap, url: &Url, text: &str) -> Option<Url> {
         for reg in RE_COMPILE_BY_JUMP.iter() {
             if let Some(x) = reg.captures(text) {
                 let mut u = x.name("name").map_or("", |m| m.as_str()).to_string();
-                u = u.replace('\'', "").replace('\"', "");
+                u = u.replace(['\'', '\"'], "");
                 next_url_list.push(u);
             }
         }
@@ -192,10 +192,10 @@ async fn fetch_raw_data(res: Response, config: RequestOption) -> anyhow::Result<
 
 // favicon的URL到Hash
 #[cached(
-    type = "SizedCache<String, String>",
-    create = "{ SizedCache::with_size(100) }",
-    result = true,
-    convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
+type = "SizedCache<String, String>",
+create = "{ SizedCache::with_size(100) }",
+result = true,
+convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
 )]
 async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<String> {
     let default_request = WebFingerPrintRequest {
@@ -280,6 +280,7 @@ static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
 static RE_TITLE: Lazy<Regex> = Lazy::new(|| -> Regex {
     Regex::new(r#"(?im)<title>(?P<title>.*?)</title>"#).expect("RE_TITLE")
 });
+
 /// 获取标题
 pub fn get_title(text: &str) -> String {
     for titles in Document::from(text).find(Name("title")) {
@@ -311,10 +312,10 @@ pub fn get_title(text: &str) -> String {
 
 /// 首页请求
 #[cached(
-    type = "SizedCache<String, Vec<Arc<RawData>>>",
-    create = "{ SizedCache::with_size(100) }",
-    result = true,
-    convert = r#"{ format!("{}{:?}", url_str.to_owned(), special_wfp) }"#
+type = "SizedCache<String, Vec<Arc<RawData>>>",
+create = "{ SizedCache::with_size(100) }",
+result = true,
+convert = r#"{ format!("{}{:?}", url_str.to_owned(), special_wfp) }"#
 )]
 pub async fn index_fetch(
     url_str: &str,

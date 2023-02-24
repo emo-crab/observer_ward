@@ -138,7 +138,7 @@ fn scan_escape(first_char: char, chars: &mut Chars<'_>, mode: Mode) -> Result<ch
                         if n_digits > 6 {
                             continue;
                         }
-                        let digit = digit as u32;
+                        // let digit = digit as u32;
                         value = value * 16 + digit;
                     }
                 };
