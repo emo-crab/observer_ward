@@ -176,7 +176,6 @@ fn background() {
         .umask(0o777) // Set umask, `0o027` by default.
         .stdout(stdout) // Redirect stdout to `/tmp/observer_ward.out`.
         .stderr(stderr) // Redirect stderr to `/tmp/observer_ward.err`.
-        .exit_action(|| println!("Executed before master process exits"))
         .privileged_action(|| "Executed before drop privileges");
     match daemonize.start() {
         Ok(_) => println!("Success, daemonized"),

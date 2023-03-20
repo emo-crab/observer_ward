@@ -465,10 +465,6 @@ pub async fn get_plugins_by_nuclei(
         "-timeout",
         &(config.timeout + 5).to_string(),
     ]);
-    command_line.args([
-        "-H",
-        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0",
-    ]);
     for p in exist_plugins.iter() {
         command_line.args(["-t", p]);
     }

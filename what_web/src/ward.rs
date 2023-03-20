@@ -127,7 +127,11 @@ pub async fn what_web(
             return default_result;
         }
         if let Some(vv) = raw_data.headers.get(k) {
-            let is_match = vv.to_str().unwrap_or_default().to_lowercase().find(&v.to_lowercase());
+            let is_match = vv
+                .to_str()
+                .unwrap_or_default()
+                .to_lowercase()
+                .find(&v.to_lowercase());
             if is_match.is_none() && v != "*" {
                 return default_result;
             }
