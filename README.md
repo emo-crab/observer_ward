@@ -47,6 +47,8 @@ observer_ward
 Options:
   -t, --target      the target (required, unless --stdin used)
   --stdin           read target(s) from STDIN
+  --fpath           customized fingerprint file path
+  --path            customized nuclei template file path
   --verify          validate the specified yaml file or grep keyword
   -f, --file        read the target from the file
   -u, --update-fingerprint
@@ -78,7 +80,7 @@ Options:
 
 - 使用`-u`
   参数从指纹库中更新指纹，也可以自己从[指纹库项目](https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json)
-  下载当前系统对应目录。
+  下载当前系统对应目录，新版也会将tags.yaml下载到配置目录文件夹。
 - 如果在程序的运行目录有`web_fingerprint_v3.json`文件会使用运行目录下的指纹库，不会读取下面表格中系统对于的目录。
 
 | 系统      | 路径                                                                             |
@@ -89,7 +91,8 @@ Options:
 
 ```bash
 ➜  ~ ./observer_ward_amd64 -u    
-update: /home/kali-team/.config/observer_ward/web_fingerprint_v3.json file size => 953771
+https://0x727.github.io/FingerprintHub/plugins/tags.yaml:=> /home/kali-team/.config/observer_ward/tags.yaml' file size => 4761
+https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json:=> /home/kali-team/.config/observer_ward/web_fingerprint_v3.json' file size => 978084
 ```
 
 ### 更新插件
@@ -108,6 +111,7 @@ update: /home/kali-team/.config/observer_ward/web_fingerprint_v3.json file size 
 ### 验证指纹是否有效
 
 - `--verify`指定要验证的指纹yaml文件路径，`-t`指定要识别的目标，输出请求过程和识别结果。
+- `--fpath`指定自己的`web_fingerprint_v3.json`文件。
 
 ```bash
 ➜  ~ ./observer_ward -t https://www.example.com --verify 0example.yaml
@@ -330,6 +334,14 @@ Important technology:
 
 ```bash
 ➜  ~ ./observer_ward_amd64 -f target.txt --json result.json --plugins default --irr
+```
+
+- 指定`--path`参数设置路径，使用官方的`nuclei-templates`，会加载tags.yaml文件，根据nuclei的`-tags`参数调用插件，
+  感谢功能建议：[j4vaovo](https://github.com/0x727/ObserverWard/issues/143)
+
+```bash
+➜  ~ ./observer_ward_amd64 -f target.txt --path /home/kali-team/nuclei-templates
+
 ```
 
 ### WebHook

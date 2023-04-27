@@ -141,12 +141,16 @@ impl WhatWeb {
             request_headers: Default::default(),
             request_data: String::new(),
         };
-        if let Ok(rdl) = index_fetch(&url, &default_request, true, self.config.clone()).await {
+        // https和http都可以访问的情况下，在特殊路径都要请求
+        let mut http_https_set = HashSet::new();
+        if let Ok(rdl) = index_fetch(&url, &default_request, true, self.config.clone(), false).await
+        {
             if rdl.is_empty() {
                 what_web_result.is_web = false;
             }
             //首页请求允许跳转
             for raw_data in rdl {
+                http_https_set.insert(raw_data.url.scheme().to_lowercase());
                 let web_name_set =
                     check(&raw_data, &self.fingerprint.to_owned(), &self.config).await;
                 for (k, v) in web_name_set {
@@ -196,6 +200,7 @@ impl WhatWeb {
                 &special_wfp.request,
                 false,
                 self.config.clone(),
+                http_https_set.len() == 2,
             )
             .await
             {

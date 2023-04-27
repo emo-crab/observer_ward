@@ -51,13 +51,13 @@ async fn send_requests(
         .timeout(Duration::new(config.timeout, 0));
     let config_proxy = config.proxy.clone();
     let proxy_obj = Proxy::custom(move |_| config_proxy.clone());
-    return Ok(client
+    Ok(client
         .proxy(proxy_obj)
         .build()?
         .request(method, url.as_ref())
         .body(body_data)
         .send()
-        .await?);
+        .await?)
 }
 
 /// reqwest的内部只有从请求头提取编码，这里需要在html里再提取
@@ -322,6 +322,7 @@ pub async fn index_fetch(
     special_wfp: &WebFingerPrintRequest,
     is_index: bool,
     config: RequestOption,
+    http_https: bool,
 ) -> anyhow::Result<Vec<Arc<RawData>>> {
     let mut is_start_with_http: bool = true;
     let mut raw_data_list: Vec<Arc<RawData>> = vec![];
@@ -329,15 +330,18 @@ pub async fn index_fetch(
     for mut scheme in schemes {
         //最大重定向跳转次数
         let mut max_redirect = 5;
-        let mut scheme_url = url_str;
-        if !url_str.to_lowercase().starts_with("http://")
-            && !url_str.to_lowercase().starts_with("https://")
+        let mut scheme_url = url_str.to_string();
+        if http_https {
+            scheme_url = scheme_url.replace("http://", "").replace("https://", "");
+        }
+        if !scheme_url.to_lowercase().starts_with("http://")
+            && !scheme_url.to_lowercase().starts_with("https://")
         {
-            scheme.push_str(url_str);
-            scheme_url = scheme.as_str();
+            scheme.push_str(&scheme_url);
+            scheme_url = scheme;
             is_start_with_http = false;
         }
-        let mut url = Url::parse(scheme_url)?;
+        let mut url = Url::parse(&scheme_url)?;
         loop {
             let mut next_url: Option<Url> = None;
             if let Ok(res) = send_requests(&url, special_wfp, &config, Policy::none()).await {

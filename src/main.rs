@@ -38,7 +38,7 @@ async fn start() -> Result<(), Error> {
         targets.extend(read_file_to_target(file_path));
     }
     let mut helper = Helper::new(&config);
-    let web_fingerprint = helper.read_web_fingerprint(&config.verify);
+    let web_fingerprint = helper.read_web_fingerprint(&config);
     let mut nmap_fingerprint = vec![];
     if config.service {
         nmap_fingerprint = helper.read_nmap_fingerprint();
@@ -46,13 +46,6 @@ async fn start() -> Result<(), Error> {
     helper.run().await;
     let observer_ward_ins = ObserverWard::new(config.clone(), web_fingerprint, nmap_fingerprint);
     let vec_results = observer_ward_ins.scan(targets).await;
-    print_results_and_save(
-        &config.json,
-        &config.csv,
-        config.silent,
-        config.filter,
-        vec_results,
-        &config.plugins,
-    );
+    print_results_and_save(vec_results, &config);
     Ok(())
 }

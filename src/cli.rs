@@ -17,6 +17,14 @@ pub struct ObserverWardConfig {
     #[argh(switch)]
     #[serde(skip)]
     pub stdin: bool,
+    /// customized fingerprint file path
+    #[argh(option)]
+    #[serde(skip)]
+    pub fpath: Option<String>,
+    /// customized nuclei template file path
+    #[argh(option)]
+    #[serde(skip)]
+    pub path: Option<String>,
     /// validate the specified yaml file or grep keyword
     #[argh(option)]
     #[serde(skip)]
@@ -147,6 +155,9 @@ impl ObserverWardConfig {
             }
         }
         default
+    }
+    pub fn use_nuclei(&self) -> bool {
+        self.path.is_some() || self.plugins.is_some()
     }
 }
 

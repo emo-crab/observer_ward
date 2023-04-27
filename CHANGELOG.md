@@ -4,6 +4,14 @@
 
 ## [Unreleased] - ReleaseDate
 
+## [2023.4.27] - 2023.4.27
+
+### Fixes
+
+- 无论http和https都添加特殊路径请求
+- 添加`--fpath`指定`web_fingerprint_v3.json`指纹库文件
+- 添加`--path`指定官方的`nuclei-templates`，根据指纹读取`tags.yaml`的添加`--tags`参数到nuclei的命令行
+
 ## [2022.10.10] - 2022.10.10
 
 ### Fixes

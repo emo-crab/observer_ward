@@ -151,11 +151,14 @@ impl<'a> Helper<'a> {
                 .unwrap_or("web_fingerprint_v3.json"),
         )
         .await;
-        // self.download_file_from_github(
-        //     "https://0x727.github.io/FingerprintHub/nmap_service_probes.json",
-        //     "nmap_service_probes.json",
-        // )
-        // .await;
+        self.download_file_from_github(
+            "https://0x727.github.io/FingerprintHub/plugins/tags.yaml",
+            self.config_path
+                .join("tags.yaml")
+                .to_str()
+                .unwrap_or("tags.yaml"),
+        )
+        .await;
     }
     async fn update_plugins(&mut self) {
         let plugins_zip_path = self.config_path.join("plugins.zip");
@@ -187,7 +190,7 @@ impl<'a> Helper<'a> {
         }
         if !self.msg.is_empty() {
             for (k, v) in &self.msg {
-                print!("{}:{}", k, v);
+                println!("{}:{}", k, v);
             }
         }
         self.msg.clone()
@@ -233,8 +236,8 @@ impl<'a> Helper<'_> {
         Vec::new()
     }
 
-    pub fn read_web_fingerprint(&mut self, verify: &Option<String>) -> Vec<WebFingerPrint> {
-        if let Some(verify_path) = verify {
+    pub fn read_web_fingerprint(&mut self, config: &ObserverWardConfig) -> Vec<WebFingerPrint> {
+        if let Some(verify_path) = &config.verify {
             if let Ok(file) = File::open(verify_path) {
                 let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
                 match serde_yaml::from_reader::<_, VerifyWebFingerPrint>(&file) {
@@ -258,6 +261,9 @@ impl<'a> Helper<'_> {
         let mut web_fingerprint_path = PathBuf::from("web_fingerprint_v3.json");
         if !web_fingerprint_path.exists() {
             web_fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
+        }
+        if let Some(p) = &config.fpath {
+            web_fingerprint_path = PathBuf::from(p);
         }
         if let Ok(file) = File::open(web_fingerprint_path) {
             if let Ok(web_fingerprint) = serde_json::from_reader::<_, Vec<WebFingerPrint>>(&file) {
@@ -309,9 +315,9 @@ impl<'a> Helper<'_> {
                 let mut content = Cursor::new(response.bytes().await.unwrap_or_default());
                 std::io::copy(&mut content, &mut file).unwrap_or_default();
                 self.msg.insert(
-                    String::from("info"),
+                    String::from(update_url),
                     format!(
-                        "Update: '{}' file size => {:?}",
+                        "=> {}' file size => {:?}",
                         filename,
                         file.metadata().unwrap().len()
                     ),
@@ -345,15 +351,8 @@ where
     Ok(io::BufReader::new(file).lines())
 }
 
-pub fn print_results_and_save(
-    config_json: &Option<String>,
-    config_csv: &Option<String>,
-    silent: bool,
-    filter: bool,
-    results: Vec<WhatWebResult>,
-    config_plugins: &Option<String>,
-) {
-    if let Some(json_path) = config_json {
+pub fn print_results_and_save(results: Vec<WhatWebResult>, config: &ObserverWardConfig) {
+    if let Some(json_path) = &config.json {
         let out = File::create(json_path).expect("Failed to create file");
         serde_json::to_writer(out, &results).expect("Failed to save file")
     }
@@ -366,7 +365,7 @@ pub fn print_results_and_save(
         Cell::new("title"),
         Cell::new("priority"),
     ];
-    if config_plugins.is_some() {
+    if config.use_nuclei() {
         headers.push(Cell::new("plugins"))
     }
     table.set_titles(Row::new(headers.clone()));
@@ -385,20 +384,20 @@ pub fn print_results_and_save(
             Cell::new(&textwrap::fill(res.title.as_str(), 40)),
             Cell::new(&res.priority.to_string()),
         ];
-        if config_plugins.is_some() {
+        if config.use_nuclei() {
             let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
             rows.push(Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::RED)))
         }
         table.add_row(Row::new(rows));
     }
-    if let Some(csv_path) = config_csv {
+    if let Some(csv_path) = &config.csv {
         let out = File::create(csv_path).expect("Failed to create file");
         table.to_csv(out).expect("Failed to save file");
     }
     let mut table = Table::new();
     table.set_titles(Row::new(headers.clone()));
     for res in &results {
-        if filter && res.name.is_empty() {
+        if config.filter && res.name.is_empty() {
             continue;
         }
         let wwn: Vec<String> = res.name.iter().map(String::from).collect();
@@ -415,13 +414,13 @@ pub fn print_results_and_save(
             Cell::new(&textwrap::fill(res.title.as_str(), 40)),
             Cell::new(&res.priority.to_string()),
         ];
-        if config_plugins.is_some() {
+        if config.use_nuclei() {
             let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
             rows.push(Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::RED)))
         }
         table.add_row(Row::new(rows));
     }
-    if !table.is_empty() && !silent {
+    if !table.is_empty() && !config.silent {
         println!("{}", "Important technology:".yellow());
         table.printstd();
     }
@@ -438,12 +437,52 @@ fn extract_plugins_zip(f_name: &Path, extract_target_path: &Path) -> Result<(), 
     Ok(())
 }
 
+static NUCLEI_TAGS: Lazy<HashMap<String, Vec<Vec<String>>>> =
+    Lazy::new(|| -> HashMap<String, Vec<Vec<String>>> {
+        let mut config_path = PathBuf::new();
+        if let Some(cp) = dirs::config_dir() {
+            config_path = cp;
+        } else {
+            println!("Cannot create config directory{:?}", config_path);
+            std::process::exit(0);
+        }
+        let observer_ward = config_path.join("observer_ward");
+        if !observer_ward.is_dir() || !observer_ward.exists() {
+            std::fs::create_dir_all(&observer_ward).unwrap_or_default();
+        }
+        let tags_path = observer_ward.join("tags.yaml");
+        if !tags_path.exists() {
+            println!(
+                "Unable to find the {:?} file, please update with the `-u` parameter",
+                tags_path
+            );
+            std::process::exit(0);
+        }
+        let mut tags_map: HashMap<String, Vec<Vec<String>>> = HashMap::new();
+        // 读入tags.yaml文件，解析
+        if let Ok(file) = File::open(tags_path) {
+            match serde_yaml::from_reader::<_, HashMap<String, Vec<Vec<String>>>>(&file) {
+                Ok(s) => tags_map = s,
+                Err(err) => {
+                    println!("tags.yaml serde err: {}", err);
+                    std::process::exit(0);
+                }
+            };
+            return tags_map;
+        } else {
+            println!("The tags.yaml file cannot be found in the current directory!");
+        }
+        tags_map
+    });
+
 pub async fn get_plugins_by_nuclei(
     mut wwr: WhatWebResult,
     config: &ObserverWardConfig,
 ) -> WhatWebResult {
     let mut plugins_set: HashSet<String> = HashSet::new();
     let mut exist_plugins: Vec<String> = Vec::new();
+    let use_tags = config.path.is_some();
+    let mut tags = HashSet::new();
     for name in wwr.name.iter() {
         if let Some(plugins_path) = &config.plugins {
             let plugins_name_path = Path::new(plugins_path).join(name);
@@ -453,6 +492,16 @@ pub async fn get_plugins_by_nuclei(
                 }
             }
         }
+        if use_tags {
+            if let Some(ts) = NUCLEI_TAGS.get(name) {
+                for t in ts {
+                    tags.extend(t);
+                }
+            }
+        }
+    }
+    if let Some(t) = &config.path {
+        exist_plugins.push(t.to_string());
     }
     if exist_plugins.is_empty() {
         return wwr;
@@ -467,6 +516,9 @@ pub async fn get_plugins_by_nuclei(
     ]);
     for p in exist_plugins.iter() {
         command_line.args(["-t", p]);
+    }
+    for t in tags {
+        command_line.args(["-tags", t]);
     }
     command_line.args(["-silent", "-json", "-duc"]);
     if config.irr {
@@ -519,7 +571,7 @@ impl Default for ObserverWard {
     fn default() -> Self {
         let config = ObserverWardConfig::new();
         let mut helper = Helper::new(&config);
-        let web_fingerprint = helper.read_web_fingerprint(&config.verify);
+        let web_fingerprint = helper.read_web_fingerprint(&config);
         let mut nmap_fingerprint = vec![];
         if config.service {
             nmap_fingerprint = helper.read_nmap_fingerprint();
@@ -600,7 +652,7 @@ impl ObserverWard {
             true
         });
         let verify_handle = tokio::task::spawn(async move {
-            if config.plugins.is_some() {
+            if config.use_nuclei() {
                 let mut worker = FuturesUnordered::new();
                 for _ in 0..3 {
                     match what_server_receiver.next().await {
@@ -667,7 +719,7 @@ impl ObserverWard {
     }
     pub fn reload(&mut self, config: &ObserverWardConfig) {
         let mut helper = Helper::new(config);
-        let web_fingerprint = helper.read_web_fingerprint(&config.verify);
+        let web_fingerprint = helper.read_web_fingerprint(config);
         let mut nmap_fingerprint = vec![];
         if config.service {
             nmap_fingerprint = helper.read_nmap_fingerprint();

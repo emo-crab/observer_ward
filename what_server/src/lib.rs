@@ -137,8 +137,7 @@ impl WhatServer {
     }
     async fn exec_run(&self, probe: &NmapFingerPrint, host_port: SocketAddr) -> HashSet<String> {
         let response = self.send_directive_str_request(host_port, &probe.directive_str);
-        let server = probe.match_rules(&response).await;
-        server
+        probe.match_rules(&response).await
     }
     pub async fn scan(&self, mut what_web_result: WhatWebResult) -> WhatWebResult {
         if self.fingerprint.is_empty() {
