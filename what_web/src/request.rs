@@ -152,12 +152,12 @@ fn is_image(headers: &HeaderMap, body: &[u8]) -> bool {
     let encode_error = String::from_utf8(body.to_vec()).is_err();
     if encode_error {
         let text = String::from_utf8_lossy(body).to_lowercase();
-        let is_html = vec!["html", "head", "script", "div"]
+        let is_html = vec!["html", "head", "script", "div", "title", "xml", "svg"]
             .into_iter()
             .any(|c| text.contains(c));
         ct || !is_html
     } else {
-        ct
+        false
     }
 }
 
@@ -192,10 +192,10 @@ async fn fetch_raw_data(res: Response, config: RequestOption) -> anyhow::Result<
 
 // favicon的URL到Hash
 #[cached(
-    type = "SizedCache<String, String>",
-    create = "{ SizedCache::with_size(100) }",
-    result = true,
-    convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
+type = "SizedCache<String, String>",
+create = "{ SizedCache::with_size(100) }",
+result = true,
+convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
 )]
 async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<String> {
     let default_request = WebFingerPrintRequest {
@@ -312,10 +312,10 @@ pub fn get_title(text: &str) -> String {
 
 /// 首页请求
 #[cached(
-    type = "SizedCache<String, Vec<Arc<RawData>>>",
-    create = "{ SizedCache::with_size(100) }",
-    result = true,
-    convert = r#"{ format!("{}{:?}", url_str.to_owned(), special_wfp) }"#
+type = "SizedCache<String, Vec<Arc<RawData>>>",
+create = "{ SizedCache::with_size(100) }",
+result = true,
+convert = r#"{ format!("{}{:?}", url_str.to_owned(), special_wfp) }"#
 )]
 pub async fn index_fetch(
     url_str: &str,
