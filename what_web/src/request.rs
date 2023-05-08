@@ -36,6 +36,12 @@ async fn send_requests(
         header::COOKIE,
         HeaderValue::from_static("rememberMe=admin;rememberMe-K=admin"),
     );
+    headers.insert(
+        header::ACCEPT,
+        HeaderValue::from_static(
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        ),
+    );
     let method = fingerprint.get_method();
     let body_data = fingerprint.get_body();
     fingerprint.set_header(&mut headers);
@@ -192,10 +198,10 @@ async fn fetch_raw_data(res: Response, config: RequestOption) -> anyhow::Result<
 
 // favicon的URL到Hash
 #[cached(
-type = "SizedCache<String, String>",
-create = "{ SizedCache::with_size(100) }",
-result = true,
-convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
+    type = "SizedCache<String, String>",
+    create = "{ SizedCache::with_size(100) }",
+    result = true,
+    convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
 )]
 async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<String> {
     let default_request = WebFingerPrintRequest {
@@ -312,10 +318,10 @@ pub fn get_title(text: &str) -> String {
 
 /// 首页请求
 #[cached(
-type = "SizedCache<String, Vec<Arc<RawData>>>",
-create = "{ SizedCache::with_size(100) }",
-result = true,
-convert = r#"{ format!("{}{:?}", url_str.to_owned(), special_wfp) }"#
+    type = "SizedCache<String, Vec<Arc<RawData>>>",
+    create = "{ SizedCache::with_size(100) }",
+    result = true,
+    convert = r#"{ format!("{}{:?}", url_str.to_owned(), special_wfp) }"#
 )]
 pub async fn index_fetch(
     url_str: &str,
