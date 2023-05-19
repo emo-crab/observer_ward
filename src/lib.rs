@@ -520,7 +520,7 @@ pub async fn get_plugins_by_nuclei(
     for t in tags {
         command_line.args(["-tags", t]);
     }
-    command_line.args(["-silent", "-json", "-duc"]);
+    command_line.args(["-silent", "-jsonl", "-duc"]);
     if config.irr {
         command_line.args(["-irr"]);
     }

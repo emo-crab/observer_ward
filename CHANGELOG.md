@@ -4,6 +4,12 @@
 
 ## [Unreleased] - ReleaseDate
 
+## [2023.5.19] - 2023.5.19
+
+### Fixes
+
+- 更新nuclei版本到`v2.9.4`，需要将`-json`改为`-jsonl`
+
 ## [2023.4.27] - 2023.4.27
 
 ### Fixes
