@@ -30,12 +30,19 @@ async fn send_requests(
 ) -> anyhow::Result<Response> {
     let mut url = url.clone();
     let mut headers = HeaderMap::new();
-    let ua = "Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0";
-    headers.insert(header::USER_AGENT, HeaderValue::from_static(ua));
-    headers.insert(
-        header::COOKIE,
-        HeaderValue::from_static("rememberMe=admin;rememberMe-K=admin"),
+    let default_ua = HeaderValue::from_static(
+        "Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0",
     );
+    headers.insert(
+        header::USER_AGENT,
+        HeaderValue::from_str(&config.ua).unwrap_or(default_ua),
+    );
+    if config.danger {
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_static("rememberMe=admin;rememberMe-K=admin"),
+        );
+    }
     headers.insert(
         header::ACCEPT,
         HeaderValue::from_static(
@@ -400,7 +407,7 @@ mod tests {
             request_data: String::from(""),
         };
         let timeout = 10_u64;
-        let request_config = RequestOption::new(&timeout, &None, &None, false);
+        let request_config = RequestOption::new(&timeout, &None, &None, false, false, "");
         let res = send_requests(&test_url, &fingerprint, &request_config, Policy::none())
             .await
             .unwrap();
@@ -417,7 +424,7 @@ mod tests {
             request_data: String::from(""),
         };
         let timeout = 10_u64;
-        let request_config = RequestOption::new(&timeout, &None, &None, false);
+        let request_config = RequestOption::new(&timeout, &None, &None, false, false, "");
         let res = send_requests(&test_url, &fingerprint, &request_config, Policy::none())
             .await
             .unwrap();

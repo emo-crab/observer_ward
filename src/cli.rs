@@ -85,10 +85,18 @@ pub struct ObserverWardConfig {
     #[argh(option, default = "default_token()")]
     #[serde(skip)]
     pub token: String,
+    /// customized ua
+    #[argh(option, default = "default_ua()")]
+    #[serde(skip)]
+    pub ua: String,
     /// api background service
     #[argh(switch)]
     #[serde(skip)]
     pub daemon: bool,
+    /// danger mode
+    #[argh(switch)]
+    #[serde(skip)]
+    pub danger: bool,
     /// silent mode
     #[argh(switch)]
     #[serde(skip)]
@@ -126,6 +134,10 @@ fn default_token() -> String {
         }
     }
     String::new()
+}
+
+fn default_ua() -> String {
+    String::from("Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0")
 }
 
 fn default_timeout() -> u64 {

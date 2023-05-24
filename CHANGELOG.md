@@ -4,6 +4,13 @@
 
 ## [Unreleased] - ReleaseDate
 
+## [2023.5.24] - 2023.5.24
+
+### Fixes
+
+- `--ua`参数可以自定义请求头里面的`USER_AGENT`，默认是`Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0`。
+- `--danger`参数会加上敏感请求头，有可能会被Web防火墙拦截，默认不加。
+
 ## [2023.5.19] - 2023.5.19
 
 ### Fixes

@@ -40,7 +40,7 @@ brew install observer_ward
 
 ```bash
 ➜  ~ ./observer_ward --help
-Usage: observer_ward [-t <target>] [--stdin] [--verify <verify>] [-f <file>] [-u] [-c <csv>] [-j <json>] [--proxy <proxy>] [--timeout <timeout>] [--plugins <plugins>] [--update-plugins] [--update-self] [--thread <thread>] [--webhook <webhook>] [--service] [-s <api-server>] [--token <token>] [--daemon] [--silent] [--filter] [--irr]
+Usage: observer_ward [-t <target>] [--stdin] [--fpath <fpath>] [--path <path>] [--verify <verify>] [-f <file>] [-u] [-c <csv>] [-j <json>] [--proxy <proxy>] [--timeout <timeout>] [--plugins <plugins>] [--update-plugins] [--update-self] [--thread <thread>] [--webhook <webhook>] [--service] [-s <api-server>] [--token <token>] [--ua <ua>] [--daemon] [--danger] [--silent] [--filter] [--irr]
 
 observer_ward
 
@@ -68,7 +68,9 @@ Options:
   --service         using nmap fingerprint identification service (slow)
   -s, --api-server  start a web API service (ex:127.0.0.1:8080)
   --token           api Bearer authentication
+  --ua              customized ua
   --daemon          api background service
+  --danger          danger mode
   --silent          silent mode
   --filter          filter mode,Display only the fingerprint that is not empty
   --irr             include request/response pairs in the JSONL output
@@ -449,7 +451,13 @@ curl --request POST \
   "service": false
 }
 ```
+### 危险模式
 
+- `--danger`参数会加上敏感请求头，有可能会被Web防火墙拦截，默认不加。
+
+### 自定义UA
+
+- `--ua`参数可以自定义请求头里面的`USER_AGENT`，默认是`Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0`。
 ### 静默模式
 
 - `--silent`参数为静默模式，不会输出任何信息，结果需要保存在文件，方便在webshell执行。

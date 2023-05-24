@@ -134,6 +134,8 @@ impl<'a> Helper<'a> {
             &config.proxy,
             &config.verify,
             config.silent,
+            config.danger,
+            &config.ua,
         );
         Self {
             request_option: ro,
@@ -591,6 +593,8 @@ impl ObserverWard {
             &config.proxy,
             &config.verify,
             config.silent,
+            config.danger,
+            &config.ua,
         );
         let what_server_ins = WhatServer::new(300, nmap_fingerprint);
         let what_web_ins = WhatWeb::new(request_option, web_fingerprint);
@@ -729,6 +733,8 @@ impl ObserverWard {
             &config.proxy,
             &config.verify,
             config.silent,
+            config.danger,
+            &config.ua,
         );
         let what_server_ins = WhatServer::new(300, nmap_fingerprint);
         let what_web_ins = WhatWeb::new(request_option, web_fingerprint);

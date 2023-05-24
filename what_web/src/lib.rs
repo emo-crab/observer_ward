@@ -72,6 +72,10 @@ pub struct RequestOption {
     is_path: bool,
     /// 静默模式，不打印
     silent: bool,
+    // danger mode
+    danger: bool,
+    // ua
+    ua: String,
 }
 
 impl RequestOption {
@@ -80,6 +84,8 @@ impl RequestOption {
         proxy: &Option<String>,
         verify_keyword: &Option<String>,
         silent: bool,
+        danger: bool,
+        ua: &str,
     ) -> Self {
         let mut is_exists = false;
         let mut default_verify_path = String::new();
@@ -97,6 +103,8 @@ impl RequestOption {
                         verify_keyword: default_verify_path,
                         is_path: is_exists,
                         silent,
+                        danger,
+                        ua: ua.to_string(),
                     }
                 }
                 Err(err) => {
@@ -111,6 +119,8 @@ impl RequestOption {
                 verify_keyword: default_verify_path,
                 is_path: is_exists,
                 silent,
+                danger,
+                ua: ua.to_string(),
             }
         }
     }
