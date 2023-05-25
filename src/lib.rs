@@ -28,6 +28,7 @@ pub mod cli;
 pub mod error;
 
 use serde::{Deserialize, Serialize};
+use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VerifyWebFingerPrint {
@@ -237,28 +238,44 @@ impl<'a> Helper<'_> {
         }
         Vec::new()
     }
-
+    fn yaml_to_finger(&self, yaml_path: &Path) -> Vec<WebFingerPrint> {
+        let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
+        if let Ok(file) = File::open(yaml_path) {
+            match serde_yaml::from_reader::<_, VerifyWebFingerPrint>(&file) {
+                Ok(verify_fingerprints) => {
+                    for mut verify_fingerprint in verify_fingerprints.fingerprint {
+                        verify_fingerprint.name = verify_fingerprints.name.clone();
+                        verify_fingerprint.priority = verify_fingerprints.priority;
+                        web_fingerprint.push(verify_fingerprint);
+                    }
+                }
+                Err(err) => {
+                    println!("{}", err);
+                    std::process::exit(0);
+                }
+            };
+            web_fingerprint
+        } else {
+            println!("The verification file cannot be found in the current directory!");
+            std::process::exit(0);
+        }
+    }
     pub fn read_web_fingerprint(&mut self, config: &ObserverWardConfig) -> Vec<WebFingerPrint> {
         if let Some(verify_path) = &config.verify {
-            if let Ok(file) = File::open(verify_path) {
-                let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
-                match serde_yaml::from_reader::<_, VerifyWebFingerPrint>(&file) {
-                    Ok(verify_fingerprints) => {
-                        for mut verify_fingerprint in verify_fingerprints.fingerprint {
-                            verify_fingerprint.name = verify_fingerprints.name.clone();
-                            verify_fingerprint.priority = verify_fingerprints.priority;
-                            web_fingerprint.push(verify_fingerprint);
-                        }
-                    }
-                    Err(err) => {
-                        println!("{}", err);
-                        std::process::exit(0);
-                    }
-                };
-                return web_fingerprint;
-            } else {
-                println!("The verification file cannot be found in the current directory!");
+            return self.yaml_to_finger(&PathBuf::from(verify_path));
+        }
+        if let Some(yaml_path) = &config.yaml {
+            let walker = WalkDir::new(yaml_path).into_iter();
+            let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
+            for entry in walker.filter_entry(is_hidden).flatten() {
+                if entry.path().extension() == Some("yaml".as_ref()) {
+                    web_fingerprint.extend(self.yaml_to_finger(entry.path()));
+                }
             }
+            if !config.silent {
+                println!("Load {} fingerprints.", web_fingerprint.len());
+            }
+            return web_fingerprint;
         }
         let mut web_fingerprint_path = PathBuf::from("web_fingerprint_v3.json");
         if !web_fingerprint_path.exists() {
@@ -335,6 +352,14 @@ impl<'a> Helper<'_> {
             ),
         );
     }
+}
+
+fn is_hidden(entry: &DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|s| !s.starts_with('.'))
+        .unwrap_or(false)
 }
 
 pub fn read_file_to_target(file_path: &str) -> HashSet<String> {

@@ -1,7 +1,7 @@
 use crate::OBSERVER_WARD_PATH;
 use argh::FromArgs;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process;
 use std::process::{Command, Stdio};
 
@@ -20,7 +20,11 @@ pub struct ObserverWardConfig {
     /// customized fingerprint file path
     #[argh(option)]
     #[serde(skip)]
-    pub fpath: Option<String>,
+    pub fpath: Option<PathBuf>,
+    /// customized fingerprint yaml directory (slow)
+    #[argh(option)]
+    #[serde(skip)]
+    pub yaml: Option<PathBuf>,
     /// customized nuclei template file path
     #[argh(option)]
     #[serde(skip)]
