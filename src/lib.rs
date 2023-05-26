@@ -530,7 +530,7 @@ pub async fn get_plugins_by_nuclei(
     if let Some(t) = &config.path {
         exist_plugins.push(t.to_string());
     }
-    if exist_plugins.is_empty() {
+    if exist_plugins.is_empty() || tags.is_empty() {
         return wwr;
     }
     let mut command_line = Command::new("nuclei");
