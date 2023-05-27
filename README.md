@@ -39,8 +39,7 @@ brew install observer_ward
 ## 使用方法
 
 ```bash
-➜  ~ ./observer_ward --help
-Usage: observer_ward [-t <target>] [--stdin] [--fpath <fpath>] [--path <path>] [--verify <verify>] [-f <file>] [-u] [-c <csv>] [-j <json>] [--proxy <proxy>] [--timeout <timeout>] [--plugins <plugins>] [--update-plugins] [--update-self] [--thread <thread>] [--webhook <webhook>] [--service] [-s <api-server>] [--token <token>] [--ua <ua>] [--daemon] [--danger] [--silent] [--filter] [--irr]
+Usage: observer_ward [-t <target>] [--stdin] [--fpath <fpath>] [--yaml <yaml>] [--path <path>] [--verify <verify>] [-f <file>] [-u] [-c <csv>] [-j <json>] [--proxy <proxy>] [--timeout <timeout>] [--plugins <plugins>] [--update-plugins] [--update-self] [--thread <thread>] [--webhook <webhook>] [--service] [-s <api-server>] [--token <token>] [--ua <ua>] [--daemon] [--danger] [--silent] [--filter] [--irr]
 
 observer_ward
 
@@ -48,6 +47,7 @@ Options:
   -t, --target      the target (required, unless --stdin used)
   --stdin           read target(s) from STDIN
   --fpath           customized fingerprint file path
+  --yaml            customized fingerprint yaml directory (slow)
   --path            customized nuclei template file path
   --verify          validate the specified yaml file or grep keyword
   -f, --file        read the target from the file
@@ -75,6 +75,7 @@ Options:
   --filter          filter mode,Display only the fingerprint that is not empty
   --irr             include request/response pairs in the JSONL output
   --help            display usage information
+
 
 ```
 
@@ -114,7 +115,7 @@ https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json:=> /home/kali-tea
 
 - `--verify`指定要验证的指纹yaml文件路径，`-t`指定要识别的目标，输出请求过程和识别结果。
 - `--fpath`指定自己的`web_fingerprint_v3.json`文件。
-
+- `--yaml`指定`FingerprintHub`的`web_fingerprint`文件夹，加载全部yaml文件，比较慢，只适合本地测试。
 ```bash
 ➜  ~ ./observer_ward -t https://www.example.com --verify 0example.yaml
 Url: https://www.example.com/

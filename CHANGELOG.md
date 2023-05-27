@@ -3,6 +3,12 @@
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+## [2023.5.27] - 2023.5.27
+
+### Fixes
+
+- `--yaml`指定`FingerprintHub`的`web_fingerprint`文件夹，加载全部yaml文件，比较慢，只适合本地测试。
+- 修复空tags跑了全部poc
 
 ## [2023.5.24] - 2023.5.24
 
