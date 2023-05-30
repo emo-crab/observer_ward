@@ -123,10 +123,9 @@ pub async fn what_web(
     }
     for (k, v) in &fingerprint.match_rules.headers {
         let matcher_part = header_to_string(&raw_data.headers);
-        if k == "set-cookie" && !matcher_part.contains(v) {
+        if k == "set-cookie" && !matcher_part.contains(&v.to_lowercase()) {
             return default_result;
-        }
-        if let Some(vv) = raw_data.headers.get(k) {
+        } else if let Some(vv) = raw_data.headers.get(k) {
             let is_match = vv
                 .to_str()
                 .unwrap_or_default()
@@ -161,5 +160,5 @@ fn header_to_string(headers: &reqwest::header::HeaderMap) -> String {
         header_string.push_str(v.to_str().unwrap_or_default());
         header_string.push_str("\r\n");
     }
-    header_string
+    header_string.to_lowercase()
 }

@@ -544,7 +544,7 @@ pub async fn get_plugins_by_nuclei(
         "-timeout",
         &(config.timeout + 5).to_string(),
         "-es",
-        "info"//排除info模板
+        "info", //排除info模板
     ]);
     for p in exist_plugins.iter() {
         command_line.args(["-t", p]);
