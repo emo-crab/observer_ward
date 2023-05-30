@@ -522,7 +522,10 @@ pub async fn get_plugins_by_nuclei(
         if use_tags {
             if let Some(ts) = NUCLEI_TAGS.get(name) {
                 for t in ts {
-                    tags.extend(t);
+                    // 只留单个的tags，防止误报
+                    if t.len() == 1 {
+                        tags.extend(t);
+                    }
                 }
             }
         }
@@ -540,6 +543,8 @@ pub async fn get_plugins_by_nuclei(
         "-no-color",
         "-timeout",
         &(config.timeout + 5).to_string(),
+        "-es",
+        "info"//排除info模板
     ]);
     for p in exist_plugins.iter() {
         command_line.args(["-t", p]);
