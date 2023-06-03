@@ -23,7 +23,7 @@ url = { version = "2.3.1", features = ["serde"] }
 csv = "1.2.2"
 dirs = "5.0.1"
 walkdir = "2"
-tokio = { version = "1.28.0", default-features = false }
+tokio = { version = "1.28.2", default-features = false }
 prettytable-rs = "^0.10"
 textwrap = "0.15"
 log = "0.4.17"
