@@ -124,7 +124,8 @@ fn get_next_jump(headers: &HeaderMap, url: &Url, text: &str) -> Option<Url> {
             {
                 if http_equiv.to_lowercase() == "refresh" {
                     if let Some((_, u)) = content.split_once('=') {
-                        next_url_list.push(u.to_string());
+                        let n = u.replace(['\'', '\"'], "");
+                        next_url_list.push(n);
                     }
                 }
             }

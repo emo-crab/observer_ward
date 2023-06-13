@@ -3,6 +3,14 @@
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+
+## [2023.6.13] - 2023.6.13
+
+### Fixes
+
+- 使用nuclei的`-tc`表达式过滤`templates`
+- 修复部分js跳转
+
 ## [2023.5.27] - 2023.5.27
 
 ### Fixes

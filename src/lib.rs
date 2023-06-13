@@ -28,7 +28,6 @@ pub mod cli;
 pub mod error;
 
 use serde::{Deserialize, Serialize};
-use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VerifyWebFingerPrint {
@@ -254,22 +253,19 @@ impl<'a> Helper<'_> {
                     std::process::exit(0);
                 }
             };
-            web_fingerprint
-        } else {
-            println!("The verification file cannot be found in the current directory!");
-            std::process::exit(0);
         }
+        web_fingerprint
     }
     pub fn read_web_fingerprint(&mut self, config: &ObserverWardConfig) -> Vec<WebFingerPrint> {
         if let Some(verify_path) = &config.verify {
             return self.yaml_to_finger(&PathBuf::from(verify_path));
         }
         if let Some(yaml_path) = &config.yaml {
-            let walker = WalkDir::new(yaml_path).into_iter();
+            let walker = std::fs::read_dir(yaml_path).into_iter();
             let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
-            for entry in walker.filter_entry(is_hidden).flatten() {
+            for entry in walker.flatten().filter_map(|e| e.ok()).filter(is_hidden) {
                 if entry.path().extension() == Some("yaml".as_ref()) {
-                    web_fingerprint.extend(self.yaml_to_finger(entry.path()));
+                    web_fingerprint.extend(self.yaml_to_finger(&entry.path()));
                 }
             }
             if !config.silent {
@@ -354,7 +350,7 @@ impl<'a> Helper<'_> {
     }
 }
 
-fn is_hidden(entry: &DirEntry) -> bool {
+fn is_hidden(entry: &std::fs::DirEntry) -> bool {
     entry
         .file_name()
         .to_str()
@@ -509,7 +505,7 @@ pub async fn get_plugins_by_nuclei(
     let mut plugins_set: HashSet<String> = HashSet::new();
     let mut exist_plugins: Vec<String> = Vec::new();
     let use_tags = config.path.is_some();
-    let mut tags = HashSet::new();
+    let mut template_condition = Vec::new();
     for name in wwr.name.iter() {
         if let Some(plugins_path) = &config.plugins {
             let plugins_name_path = Path::new(plugins_path).join(name);
@@ -521,19 +517,14 @@ pub async fn get_plugins_by_nuclei(
         }
         if use_tags {
             if let Some(ts) = NUCLEI_TAGS.get(name) {
-                for t in ts {
-                    // 只留单个的tags，防止误报
-                    if t.len() == 1 {
-                        tags.extend(t);
-                    }
-                }
+                template_condition.push(gen_nuclei_tags(ts));
             }
         }
     }
     if let Some(t) = &config.path {
         exist_plugins.push(t.to_string());
     }
-    if exist_plugins.is_empty() || tags.is_empty() {
+    if exist_plugins.is_empty() || template_condition.is_empty() {
         return wwr;
     }
     let mut command_line = Command::new("nuclei");
@@ -549,12 +540,21 @@ pub async fn get_plugins_by_nuclei(
     for p in exist_plugins.iter() {
         command_line.args(["-t", p]);
     }
-    for t in tags {
-        command_line.args(["-tags", t]);
+    if !template_condition.is_empty() {
+        command_line.args(["-tc", &template_condition.join("||")]);
     }
     command_line.args(["-silent", "-jsonl", "-duc"]);
     if config.irr {
         command_line.args(["-irr"]);
+    }
+    if let Ok(err) = command_line
+        .stderr(std::process::Stdio::null())
+        .output()
+        .await
+    {
+        if !config.silent {
+            println!("{}", String::from_utf8_lossy(&err.stderr))
+        }
     }
     let output = command_line.output().await.expect("command_line_output");
     if let Ok(template_output) = String::from_utf8(output.stdout) {
@@ -591,7 +591,22 @@ pub async fn get_plugins_by_nuclei(
     }
     wwr
 }
-
+fn gen_nuclei_tags(tags_list: &Vec<Vec<String>>) -> String {
+    let mut or_condition = Vec::new();
+    for tags in tags_list {
+        // 只留单个的tags，防止误报
+        if tags.len() == 1 {
+            or_condition.push(format!("contains(tags,'{}')", tags[0]))
+        } else {
+            let mut and_condition = Vec::new();
+            for tag in tags {
+                and_condition.push(format!("contains(tags,'{}')", tag));
+            }
+            or_condition.push(format!("({})", and_condition.join("&&")));
+        }
+    }
+    or_condition.join("||")
+}
 #[derive(Clone)]
 pub struct ObserverWard {
     what_server_ins: WhatServer,
