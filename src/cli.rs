@@ -116,7 +116,7 @@ pub struct ObserverWardConfig {
 }
 
 fn default_thread() -> u32 {
-    100_u32
+    32_u32
 }
 
 // fn default_targets() -> Vec<String> {
