@@ -38,6 +38,11 @@ impl RawData {
                 grep_color(v.to_str().unwrap_or_default());
             }
         }
+        println!("COOKIES:");
+        let cookies = self.headers.get_all(reqwest::header::SET_COOKIE);
+        for v in cookies.iter() {
+            grep_color(v.to_str().unwrap_or_default());
+        }
         // println!(&header_to_string(&self.headers));
         println!("STATUS_CODE: {}", self.status_code.as_u16());
         println!("TEXT:");
@@ -122,10 +127,12 @@ pub async fn what_web(
         return default_result;
     }
     for (k, v) in &fingerprint.match_rules.headers {
-        let matcher_part = header_to_string(&raw_data.headers);
-        if k == "set-cookie" && !matcher_part.contains(&v.to_lowercase()) {
-            return default_result;
-        } else if let Some(vv) = raw_data.headers.get(k) {
+        let matcher_part = header_to_cookies(&raw_data.headers);
+        if k.to_lowercase() == "set-cookie" {
+            if !matcher_part.contains(&v.to_lowercase()) {
+                return default_result;
+            }
+        } else if let Some(vv) = raw_data.headers.get(k.to_lowercase()) {
             let is_match = vv
                 .to_str()
                 .unwrap_or_default()
@@ -150,15 +157,12 @@ pub async fn what_web(
     default_result
 }
 
-fn header_to_string(headers: &reqwest::header::HeaderMap) -> String {
-    let mut header_string = String::new();
-    for (k, v) in headers.clone() {
-        if let Some(k) = k {
-            header_string.push_str(k.as_str());
-            header_string.push_str(": ");
-        }
-        header_string.push_str(v.to_str().unwrap_or_default());
-        header_string.push_str("\r\n");
-    }
-    header_string.to_lowercase()
+fn header_to_cookies(headers: &reqwest::header::HeaderMap) -> String {
+    let cookies: Vec<&str> = headers
+        .get_all(reqwest::header::SET_COOKIE)
+        .iter()
+        .map(|v| v.to_str().unwrap_or_default())
+        .collect();
+
+    cookies.join(";").to_lowercase()
 }

@@ -61,6 +61,7 @@ async fn send_requests(
         .danger_accept_invalid_hostnames(true)
         .default_headers(headers.clone())
         .redirect(redirect)
+        .cookie_store(true)
         .timeout(Duration::new(config.timeout, 0));
     let config_proxy = config.proxy.clone();
     let proxy_obj = Proxy::custom(move |_| config_proxy.clone());

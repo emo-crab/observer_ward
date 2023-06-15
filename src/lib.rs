@@ -258,7 +258,10 @@ impl<'a> Helper<'_> {
     }
     pub fn read_web_fingerprint(&mut self, config: &ObserverWardConfig) -> Vec<WebFingerPrint> {
         if let Some(verify_path) = &config.verify {
-            return self.yaml_to_finger(&PathBuf::from(verify_path));
+            let verify_file = PathBuf::from(verify_path);
+            if verify_file.exists() {
+                return self.yaml_to_finger(&verify_file);
+            }
         }
         if let Some(yaml_path) = &config.yaml {
             let walker = std::fs::read_dir(yaml_path).into_iter();
@@ -591,6 +594,7 @@ pub async fn get_plugins_by_nuclei(
     }
     wwr
 }
+
 fn gen_nuclei_tags(tags_list: &Vec<Vec<String>>) -> String {
     let mut or_condition = Vec::new();
     for tags in tags_list {
@@ -607,6 +611,7 @@ fn gen_nuclei_tags(tags_list: &Vec<Vec<String>>) -> String {
     }
     or_condition.join("||")
 }
+
 #[derive(Clone)]
 pub struct ObserverWard {
     what_server_ins: WhatServer,
