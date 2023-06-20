@@ -3,6 +3,11 @@
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+## [2023.6.20] - 2023.6.20
+
+### Fixes
+
+- `--nargs`可以添加nuclei扩展参数， 比如：`--nargs "-etags intrusive"`，排除有入侵危险的template。
 
 ## [2023.6.13] - 2023.6.13
 

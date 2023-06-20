@@ -75,7 +75,7 @@ Options:
   --filter          filter mode,Display only the fingerprint that is not empty
   --irr             include request/response pairs in the JSONL output
   --help            display usage information
-
+  --nargs           nuclei args
 
 ```
 
@@ -290,6 +290,7 @@ iconv -f UTF-8 -t GB18030 Result.csv > Result.csv
 - 如果识别到的组件在`plugins`目录下存在和组件同名的文件夹，会对目标调用Nuclei使用匹配到的插件进行检测，存在漏洞会输出到屏幕。
 - 因为经过测试在指纹识别过程中同时调用nuclei检测漏洞会影响Web指纹识别的效果，也会拉长识别的时间，所以选择识别完Web指纹后将结果保存到文件，再解析文件调用nuclei检测。
 - 目前支持将Web指纹识别的结果保存为`json`和`csv`格式，所以只能解析这两种格式。
+- `--nargs`可以添加nuclei扩展参数， 比如：`--nargs "-etags intrusive"`，排除有入侵危险的template。
 
 ```bash
 ➜  ~ ./observer_ward_amd64 -t https://httpbin.org --csv result.csv --plugins 0x727/FingerprintHub/plugins

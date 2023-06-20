@@ -113,6 +113,10 @@ pub struct ObserverWardConfig {
     #[argh(switch)]
     #[serde(skip)]
     pub irr: bool,
+    /// nuclei args
+    #[argh(option)]
+    #[serde(skip)]
+    pub nargs: Option<String>,
 }
 
 fn default_thread() -> u32 {

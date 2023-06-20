@@ -540,6 +540,12 @@ pub async fn get_plugins_by_nuclei(
         "-es",
         "info", //排除info模板
     ]);
+    if let Some(nargs) = &config.nargs {
+        let args: Vec<&str> = nargs.split(' ').collect();
+        for arg in args {
+            command_line.arg(arg);
+        }
+    }
     for p in exist_plugins.iter() {
         command_line.args(["-t", p]);
     }
