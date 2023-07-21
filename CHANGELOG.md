@@ -3,6 +3,22 @@
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+
+## [2023.7.21] - 2023.7.21
+
+### Fixes
+
+- `--gen`参数可以配合`--yaml`参数将指定yaml目录中的全部yaml指纹规则生成单个json文件，主要方便自定义指纹，生成便携单文件。
+- `/home/kali-team/IdeaProjects/FingerprintHub/web_fingerprint`是存放yaml的目录，`web_fingerprint_v3.json`是生成的文件路径。
+
+```bash
+➜  ~ ./observer_ward --yaml /home/kali-team/IdeaProjects/FingerprintHub/web_fingerprint --gen web_fingerprint_v3.json
+➜  ~ jq length web_fingerprint_v3.json
+3448
+```
+- 添加如果本地没有指纹库，会自动更新指纹。防止跑完发现没有下载指纹，白跑了目标。
+
+
 ## [2023.6.20] - 2023.6.20
 
 ### Fixes

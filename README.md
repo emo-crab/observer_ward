@@ -48,6 +48,8 @@ Options:
   --stdin           read target(s) from STDIN
   --fpath           customized fingerprint file path
   --yaml            customized fingerprint yaml directory (slow)
+  --gen             generate json format fingerprint library from yaml
+                    format(requires yaml parameter)
   --path            customized nuclei template file path
   --verify          validate the specified yaml file or grep keyword
   -f, --file        read the target from the file
@@ -116,6 +118,15 @@ https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json:=> /home/kali-tea
 - `--verify`指定要验证的指纹yaml文件路径，`-t`指定要识别的目标，输出请求过程和识别结果。
 - `--fpath`指定自己的`web_fingerprint_v3.json`文件。
 - `--yaml`指定`FingerprintHub`的`web_fingerprint`文件夹，加载全部yaml文件，比较慢，只适合本地测试。
+- `--gen`参数可以配合`--yaml`参数将指定yaml目录中的全部yaml指纹规则生成单个json文件，主要方便自定义指纹，生成便携单文件。
+
+```bash
+➜  ~ ./observer_ward --yaml /home/kali-team/IdeaProjects/FingerprintHub/web_fingerprint --gen web_fingerprint_v3.json
+➜  ~ jq length web_fingerprint_v3.json
+3448
+```
+- `/home/kali-team/IdeaProjects/FingerprintHub/web_fingerprint`是存放yaml的目录，`web_fingerprint_v3.json`是生成的文件路径。
+
 ```bash
 ➜  ~ ./observer_ward -t https://www.example.com --verify 0example.yaml
 Url: https://www.example.com/

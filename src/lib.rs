@@ -144,32 +144,29 @@ impl<'a> Helper<'a> {
             msg: Default::default(),
         }
     }
-    async fn update_fingerprint(&mut self) {
+    fn update_fingerprint(&mut self) {
         let fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
         self.download_file_from_github(
             "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
             fingerprint_path
                 .to_str()
                 .unwrap_or("web_fingerprint_v3.json"),
-        )
-        .await;
+        );
         self.download_file_from_github(
             "https://0x727.github.io/FingerprintHub/plugins/tags.yaml",
             self.config_path
                 .join("tags.yaml")
                 .to_str()
                 .unwrap_or("tags.yaml"),
-        )
-        .await;
+        );
     }
-    async fn update_plugins(&mut self) {
+    fn update_plugins(&mut self) {
         let plugins_zip_path = self.config_path.join("plugins.zip");
         let extract_target_path = self.config_path;
         self.download_file_from_github(
             "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
             plugins_zip_path.to_str().unwrap_or("plugins.zip"),
-        )
-        .await;
+        );
         match extract_plugins_zip(&plugins_zip_path, extract_target_path) {
             Ok(_) => {
                 println!("It has been extracted to the {:?}", extract_target_path);
@@ -180,15 +177,15 @@ impl<'a> Helper<'a> {
             }
         }
     }
-    pub async fn run(&mut self) -> HashMap<String, String> {
+    pub fn run(&mut self) -> HashMap<String, String> {
         if self.config.update_fingerprint {
-            self.update_fingerprint().await;
+            self.update_fingerprint();
         }
         if self.config.update_self {
-            self.update_self().await;
+            self.update_self();
         }
         if self.config.update_plugins {
-            self.update_plugins().await;
+            self.update_plugins();
         }
         if !self.msg.is_empty() {
             for (k, v) in &self.msg {
@@ -200,7 +197,7 @@ impl<'a> Helper<'a> {
 }
 
 impl<'a> Helper<'_> {
-    pub async fn update_self(&mut self) {
+    pub fn update_self(&mut self) {
         // https://doc.rust-lang.org/reference/conditional-compilation.html
         let mut base_url =
             String::from("https://github.com/0x727/ObserverWard/releases/download/default/");
@@ -216,8 +213,7 @@ impl<'a> Helper<'_> {
         };
         base_url.push_str(download_name);
         let save_filename = "update_".to_owned() + download_name;
-        self.download_file_from_github(&base_url, &save_filename)
-            .await;
+        self.download_file_from_github(&base_url, &save_filename);
         println!(
             "Please rename the file {} => {}",
             save_filename, download_name
@@ -274,14 +270,32 @@ impl<'a> Helper<'_> {
             if !config.silent {
                 println!("Load {} fingerprints.", web_fingerprint.len());
             }
+            if let Some(json_path) = &config.gen {
+                let out = File::create(json_path).expect("Failed to create file");
+                serde_json::to_writer(out, &web_fingerprint).expect("Failed to generate json file");
+                println!(
+                    "completed generating json format files, totaling {} items",
+                    web_fingerprint.len()
+                );
+            }
             return web_fingerprint;
         }
         let mut web_fingerprint_path = PathBuf::from("web_fingerprint_v3.json");
-        if !web_fingerprint_path.exists() {
-            web_fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
-        }
+        // 如果有指定路径的指纹库
         if let Some(p) = &config.fpath {
             web_fingerprint_path = PathBuf::from(p);
+            if !web_fingerprint_path.exists() {
+                println!("The specified fingerprint path does not exist");
+                std::process::exit(1);
+            }
+        } else {
+            // 如果当前运行目录下没有指纹库，把路径改为config目录下的
+            if !web_fingerprint_path.exists() {
+                web_fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
+            }
+            if !web_fingerprint_path.exists() {
+                self.update_fingerprint();
+            }
         }
         if let Ok(file) = File::open(web_fingerprint_path) {
             if let Ok(web_fingerprint) = serde_json::from_reader::<_, Vec<WebFingerPrint>>(&file) {
@@ -293,7 +307,7 @@ impl<'a> Helper<'_> {
             println!("The fingerprint library cannot be found in the current directory!");
             println!("Update fingerprint library with `-u` parameter!");
         }
-        Vec::new()
+        std::process::exit(1);
     }
 
     pub fn read_results_file(&self) -> Vec<WhatWebResult> {
@@ -323,14 +337,14 @@ impl<'a> Helper<'_> {
         }
         results
     }
-    async fn download_file_from_github(&mut self, update_url: &'a str, filename: &'a str) {
+    fn download_file_from_github(&mut self, update_url: &'a str, filename: &'a str) {
         let proxy = self.request_option.proxy.as_ref().cloned();
         let proxy_obj = Proxy::custom(move |_url| proxy.clone());
-        let client = reqwest::Client::builder().proxy(proxy_obj);
+        let client = reqwest::blocking::Client::builder().proxy(proxy_obj);
         if let Ok(downloading_client) = client.build() {
-            if let Ok(response) = downloading_client.get(update_url).send().await {
+            if let Ok(response) = downloading_client.get(update_url).send() {
                 let mut file = File::create(filename).unwrap();
-                let mut content = Cursor::new(response.bytes().await.unwrap_or_default());
+                let mut content = Cursor::new(response.bytes().unwrap_or_default());
                 std::io::copy(&mut content, &mut file).unwrap_or_default();
                 self.msg.insert(
                     String::from(update_url),

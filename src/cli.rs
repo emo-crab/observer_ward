@@ -25,6 +25,10 @@ pub struct ObserverWardConfig {
     #[argh(option)]
     #[serde(skip)]
     pub yaml: Option<PathBuf>,
+    /// generate json format fingerprint library from yaml format(requires yaml parameter)
+    #[argh(option)]
+    #[serde(skip)]
+    pub gen: Option<PathBuf>,
     /// customized nuclei template file path
     #[argh(option)]
     #[serde(skip)]

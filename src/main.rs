@@ -43,7 +43,7 @@ async fn start() -> Result<(), Error> {
     if config.service {
         nmap_fingerprint = helper.read_nmap_fingerprint();
     }
-    helper.run().await;
+    helper.run();
     let observer_ward_ins = ObserverWard::new(config.clone(), web_fingerprint, nmap_fingerprint);
     let vec_results = observer_ward_ins.scan(targets).await;
     print_results_and_save(vec_results, &config);

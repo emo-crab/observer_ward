@@ -73,7 +73,7 @@ async fn set_config_api(
         return HttpResponse::Unauthorized().finish();
     }
     let mut helper = Helper::new(&config);
-    helper.run().await;
+    helper.run();
     helper.msg = HashMap::new();
     observer_ward_ins.write().await.reload(&config);
     let config = observer_ward_ins.read().await.config.clone();
