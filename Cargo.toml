@@ -24,7 +24,7 @@ csv = "1.2.2"
 dirs = "5.0.1"
 tokio = { version = "1.29.1", default-features = false }
 prettytable-rs = "^0.10"
-textwrap = "0.15"
+textwrap = "0.16"
 log = "0.4.19"
 futures = { version = "0.3", features = ["compat"] }
 serde = { version = "1.0.163", features = ["derive"] }
