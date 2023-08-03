@@ -3,6 +3,11 @@
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+## [2023.8.3] - 2023.8.3
+
+### Fixes
+
+- 添加字段：extracted-results
 
 ## [2023.7.21] - 2023.7.21
 

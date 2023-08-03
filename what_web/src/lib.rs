@@ -241,8 +241,12 @@ pub struct TemplateResult {
     pub template: String,
     #[serde(rename = "template-id")]
     pub template_id: String,
+    #[serde(rename = "template-path")]
+    pub template_path: String,
     #[serde(rename = "matched-at")]
     pub matched_at: String,
+    #[serde(rename = "extracted-results", skip_serializing_if = "Option::is_none")]
+    pub extracted_results: Option<Vec<String>>,
     #[serde(default)]
     pub meta: HashMap<String, String>,
     #[serde(default)]
