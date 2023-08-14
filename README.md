@@ -404,7 +404,7 @@ Webhook json格式：
 
 ### 开启API服务
 
-- 使用`rest_api`参数提供监听地址和端口开启rest-api服务，使用`--daemon`参数将服务放到后台进程（不支持Window系统）。
+- 使用`-s`参数提供监听地址和端口开启rest-api服务，使用`--daemon`参数将服务放到后台进程（不支持Window系统）。
 - 如果需要支持`https`协议,需要生成`cert.pem`和`key.pem`
   文件放到程序配置目录，例如：Linux系统下的`/home/alice/.config/observer_ward/`。
 - 生成证书文件
