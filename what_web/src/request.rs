@@ -78,6 +78,7 @@ async fn send_requests(
 fn get_charset_from_html(text: &str) -> String {
     for metas in Document::from(text).find(Name("meta")) {
         if let Some(charset) = metas.attr("charset") {
+            let charset = charset.trim_matches('"').trim_matches('\'');
             return charset.to_lowercase();
         }
     }
@@ -224,7 +225,7 @@ async fn get_favicon_hash(url: &Url, config: &RequestOption) -> anyhow::Result<S
     let headers = res.headers().clone();
     let content = res.bytes().await?;
     if status_code != 200 || !is_image(&headers, &content) {
-        return Err(anyhow::Error::from(std::io::Error::last_os_error()));
+        return Ok(String::new());
     }
     Ok(favicon_hash(&content))
 }
@@ -271,7 +272,11 @@ async fn find_favicon_tag(
     let mut link_tags = HashMap::new();
     let icon_sets = get_favicon_link(text, base_url);
     for link in icon_sets {
+        // 当图标404时，没有命中缓存，默认返回空字符串，需要判断一下
         if let Ok(favicon_md5) = get_favicon_hash(&link, &config).await {
+            if favicon_md5.is_empty() {
+                continue;
+            }
             link_tags.insert(link.to_string(), favicon_md5);
         };
     }

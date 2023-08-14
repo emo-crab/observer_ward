@@ -3,6 +3,13 @@
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+## [2023.8.14] - 2023.8.14
+
+### Fixes
+
+- 修复获取html编码charset属性时存在双引号导致gb2312解码乱码
+- 修复favicon响应错误没有保存命中到缓存，导致多次请求同一个url，浪费请求资源
+
 ## [2023.8.3] - 2023.8.3
 
 ### Fixes
