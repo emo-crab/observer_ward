@@ -410,11 +410,14 @@ Webhook json格式：
 - 生成证书文件
 
 ```shell
+# mkcert 命令生成
 mkcert -key-file key.pem -cert-file cert.pem localhost
+# openssl 命令生成
+openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365
 ```
 
 ```shell
-➜  ~ ./observer_ward --rest_api 127.0.0.1:8000 --token 22e038328151a7a06fd4ebfa63a10228
+➜  ~ ./observer_ward -s 127.0.0.1:8000 --token 22e038328151a7a06fd4ebfa63a10228
  __     __     ______     ______     _____
 /\ \  _ \ \   /\  __ \   /\  == \   /\  __-.
 \ \ \/ ".\ \  \ \  __ \  \ \  __<   \ \ \/\ \
