@@ -296,7 +296,7 @@ iconv -f UTF-8 -t GB18030 Result.csv > Result.csv
 - 如果需要使用[nuclei](https://github.com/projectdiscovery/nuclei)检测漏洞，需要首先安装`Nuclei`
   到当前目录，或者是加入环境变量里面，让`observe_ward`可以正常调用。
 - 再下载[指纹库中的插件](https://github.com/0x727/FingerprintHub/tree/main/plugins)
-  到当前目录下，或者使用`--update_plugins`插件。
+  到当前目录下，或者使用`--update-plugins`插件。
 - 在[指纹库](https://github.com/0x727/FingerprintHub/tree/main/plugins)中已经对部分组件的插件进行了分类。
 - 如果识别到的组件在`plugins`目录下存在和组件同名的文件夹，会对目标调用Nuclei使用匹配到的插件进行检测，存在漏洞会输出到屏幕。
 - 因为经过测试在指纹识别过程中同时调用nuclei检测漏洞会影响Web指纹识别的效果，也会拉长识别的时间，所以选择识别完Web指纹后将结果保存到文件，再解析文件调用nuclei检测。
