@@ -125,6 +125,7 @@ https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json:=> /home/kali-tea
 ➜  ~ jq length web_fingerprint_v3.json
 3448
 ```
+
 - `/home/kali-team/IdeaProjects/FingerprintHub/web_fingerprint`是存放yaml的目录，`web_fingerprint_v3.json`是生成的文件路径。
 
 ```bash
@@ -369,6 +370,7 @@ app = Flask(__name__)
 
 @app.route("/webhook", methods=['POST'])
 def observer_ward_webhook():
+    print("Authorization: ", request.headers.get("Authorization"))
     print(request.json)
     return 'ok'
 
@@ -464,16 +466,32 @@ curl --request POST \
   "update_plugins": false,
   "thread": 100,
   "webhook": "",
+  "webhook_auth": "",
   "service": false
 }
 ```
+
+- 在添加任务时可以指定`webhook_auth`字段用来标识不同的任务,字符串必须符合HTTP请求头值
+
+```bash
+curl --request POST \
+  --url http://127.0.0.1:8000/v1/observer_ward \
+  --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
+  --header 'Content-Type: application/json' \
+  --data '{"target":"https://www.example.com/","webhook_auth":"ID"}'
+```
+
+- 现在你可以在你的webhook服务器中读取请求头中的`Authorization`字段就可以得到他的值为`ID`
+
 ### 危险模式
 
 - `--danger`参数会加上敏感请求头，有可能会被Web防火墙拦截，默认不加。
 
 ### 自定义UA
 
-- `--ua`参数可以自定义请求头里面的`USER_AGENT`，默认是`Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0`。
+- `--ua`参数可以自定义请求头里面的`USER_AGENT`
+  ，默认是`Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0`。
+
 ### 静默模式
 
 - `--silent`参数为静默模式，不会输出任何信息，结果需要保存在文件，方便在webshell执行。

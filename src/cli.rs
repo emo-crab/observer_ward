@@ -81,6 +81,10 @@ pub struct ObserverWardConfig {
     #[argh(option)]
     #[serde(default)]
     pub webhook: Option<String>,
+    /// the auth will be set to the webhook request header AUTHORIZATION
+    #[argh(option)]
+    #[serde(default)]
+    pub webhook_auth: Option<String>,
     /// using nmap fingerprint identification service (slow)
     #[argh(switch)]
     #[serde(default)]

@@ -62,7 +62,11 @@ pub fn print_what_web(what_web_result: &WhatWebResult) {
     }
 }
 
-pub async fn webhook_results(what_web_result: WhatWebResult, webhook_url: &str) -> WhatWebResult {
+pub async fn webhook_results(
+    what_web_result: WhatWebResult,
+    webhook_url: &str,
+    webhook_auth: &Option<String>,
+) -> WhatWebResult {
     let mut headers = header::HeaderMap::new();
     headers.insert(
         header::CONTENT_TYPE,
@@ -70,6 +74,13 @@ pub async fn webhook_results(what_web_result: WhatWebResult, webhook_url: &str) 
     );
     let ua = "Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0";
     headers.insert(header::USER_AGENT, header::HeaderValue::from_static(ua));
+    if let Some(wa) = webhook_auth {
+        let h = header::HeaderValue::from_str(wa);
+        headers.insert(
+            header::AUTHORIZATION,
+            h.unwrap_or(header::HeaderValue::from_static("AUTHORIZATION")),
+        );
+    }
     let client = reqwest::Client::builder()
         .default_headers(headers)
         .pool_max_idle_per_host(0)
@@ -377,7 +388,7 @@ fn is_hidden(entry: &std::fs::DirEntry) -> bool {
 
 pub fn read_file_to_target(file_path: &str) -> HashSet<String> {
     if let Ok(lines) = read_lines(file_path) {
-        let target_list: Vec<String> = lines.filter_map(Result::ok).collect();
+        let target_list: Vec<String> = lines.map_while(Result::ok).collect();
         return HashSet::from_iter(target_list);
     }
     HashSet::from_iter([])
@@ -685,6 +696,7 @@ impl ObserverWard {
         let mut vec_results: Vec<WhatWebResult> = vec![];
         let config_thread = config.thread;
         let webhook = config.webhook.clone();
+        let webhook_auth = config.webhook_auth.clone();
         let what_web_handle = tokio::task::spawn(async move {
             let mut worker = FuturesUnordered::new();
             let mut targets_iter = targets.iter();
@@ -757,7 +769,7 @@ impl ObserverWard {
                 for _ in 0..3 {
                     match verify_receiver.next().await {
                         Some(w) => {
-                            worker.push(webhook_results(w, &webhook_url));
+                            worker.push(webhook_results(w, &webhook_url, &webhook_auth));
                         }
                         None => {
                             break;
@@ -766,7 +778,7 @@ impl ObserverWard {
                 }
                 while let Some(wwr) = worker.next().await {
                     if let Some(w) = verify_receiver.next().await {
-                        worker.push(webhook_results(w, &webhook_url));
+                        worker.push(webhook_results(w, &webhook_url, &webhook_auth));
                     }
                     results_sender.start_send(wwr).unwrap_or_default();
                 }
