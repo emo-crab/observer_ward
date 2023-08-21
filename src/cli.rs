@@ -8,8 +8,10 @@ use std::process::{Command, Stdio};
 #[derive(Debug, Serialize, Deserialize, Clone, FromArgs, Default)]
 #[argh(description = "observer_ward")]
 pub struct ObserverWardConfig {
-    // #[serde(default)]
-    // pub targets: Vec<String>,
+    /// multiple targets from the API
+    #[argh(option)]
+    #[serde(default)]
+    pub targets: Vec<String>,
     /// the target (required, unless --stdin used)
     #[argh(option, short = 't')]
     pub target: Option<String>,

@@ -47,9 +47,10 @@ async fn what_web_api(
         return HttpResponse::Unauthorized().finish();
     }
     let mut targets = HashSet::new();
-    targets.insert(config.target.clone().unwrap_or_default());
-    let mut observer_ward = observer_ward_ins.read().await.clone();
     let config = config.0;
+    targets.insert(config.target.clone().unwrap_or_default());
+    targets.extend(config.targets);
+    let mut observer_ward = observer_ward_ins.read().await.clone();
     observer_ward.config.webhook_auth = config.webhook_auth;
     if observer_ward.config.webhook.is_none() {
         let vec_results = observer_ward.scan(targets).await;

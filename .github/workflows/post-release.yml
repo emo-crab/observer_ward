@@ -95,6 +95,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xz-utils liblz4-tool libssl-dev musl-tools pkg-config
           sed -i -e "s/^version = .*/version = \"`date +'%-Y.%-m.%-d'`\"/" Cargo.toml
+          sed -i -e "s/\"observer_ward\"/\"observer_ward v`date +'%-Y.%-m.%-d'`\"/" src/cli.rs
       - name: Install packages (Windows)
         if: matrix.os == 'windows-latest'
         shell: bash
@@ -102,6 +103,7 @@ jobs:
           choco install llvm openssl
           export CARGO_PKG_VERSION=`date +'%-Y.%-m.%-d'`
           sed -i -e "s/^version = .*/version = \"`date +'%-Y.%-m.%-d'`\"/" Cargo.toml
+          sed -i -e "s/\"observer_ward\"/\"observer_ward v`date +'%-Y.%-m.%-d'`\"/" src/cli.rs
           echo "CARGO_PKG_VERSION=`date +'%Y.%m.%d'`" >>$GITHUB_ENV
           echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" >>$GITHUB_ENV
           echo "RUSTFLAGS=-C target-feature=+crt-static" >>$GITHUB_ENV
@@ -109,6 +111,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           sed -i -e "s/^version = .*/version = \"`date +'%-Y.%-m.%-d'`\"/" Cargo.toml
+          sed -i -e "s/\"observer_ward\"/\"observer_ward v`date +'%-Y.%-m.%-d'`\"/" src/cli.rs
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:

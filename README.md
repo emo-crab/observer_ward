@@ -483,6 +483,16 @@ curl --request POST \
 
 - 现在你可以在你的webhook服务器中读取请求头中的`Authorization`字段就可以得到他的值为`ID`
 
+- 一次API请求中添加多个目标：`targets`，会自动和`target`字段合并去重
+
+```bash
+➜  ~ curl --request POST \ 
+  --url http://127.0.0.1:8000/v1/observer_ward \
+  --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
+  --header 'Content-Type: application/json' \
+  --data '{"target":"https://127.0.0.1:9443/","webhook_auth":"ID","targets":["https://127.0.0.1:8000/","http://127.0.0.1:9200/"]}'
+```
+
 ### 危险模式
 
 - `--danger`参数会加上敏感请求头，有可能会被Web防火墙拦截，默认不加。
