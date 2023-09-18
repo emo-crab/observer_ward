@@ -4,6 +4,12 @@
 
 ## [Unreleased] - ReleaseDate
 
+## [2023.9.18] - 2023.9.18
+
+### Fixes
+
+- 修复charset没覆盖的情况，感谢@zema1
+
 ## [2023.8.21] - 2023.8.21
 
 ### Fixes
