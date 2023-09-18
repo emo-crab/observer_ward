@@ -10,16 +10,17 @@ use md5::{Digest, Md5};
 use mime::Mime;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use reqwest::{header, Proxy, Response};
 use reqwest::header::{HeaderMap, HeaderValue, LOCATION};
 use reqwest::redirect::Policy;
-use reqwest::{header, Proxy, Response};
+use reqwest::tls::Version;
 use select::document::Document;
 use select::predicate::Name;
 use url::Url;
 
 use crate::fingerprint::WebFingerPrintRequest;
-use crate::ward::RawData;
 use crate::RequestOption;
+use crate::ward::RawData;
 
 /// 发送请求，并带上apache-shiro的请求头
 async fn send_requests(
@@ -59,6 +60,7 @@ async fn send_requests(
         .pool_max_idle_per_host(0)
         .danger_accept_invalid_certs(true)
         .danger_accept_invalid_hostnames(true)
+        .min_tls_version(Version::TLS_1_0)
         .default_headers(headers.clone())
         .redirect(redirect)
         .cookie_store(true)
@@ -80,6 +82,13 @@ fn get_charset_from_html(text: &str) -> String {
         if let Some(charset) = metas.attr("charset") {
             let charset = charset.trim_matches('"').trim_matches('\'');
             return charset.to_lowercase();
+        }
+        if let Some(content) = metas.attr("content") {
+            if let Ok(mime) = Mime::from_str(content) {
+                if let Some(charset) = mime.get_param("charset") {
+                    return charset.to_string();
+                }
+            }
         }
     }
     String::from("utf-8")
@@ -396,12 +405,14 @@ pub async fn index_fetch(
 
 #[cfg(test)]
 mod tests {
-    use crate::request::{get_favicon_link, get_next_jump, send_requests};
-    use crate::{RequestOption, WebFingerPrintRequest};
+    use std::collections::HashMap;
+
     use reqwest::header::HeaderMap;
     use reqwest::redirect::Policy;
-    use std::collections::HashMap;
     use url::Url;
+
+    use crate::{RequestOption, WebFingerPrintRequest};
+    use crate::request::{get_favicon_link, get_next_jump, send_requests, get_charset_from_html};
 
     // https://docs.rs/tokio/latest/tokio/attr.test.html
     #[tokio::test]
@@ -461,6 +472,18 @@ mod tests {
                 }
             }
             assert!(flag);
+        }
+    }
+
+    #[test]
+    fn test_get_charset() {
+        let charset_tests = [
+            (r#"<meta charset="gb2312" />"#, "gb2312"),
+            (r#"<meta http-equiv="Content-Type" content="text/html; charset=gbk" />"#, "gbk"),
+            (r#"<meta http-equiv="Content-Type" content="text/html;" />"#, "utf-8")
+        ];
+        for (text, verify) in charset_tests.iter() {
+            assert_eq!(get_charset_from_html(text), verify.to_string());
         }
     }
 
