@@ -10,17 +10,17 @@ use md5::{Digest, Md5};
 use mime::Mime;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use reqwest::{header, Proxy, Response};
 use reqwest::header::{HeaderMap, HeaderValue, LOCATION};
 use reqwest::redirect::Policy;
 use reqwest::tls::Version;
+use reqwest::{header, Proxy, Response};
 use select::document::Document;
 use select::predicate::Name;
 use url::Url;
 
 use crate::fingerprint::WebFingerPrintRequest;
-use crate::RequestOption;
 use crate::ward::RawData;
+use crate::RequestOption;
 
 /// 发送请求，并带上apache-shiro的请求头
 async fn send_requests(
@@ -293,13 +293,11 @@ async fn find_favicon_tag(
 }
 
 static RE_COMPILE_BY_SIZE: Lazy<Regex> =
-    Lazy::new(|| -> Regex { Regex::new(r#"(?im)-\d{1,3}x\d{1,3}"#).expect("RE_COMPILE_BY_SIZE") });
+    Lazy::new(|| -> Regex { Regex::new(r"(?im)-\d{1,3}x\d{1,3}").expect("RE_COMPILE_BY_SIZE") });
 /// 支持部分正文跳转
 static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
-    let js_reg = vec![
-        r#"(?im)\.location.*?=\s*?['"](?P<name>.*?)['"]"#,
-        r#"(?im)\.location\.(open|replace)\((?P<name>.*?)\)"#,
-    ];
+    let js_reg = [r#"(?im)\.location.*?=\s*?['"](?P<name>.*?)['"]"#,
+        r"(?im)\.location\.(open|replace)\((?P<name>.*?)\)"];
     let re_list: Vec<Regex> = js_reg
         .iter()
         .map(|reg| Regex::new(reg).expect("RE_COMPILE_BY_JUMP"))
@@ -411,8 +409,8 @@ mod tests {
     use reqwest::redirect::Policy;
     use url::Url;
 
+    use crate::request::{get_charset_from_html, get_favicon_link, get_next_jump, send_requests};
     use crate::{RequestOption, WebFingerPrintRequest};
-    use crate::request::{get_favicon_link, get_next_jump, send_requests, get_charset_from_html};
 
     // https://docs.rs/tokio/latest/tokio/attr.test.html
     #[tokio::test]
@@ -479,8 +477,14 @@ mod tests {
     fn test_get_charset() {
         let charset_tests = [
             (r#"<meta charset="gb2312" />"#, "gb2312"),
-            (r#"<meta http-equiv="Content-Type" content="text/html; charset=gbk" />"#, "gbk"),
-            (r#"<meta http-equiv="Content-Type" content="text/html;" />"#, "utf-8")
+            (
+                r#"<meta http-equiv="Content-Type" content="text/html; charset=gbk" />"#,
+                "gbk",
+            ),
+            (
+                r#"<meta http-equiv="Content-Type" content="text/html;" />"#,
+                "utf-8",
+            ),
         ];
         for (text, verify) in charset_tests.iter() {
             assert_eq!(get_charset_from_html(text), verify.to_string());
