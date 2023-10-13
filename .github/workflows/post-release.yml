@@ -147,7 +147,6 @@ jobs:
             echo "BIN_FILE=$bin_file" >> $GITHUB_ENV
           else
             bin_file="target/${{ matrix.target }}/release/${{ env.BIN_NAME }}"
-            strip "$bin_file"
             cp "$bin_file" "$staging/"
             tar czf "$staging.tar.gz" -C "$staging" ${{ env.BIN_NAME }} README.md LICENSE
             echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
