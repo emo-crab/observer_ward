@@ -103,8 +103,8 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends xz-utils liblz4-tool libc6-dev libssl-dev musl-tools pkg-config patchelf
-          sudo apt-get install -y gcc-multilib gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+          sudo apt-get install -y gcc-multilib xz-utils liblz4-tool libc6-dev libssl-dev musl-tools pkg-config patchelf
+          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
           sed -i -e "s/^version = .*/version = \"`date +'%-Y.%-m.%-d'`\"/" Cargo.toml
           sed -i -e "s/\"observer_ward\"/\"observer_ward v`date +'%-Y.%-m.%-d'`\"/" src/cli.rs
       - name: Install packages (Windows)
