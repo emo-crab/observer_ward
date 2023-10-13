@@ -3,3 +3,11 @@ rustflags = ["-Ctarget-feature=+crt-static"]
 
 [target.i686-pc-windows-msvc]
 rustflags = ["-Ctarget-feature=+crt-static"]
+
+[target.armv7-unknown-linux-gnueabihf]
+rustflags = ["-C", "target-feature=+crt-static"]
+linker = "arm-linux-gnueabihf-gcc"
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "target-feature=+crt-static"]
+linker = "aarch64-linux-gnu-gcc"
