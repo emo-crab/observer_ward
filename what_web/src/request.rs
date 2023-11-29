@@ -54,7 +54,12 @@ async fn send_requests(
     let body_data = fingerprint.get_body();
     fingerprint.set_header(&mut headers);
     if fingerprint.path != "/" {
-        url.set_path(fingerprint.path.as_str());
+        let path = format!(
+            "{}/{}",
+            url.path().trim_end_matches('/'),
+            fingerprint.path.trim_start_matches('/')
+        );
+        url.set_path(&path);
     }
     let client = reqwest::Client::builder()
         .pool_max_idle_per_host(0)
@@ -296,8 +301,10 @@ static RE_COMPILE_BY_SIZE: Lazy<Regex> =
     Lazy::new(|| -> Regex { Regex::new(r"(?im)-\d{1,3}x\d{1,3}").expect("RE_COMPILE_BY_SIZE") });
 /// 支持部分正文跳转
 static RE_COMPILE_BY_JUMP: Lazy<Vec<Regex>> = Lazy::new(|| -> Vec<Regex> {
-    let js_reg = [r#"(?im)\.location.*?=\s*?['"](?P<name>.*?)['"]"#,
-        r"(?im)\.location\.(open|replace)\((?P<name>.*?)\)"];
+    let js_reg = [
+        r#"(?im)\.location.*?=\s*?['"](?P<name>.*?)['"]"#,
+        r"(?im)\.location\.(open|replace)\((?P<name>.*?)\)",
+    ];
     let re_list: Vec<Regex> = js_reg
         .iter()
         .map(|reg| Regex::new(reg).expect("RE_COMPILE_BY_JUMP"))
