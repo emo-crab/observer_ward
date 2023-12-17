@@ -8,7 +8,7 @@ license = "MIT"
 include = ["LICENSE", "Cargo.toml", "src/**/*.rs"]
 
 [workspace]
-members = ["observer_ward", "what_web", "what_server"]
+members = ["observer_ward", "what_web", "what_server", "manager"]
 resolver = "2"
 [profile.release]
 lto = true
