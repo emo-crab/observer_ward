@@ -10,6 +10,7 @@ include = ["LICENSE", "Cargo.toml", "src/**/*.rs"]
 [workspace]
 members = ["observer_ward", "what_web", "what_server", "manager"]
 resolver = "2"
+default-members = ["observer_ward"]
 [profile.release]
 lto = true
 opt-level = "z"

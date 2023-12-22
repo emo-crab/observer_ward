@@ -131,7 +131,7 @@ jobs:
           override: true
           target: ${{ matrix.target }}
       - name: Build release binary
-        run: cargo build --target ${{ matrix.target }} --verbose --release --manifest-path=observer_ward/Cargo.toml
+        run: cargo build --target ${{ matrix.target }} --verbose --release
       - name: Build archive
         shell: bash
         run: |
@@ -139,14 +139,14 @@ jobs:
           mkdir -p "$staging"
           cp {README.md,LICENSE} "$staging/"
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            bin_file="observer_ward/target/${{ matrix.target }}/release/${{ env.BIN_NAME }}.exe"
+            bin_file="target/${{ matrix.target }}/release/${{ env.BIN_NAME }}.exe"
             cp "$bin_file" "$staging/"
             cd "$staging"
             7z a "../$staging.zip" .
             echo "ASSET=$staging.zip" >> $GITHUB_ENV
             echo "BIN_FILE=$bin_file" >> $GITHUB_ENV
           else
-            bin_file="observer_ward/target/${{ matrix.target }}/release/${{ env.BIN_NAME }}"
+            bin_file="target/${{ matrix.target }}/release/${{ env.BIN_NAME }}"
             cp "$bin_file" "$staging/"
             tar czf "$staging.tar.gz" -C "$staging" ${{ env.BIN_NAME }} README.md LICENSE
             echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV

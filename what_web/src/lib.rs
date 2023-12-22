@@ -183,7 +183,10 @@ impl WhatWeb {
                 if (raw_data.next_url.is_none() && what_web_result.title.is_empty())
                     || raw_data.status_code.is_success()
                 {
-                    what_web_result.title = get_title(&raw_data.text);
+                    what_web_result.title = get_title(&raw_data.text)
+                        .chars()
+                        .filter(|c| !c.is_whitespace())
+                        .collect();
                     what_web_result.priority += 1;
                     if what_web_result.url.starts_with("http://")
                         && raw_data.url.as_str().starts_with("https://")
