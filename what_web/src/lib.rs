@@ -13,6 +13,7 @@ use serde::{de, Deserialize, Deserializer, Serialize};
 use ward::check;
 
 use crate::fingerprint::WebFingerPrint;
+use crate::ward::RawData;
 
 pub mod fingerprint;
 mod request;
@@ -56,6 +57,41 @@ impl WhatWebResult {
             plugins: HashSet::new(),
             plugins_result: None,
             is_web: true,
+        }
+    }
+    // 单独处理结果更新逻辑
+    fn update(&mut self, raw_data: Arc<RawData>, url: String) {
+        let is_same_origin = is_same_origin(&raw_data.url, &url);
+        // 如果当前url是http，同源跳转后为https，只保留https的，不同源的不变
+        if is_same_origin {
+            if !(self.url.starts_with("http://") || self.url.starts_with("https://")) {
+                self.url = raw_data.url.to_string();
+            } else if let Ok(mut u) = Url::parse(&self.url) {
+                u.set_port(raw_data.url.port_or_known_default())
+                    .unwrap_or_default();
+                u.set_scheme(raw_data.url.scheme()).unwrap_or_default();
+                self.url = u.to_string();
+            }
+        }
+        self.length = raw_data.text.len();
+        // 请求的状态码为跳转30x，判断是否为同源网站，如果不是就固定30x
+        if (self.status_code == 0 || raw_data.status_code.is_redirection()) && !is_same_origin {
+            self.status_code = raw_data.status_code.as_u16();
+        }
+        // 如果还是0（未更新状态）而且请求状态码优先当前状态码，设置为20x
+        if self.status_code == 0 && raw_data.status_code.is_success() {
+            self.status_code = raw_data.status_code.as_u16();
+        }
+        // 如果没有跳转URL，也就是当前请求是最后一个请求
+        if raw_data.next_url.is_none() && self.title.is_empty() {
+            self.title = get_title(&raw_data.text)
+                .chars()
+                .filter(|c| !c.is_control())
+                .collect();
+            self.priority += 1;
+        }
+        if raw_data.status_code.is_success() {
+            self.priority += 1;
         }
     }
 }
@@ -126,6 +162,28 @@ impl RequestOption {
     }
 }
 
+// 判断两个URL是否同源，如果仅仅协议不同是从80跳转到443端口这种情况也算是同一个网站
+fn is_same_origin(raw_data_url: &Url, url: &str) -> bool {
+    let is_same = |u1: &Url, u2: &Url| -> bool {
+        let p1 = u1.port_or_known_default();
+        let p2 = u2.port_or_known_default();
+        let h1 = u1.host_str();
+        let h2 = u2.host_str();
+        let p = (p1 == p2)
+            || ((p1 == Some(443) && p2 == Some(80)) || (p1 == Some(80) && p2 == Some(443)));
+        h1 == h2 && p
+    };
+    if url.starts_with("http://") || url.starts_with("https://") {
+        if let Ok(u) = Url::parse(url) {
+            return is_same(&u, raw_data_url);
+        }
+    } else if let Ok(u) = Url::parse(&format!("http://{}", url)) {
+        return is_same(&u, raw_data_url);
+    }
+    // 文件路径没有主机也没有端口（web会有默认端口，服务也会有端口）
+    false
+}
+
 #[derive(Clone)]
 pub struct WhatWeb {
     /// 指纹规则库
@@ -167,40 +225,7 @@ impl WhatWeb {
                     name.insert(k);
                     what_web_result.priority = v;
                 }
-                if url.starts_with("http://") || url.starts_with("https://") {
-                    // 本来有的协议
-                    what_web_result.url = url.clone();
-                } else if what_web_result.url.starts_with("http://")
-                    || what_web_result.url.starts_with("https://")
-                {
-                } else {
-                    what_web_result.url = raw_data.url.as_str().to_string();
-                }
-                what_web_result.length = raw_data.text.len();
-                if what_web_result.status_code == 0 || raw_data.status_code.is_success() {
-                    what_web_result.status_code = raw_data.status_code.as_u16();
-                }
-                if (raw_data.next_url.is_none() && what_web_result.title.is_empty())
-                    || raw_data.status_code.is_success()
-                {
-                    what_web_result.title = get_title(&raw_data.text)
-                        .chars()
-                        .filter(|c| !c.is_whitespace())
-                        .collect();
-                    what_web_result.priority += 1;
-                    if what_web_result.url.starts_with("http://")
-                        && raw_data.url.as_str().starts_with("https://")
-                    {
-                        what_web_result.url = what_web_result.url.replace("http://", "https://");
-                    } else if what_web_result.url.starts_with("https://")
-                        && raw_data.url.as_str().starts_with("http://")
-                    {
-                        what_web_result.url = what_web_result.url.replace("https://", "http://");
-                    }
-                }
-                if raw_data.status_code.is_success() {
-                    what_web_result.priority += 1;
-                }
+                what_web_result.update(raw_data, url.clone());
             }
         };
         // 在首页请求时不是Web也没必要跑特殊请求了
