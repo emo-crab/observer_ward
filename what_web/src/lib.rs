@@ -88,6 +88,9 @@ impl WhatWebResult {
                 .chars()
                 .filter(|c| !c.is_control())
                 .collect();
+            if self.status_code == 0 {
+                self.status_code = raw_data.status_code.as_u16();
+            }
             self.priority += 1;
         }
         if raw_data.status_code.is_success() {
