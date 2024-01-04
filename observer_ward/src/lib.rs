@@ -16,8 +16,8 @@ use serde_json::json;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io;
-use std::io::Cursor;
 use std::io::{BufRead, Read};
+use std::io::{Cursor, IsTerminal};
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -155,29 +155,32 @@ impl<'a> Helper<'a> {
             msg: Default::default(),
         }
     }
-    fn update_fingerprint(&mut self) {
+    async fn update_fingerprint(&mut self) {
         let fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
         self.download_file_from_github(
             "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
             fingerprint_path
                 .to_str()
                 .unwrap_or("web_fingerprint_v3.json"),
-        );
+        )
+        .await;
         self.download_file_from_github(
             "https://0x727.github.io/FingerprintHub/plugins/tags.yaml",
             self.config_path
                 .join("tags.yaml")
                 .to_str()
                 .unwrap_or("tags.yaml"),
-        );
+        )
+        .await;
     }
-    fn update_plugins(&mut self) {
+    async fn update_plugins(&mut self) {
         let plugins_zip_path = self.config_path.join("plugins.zip");
         let extract_target_path = self.config_path;
         self.download_file_from_github(
             "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
             plugins_zip_path.to_str().unwrap_or("plugins.zip"),
-        );
+        )
+        .await;
         match extract_plugins_zip(&plugins_zip_path, extract_target_path) {
             Ok(_) => {
                 println!("It has been extracted to the {:?}", extract_target_path);
@@ -188,15 +191,15 @@ impl<'a> Helper<'a> {
             }
         }
     }
-    pub fn run(&mut self) -> HashMap<String, String> {
+    pub async fn run(&mut self) -> HashMap<String, String> {
         if self.config.update_fingerprint {
-            self.update_fingerprint();
+            self.update_fingerprint().await;
         }
         if self.config.update_self {
-            self.update_self();
+            self.update_self().await;
         }
         if self.config.update_plugins {
-            self.update_plugins();
+            self.update_plugins().await;
         }
         if !self.msg.is_empty() {
             for (k, v) in &self.msg {
@@ -208,7 +211,7 @@ impl<'a> Helper<'a> {
 }
 
 impl<'a> Helper<'_> {
-    pub fn update_self(&mut self) {
+    pub async fn update_self(&mut self) {
         // https://doc.rust-lang.org/reference/conditional-compilation.html
         let mut base_url =
             String::from("https://github.com/0x727/ObserverWard/releases/download/default/");
@@ -224,7 +227,8 @@ impl<'a> Helper<'_> {
         };
         base_url.push_str(download_name);
         let save_filename = "update_".to_owned() + download_name;
-        self.download_file_from_github(&base_url, &save_filename);
+        self.download_file_from_github(&base_url, &save_filename)
+            .await;
         println!(
             "Please rename the file {} => {}",
             save_filename, download_name
@@ -305,7 +309,7 @@ impl<'a> Helper<'_> {
                 web_fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
             }
             if !web_fingerprint_path.exists() {
-                self.update_fingerprint();
+                println!("Update fingerprint library with `-u` parameter!");
             }
         }
         if let Ok(file) = File::open(web_fingerprint_path) {
@@ -323,7 +327,7 @@ impl<'a> Helper<'_> {
 
     pub fn read_results_file(&self) -> Vec<WhatWebResult> {
         let mut results: Vec<WhatWebResult> = Vec::new();
-        let read_file_data = |path: &str| {
+        let read_file_data = |path: &PathBuf| {
             let mut file = match File::open(path) {
                 Err(err) => {
                     println!("{}", err);
@@ -336,26 +340,31 @@ impl<'a> Helper<'_> {
             data
         };
         if let Some(json_path) = &self.config.json {
-            let data = read_file_data(json_path);
-            let wwr: Vec<WhatWebResult> = serde_json::from_str(&data).expect("BAD JSON");
-            results.extend(wwr);
+            if json_path.exists() {
+                let data = read_file_data(json_path);
+                let wwr: Vec<WhatWebResult> = serde_json::from_str(&data).expect("BAD JSON");
+                results.extend(wwr);
+            }
         }
         if let Some(csv_path) = &self.config.csv {
-            let rdr = Reader::from_path(csv_path).expect("BAD CSV");
-            let iter: csv::DeserializeRecordsIntoIter<File, WhatWebResult> = rdr.into_deserialize();
-            let wwr: Vec<WhatWebResult> = iter.filter_map(Result::ok).collect();
-            results.extend(wwr);
+            if csv_path.exists() {
+                let rdr = Reader::from_path(csv_path).expect("BAD CSV");
+                let iter: csv::DeserializeRecordsIntoIter<File, WhatWebResult> =
+                    rdr.into_deserialize();
+                let wwr: Vec<WhatWebResult> = iter.filter_map(Result::ok).collect();
+                results.extend(wwr);
+            }
         }
         results
     }
-    fn download_file_from_github(&mut self, update_url: &'a str, filename: &'a str) {
+    async fn download_file_from_github(&mut self, update_url: &'a str, filename: &'a str) {
         let proxy = self.request_option.proxy.as_ref().cloned();
         let proxy_obj = Proxy::custom(move |_url| proxy.clone());
-        let client = reqwest::blocking::Client::builder().proxy(proxy_obj);
+        let client = reqwest::Client::builder().proxy(proxy_obj);
         if let Ok(downloading_client) = client.build() {
-            if let Ok(response) = downloading_client.get(update_url).send() {
+            if let Ok(response) = downloading_client.get(update_url).send().await {
                 let mut file = File::create(filename).unwrap();
-                let mut content = Cursor::new(response.bytes().unwrap_or_default());
+                let mut content = Cursor::new(response.bytes().await.unwrap_or_default());
                 std::io::copy(&mut content, &mut file).unwrap_or_default();
                 self.msg.insert(
                     String::from(update_url),
@@ -392,6 +401,38 @@ pub fn read_file_to_target(file_path: &str) -> HashSet<String> {
         return HashSet::from_iter(target_list);
     }
     HashSet::from_iter([])
+}
+pub fn read_from_stdio() -> Result<HashSet<String>, io::Error> {
+    let (tx, rx) = std::sync::mpsc::channel::<String>();
+    let mut stdin = std::io::stdin();
+    if stdin.is_terminal() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "invalid input",
+        ));
+    }
+    std::thread::spawn(move || loop {
+        let mut buffer = String::new();
+        stdin.read_to_string(&mut buffer).unwrap_or_default();
+        if let Err(_err) = tx.send(buffer) {
+            break;
+        };
+    });
+    loop {
+        match rx.try_recv() {
+            Ok(line) => {
+                let l = line
+                    .lines()
+                    .map(|l| l.to_string())
+                    .collect::<HashSet<String>>();
+                return Ok(l);
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => {}
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => panic!("Channel disconnected"),
+        }
+        let duration = std::time::Duration::from_millis(1000);
+        std::thread::sleep(duration);
+    }
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
@@ -552,7 +593,7 @@ pub async fn get_plugins_by_nuclei(
     if let Some(t) = &config.path {
         exist_plugins.push(t.to_string());
     }
-    if exist_plugins.is_empty() || template_condition.is_empty() {
+    if exist_plugins.is_empty() && template_condition.is_empty() {
         return wwr;
     }
     let mut command_line = Command::new("nuclei");
@@ -685,7 +726,11 @@ impl ObserverWard {
             config,
         }
     }
-    pub async fn scan(&self, targets: HashSet<String>) -> Vec<WhatWebResult> {
+    pub async fn scan(
+        &self,
+        targets: HashSet<String>,
+        result: Option<Vec<WhatWebResult>>,
+    ) -> Vec<WhatWebResult> {
         let config = self.config.clone();
         let what_web_ins = self.what_web_ins.clone();
         let what_server_ins = self.what_server_ins.clone();
@@ -740,6 +785,12 @@ impl ObserverWard {
         let verify_handle = tokio::task::spawn(async move {
             if config.use_nuclei() {
                 let mut worker = FuturesUnordered::new();
+                if let Some(rs) = result {
+                    for w in rs {
+                        println!("{:?}", w);
+                        worker.push(get_plugins_by_nuclei(w, &config));
+                    }
+                }
                 for _ in 0..3 {
                     match what_server_receiver.next().await {
                         Some(w) => {

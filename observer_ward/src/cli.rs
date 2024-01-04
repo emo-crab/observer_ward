@@ -50,11 +50,11 @@ pub struct ObserverWardConfig {
     /// export to the csv file or Import form the csv file
     #[argh(option, short = 'c')]
     #[serde(skip)]
-    pub csv: Option<String>,
+    pub csv: Option<PathBuf>,
     /// export to the json file or Import form the json file
     #[argh(option, short = 'j')]
     #[serde(skip)]
-    pub json: Option<String>,
+    pub json: Option<PathBuf>,
     /// proxy to use for requests (ex:[http(s)|socks5(h)]://host:port)
     #[argh(option)]
     #[serde(default)]

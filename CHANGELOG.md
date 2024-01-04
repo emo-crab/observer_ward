@@ -3,6 +3,12 @@
 <!-- next-header -->
 
 ## [Unreleased] - ReleaseDate
+## [2023.9.18] - 2024.1.5
+
+### Fixes
+
+- 从结果文件中读取目标和指纹，修复nuclei逻辑判断
+
 ## [2023.9.18] - 2023.12.22
 
 ### Fixes
