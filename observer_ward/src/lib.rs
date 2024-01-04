@@ -787,7 +787,6 @@ impl ObserverWard {
                 let mut worker = FuturesUnordered::new();
                 if let Some(rs) = result {
                     for w in rs {
-                        println!("{:?}", w);
                         worker.push(get_plugins_by_nuclei(w, &config));
                     }
                 }
