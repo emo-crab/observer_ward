@@ -396,7 +396,7 @@ pub async fn index_fetch(
                 }
             }
             max_redirect -= 1;
-            if max_redirect <= 0 {
+            if max_redirect < 0 {
                 break;
             }
         }

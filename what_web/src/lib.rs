@@ -61,6 +61,12 @@ impl WhatWebResult {
     }
     // 单独处理结果更新逻辑
     fn update(&mut self, raw_data: Arc<RawData>, url: String) {
+        let title = || {
+            get_title(&raw_data.text)
+                .chars()
+                .filter(|c| !c.is_control())
+                .collect()
+        };
         let is_same_origin = is_same_origin(&raw_data.url, &url);
         // 如果当前url是http，同源跳转后为https，只保留https的，不同源的不变
         if is_same_origin {
@@ -79,17 +85,17 @@ impl WhatWebResult {
             self.status_code = raw_data.status_code.as_u16();
         }
         // 如果还是0（未更新状态）而且请求状态码优先当前状态码，设置为20x
-        if self.status_code == 0 && raw_data.status_code.is_success() {
+        if self.status_code == 0 {
             self.status_code = raw_data.status_code.as_u16();
         }
         // 如果没有跳转URL，也就是当前请求是最后一个请求
         if raw_data.next_url.is_none() && self.title.is_empty() {
-            self.title = get_title(&raw_data.text)
-                .chars()
-                .filter(|c| !c.is_control())
-                .collect();
-            if self.status_code == 0 {
+            self.title = title();
+            if raw_data.status_code.is_success() {
                 self.status_code = raw_data.status_code.as_u16();
+            }
+            if self.length < raw_data.text.len() {
+                self.length = raw_data.text.len();
             }
             self.priority += 1;
         }
@@ -222,13 +228,15 @@ impl WhatWeb {
             //首页请求允许跳转
             for raw_data in rdl {
                 http_https_set.insert(raw_data.url.scheme().to_lowercase());
-                let web_name_set =
-                    check(&raw_data, &self.fingerprint.to_owned(), &self.config).await;
+                let web_name_set = check(&raw_data, &self.fingerprint, &self.config).await;
                 for (k, v) in web_name_set {
                     name.insert(k);
                     what_web_result.priority = v;
                 }
                 what_web_result.update(raw_data, url.clone());
+            }
+            if what_web_result.length > 0 || what_web_result.status_code > 0 {
+                what_web_result.priority += 1;
             }
         };
         // 在首页请求时不是Web也没必要跑特殊请求了
@@ -246,8 +254,7 @@ impl WhatWeb {
             .await
             {
                 for raw_data in rdl {
-                    let web_name_set =
-                        check(&raw_data, &self.fingerprint.to_owned(), &self.config).await;
+                    let web_name_set = check(&raw_data, &self.fingerprint, &self.config).await;
                     for (k, v) in web_name_set {
                         name.insert(k);
                         what_web_result.priority = v;

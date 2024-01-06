@@ -38,12 +38,12 @@ async fn start() -> Result<(), Error> {
         targets.extend(read_file_to_target(file_path));
     }
     let mut helper = Helper::new(&config);
+    helper.run().await;
     let web_fingerprint = helper.read_web_fingerprint(&config);
     let mut nmap_fingerprint = vec![];
     if config.service {
         nmap_fingerprint = helper.read_nmap_fingerprint();
     }
-    helper.run().await;
     let observer_ward_ins = ObserverWard::new(config.clone(), web_fingerprint, nmap_fingerprint);
     let r = helper.read_results_file();
     let vec_results = observer_ward_ins.scan(targets, Some(r)).await;
