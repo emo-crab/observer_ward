@@ -590,11 +590,11 @@ pub async fn get_plugins_by_nuclei(
             }
         }
     }
-    if let Some(t) = &config.path {
-        exist_plugins.push(t.to_string());
-    }
     if exist_plugins.is_empty() && template_condition.is_empty() {
         return wwr;
+    }
+    if let Some(t) = &config.path {
+        exist_plugins.push(t.to_string());
     }
     let mut command_line = Command::new("nuclei");
     command_line.args([
@@ -759,6 +759,11 @@ impl ObserverWard {
                 }
                 what_web_sender.unbounded_send(result).unwrap_or_default();
             }
+            if let Some(rs) = result {
+                for w in rs {
+                    what_web_sender.unbounded_send(w).unwrap_or_default();
+                }
+            }
             true
         });
         let what_server_handle = tokio::task::spawn(async move {
@@ -785,11 +790,6 @@ impl ObserverWard {
         let verify_handle = tokio::task::spawn(async move {
             if config.use_nuclei() {
                 let mut worker = FuturesUnordered::new();
-                if let Some(rs) = result {
-                    for w in rs {
-                        worker.push(get_plugins_by_nuclei(w, &config));
-                    }
-                }
                 for _ in 0..3 {
                     match what_server_receiver.next().await {
                         Some(w) => {
