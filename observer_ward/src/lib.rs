@@ -622,15 +622,6 @@ pub async fn get_plugins_by_nuclei(
     if config.irr {
         command_line.args(["-irr"]);
     }
-    if let Ok(err) = command_line
-        .stderr(std::process::Stdio::null())
-        .output()
-        .await
-    {
-        if !config.silent {
-            println!("{}", String::from_utf8_lossy(&err.stderr))
-        }
-    }
     let output = command_line.output().await.expect("command_line_output");
     if let Ok(template_output) = String::from_utf8(output.stdout) {
         let templates_output: Vec<String> = template_output
