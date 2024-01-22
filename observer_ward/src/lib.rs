@@ -402,6 +402,7 @@ pub fn read_file_to_target(file_path: &str) -> HashSet<String> {
     }
     HashSet::from_iter([])
 }
+
 pub fn read_from_stdio() -> Result<HashSet<String>, io::Error> {
     let (tx, rx) = std::sync::mpsc::channel::<String>();
     let mut stdin = std::io::stdin();
@@ -575,7 +576,9 @@ pub async fn get_plugins_by_nuclei(
     let mut exist_plugins: Vec<String> = Vec::new();
     let use_tags = config.path.is_some();
     let mut template_condition = Vec::new();
-    for name in wwr.name.iter() {
+    let mut default_name = wwr.name.clone();
+    default_name.insert(String::from("default"));
+    for name in default_name.iter() {
         if let Some(plugins_path) = &config.plugins {
             let plugins_name_path = Path::new(plugins_path).join(name);
             if plugins_name_path.exists() {
