@@ -14,7 +14,7 @@ regex = { version = "1.9.4", default-features = false, features = [
 ] }
 crossterm = "0.25"
 mime = "0.3.16"
-md-5 = "0.10.4"
+md-5 = "0.10.6"
 base64 = "0.13.0"
 cached = { version = "0.47.0", features = ["async"] }
 anyhow = "1"
