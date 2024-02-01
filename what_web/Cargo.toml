@@ -15,7 +15,7 @@ regex = { version = "1.10.3", default-features = false, features = [
 crossterm = "0.27"
 mime = "0.3.16"
 md-5 = "0.10.6"
-base64 = "0.21.0"
+base64 = "0.21.7"
 cached = { version = "0.47.0", features = ["async"] }
 anyhow = "1"
 serde = { version = "1.0.196", features = ["derive"] }
