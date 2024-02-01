@@ -12,7 +12,7 @@ regex = { version = "1.9.4", default-features = false, features = [
     "std",
     "unicode",
 ] }
-crossterm = "0.25"
+crossterm = "0.27"
 mime = "0.3.16"
 md-5 = "0.10.4"
 base64 = "0.13.0"
