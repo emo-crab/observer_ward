@@ -20,7 +20,7 @@ prettytable-rs = "^0.10"
 textwrap = "0.16"
 log = "0.4.21"
 futures = { version = "0.3", features = ["compat"] }
-serde = { version = "1.0.196", features = ["derive"] }
+serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 serde_derive = "1.0"
