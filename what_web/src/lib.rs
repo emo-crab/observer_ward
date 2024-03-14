@@ -42,7 +42,7 @@ pub struct WhatWebResult {
     pub plugins: HashSet<String>,
     /// nuclei部分数据，在`--irr`参数开启就会保存到json
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub plugins_result: Option<Vec<TemplateResult>>,
+    pub plugins_result: Option<Vec<PluginsResult>>,
 }
 
 impl WhatWebResult {
@@ -272,6 +272,13 @@ impl WhatWeb {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum PluginsResult {
+    TemplateResult(TemplateResult),
+    Frog(Frog),
+}
+
 /// 部分nuclei的数据结构
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct TemplateResult {
@@ -339,4 +346,34 @@ where
         }
     }
     deserializer.deserialize_any(StringToHashSet(PhantomData))
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub struct Frog {
+    pub isvul: bool,
+    pub target: String,
+    pub fulltarget: String,
+    pub pocinfo: PocInfo,
+    #[serde(default)]
+    pub pocresult: Vec<PocResult>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub struct PocInfo {
+    pub id: String,
+    pub infoname: String,
+    pub infoauthor: String,
+    pub infoseg: String,
+    pub infodescription: String,
+    #[serde(default)]
+    pub inforeference: Vec<String>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub struct PocResult {
+    pub request: String,
+    pub response: String,
 }

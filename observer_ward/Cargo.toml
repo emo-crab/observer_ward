@@ -11,6 +11,7 @@ include = ["LICENSE", "Cargo.toml", "src/**/*.rs"]
 
 [dependencies]
 once_cell = "1.19.0"
+tempfile = "3.10.1"
 argh = "0.1.12"
 url = { version = "2.5.0", features = ["serde"] }
 csv = "1.3.0"

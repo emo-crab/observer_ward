@@ -127,6 +127,14 @@ pub struct ObserverWardConfig {
     #[argh(option)]
     #[serde(skip)]
     pub nargs: Option<String>,
+    /// poc engine default nuclei
+    #[argh(option, default = "default_engine()")]
+    #[serde(skip)]
+    pub engine: String,
+}
+
+fn default_engine() -> String {
+    "nuclei".to_string()
 }
 
 fn default_thread() -> u32 {

@@ -1,3 +1,5 @@
+use base64::engine::general_purpose;
+use base64::Engine;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Body, Method};
 use std::collections::HashMap;
@@ -147,7 +149,11 @@ impl WebFingerPrintRequest {
         Method::from_str(&self.request_method.to_uppercase()).unwrap_or(Method::GET)
     }
     pub fn get_body(&self) -> Body {
-        Body::from(base64::decode(self.request_data.clone()).unwrap_or_default())
+        Body::from(
+            general_purpose::STANDARD
+                .decode(&self.request_data)
+                .unwrap_or_default(),
+        )
     }
     pub fn set_header(&self, headers: &mut HeaderMap) {
         if !self.request_headers.is_empty() {

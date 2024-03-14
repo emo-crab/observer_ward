@@ -6,7 +6,9 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use observer_ward_what_server::{NmapFingerPrint, WhatServer};
 use observer_ward_what_web::fingerprint::WebFingerPrint;
-use observer_ward_what_web::{RequestOption, TemplateResult, WhatWeb, WhatWebResult};
+use observer_ward_what_web::{
+    Frog, PluginsResult, RequestOption, TemplateResult, WhatWeb, WhatWebResult,
+};
 use once_cell::sync::Lazy;
 use prettytable::csv::Reader;
 use prettytable::{color, Attr, Cell, Row, Table};
@@ -20,7 +22,9 @@ use std::io::{BufRead, Read};
 use std::io::{Cursor, IsTerminal};
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
+use std::process::Stdio;
 use std::time::Duration;
+use tempfile::tempdir;
 use tokio::process::Command;
 
 pub mod api;
@@ -568,6 +572,84 @@ static NUCLEI_TAGS: Lazy<HashMap<String, Vec<Vec<String>>>> =
         tags_map
     });
 
+pub async fn get_plugins_by_afrog(
+    mut wwr: WhatWebResult,
+    config: &ObserverWardConfig,
+) -> WhatWebResult {
+    let default_name = wwr.name.clone();
+    let mut command_line = Command::new("afrog");
+    let tmp_dir = tempdir().expect("Can't Create TempDir");
+    let json_path = tmp_dir.path().join("result.json");
+    command_line.args([
+        "-t",
+        &wwr.url,
+        "-timeout",
+        &(config.timeout + 5).to_string(),
+        "-duc",
+        "-silent",
+        "-doh",
+    ]);
+    if config.irr {
+        command_line.args(["-ja", json_path.to_string_lossy().as_ref()]);
+    } else {
+        command_line.args(["-j", json_path.to_string_lossy().as_ref()]);
+    }
+    let mut tags = HashSet::new();
+    for name in default_name.into_iter() {
+        tags.insert(name.clone());
+        if let Some(ts) = NUCLEI_TAGS.get(&name) {
+            let tfs = ts
+                .iter()
+                .flatten()
+                .map(|t| t.to_string())
+                .collect::<Vec<String>>();
+            tags.extend(tfs);
+        }
+    }
+    let tags_string = tags.iter().map(|k| k.to_string()).collect::<Vec<String>>();
+    command_line.args(["-s", &tags_string.join(",")]);
+    if let Ok(mut child) = command_line
+        .stderr(Stdio::null())
+        .stdout(Stdio::null())
+        .spawn()
+    {
+        if let Ok(s) = child.wait().await {
+            if !s.success() {
+                return wwr;
+            }
+            let afrogs: Vec<Frog> =
+                serde_json::from_str(&std::fs::read_to_string(&json_path).unwrap_or_default())
+                    .unwrap_or_default();
+            for afrog in afrogs {
+                if let Some(mut t) = wwr.plugins_result {
+                    t.push(PluginsResult::Frog(afrog.clone()));
+                    wwr.plugins_result = Some(t);
+                } else {
+                    wwr.plugins_result = Some(vec![PluginsResult::Frog(afrog.clone())]);
+                }
+                if !config.silent {
+                    print!("[{}] ", afrog.pocinfo.infoseg.to_string().green());
+                    print!("[{}] ", afrog.pocinfo.id.to_string().red());
+                    println!("| [{}] ", afrog.fulltarget);
+                }
+                wwr.plugins.insert(afrog.pocinfo.id);
+            }
+        }
+    };
+    wwr
+}
+
+pub async fn get_plugins_by_engine(
+    wwr: WhatWebResult,
+    config: &ObserverWardConfig,
+) -> WhatWebResult {
+    match config.engine.as_str() {
+        "nuclei" => get_plugins_by_nuclei(wwr, config).await,
+        "afrog" => get_plugins_by_afrog(wwr, config).await,
+        _ => wwr,
+    }
+}
+
 pub async fn get_plugins_by_nuclei(
     mut wwr: WhatWebResult,
     config: &ObserverWardConfig,
@@ -608,6 +690,9 @@ pub async fn get_plugins_by_nuclei(
         &(config.timeout + 5).to_string(),
         "-es",
         "info", //排除info模板
+        "-silent",
+        "-jsonl",
+        "-duc",
     ]);
     if let Some(nargs) = &config.nargs {
         let args: Vec<&str> = nargs.split(' ').collect();
@@ -621,7 +706,6 @@ pub async fn get_plugins_by_nuclei(
     if !template_condition.is_empty() {
         command_line.args(["-tc", &template_condition.join("||")]);
     }
-    command_line.args(["-silent", "-jsonl", "-duc"]);
     if config.irr {
         command_line.args(["-irr"]);
     }
@@ -645,10 +729,11 @@ pub async fn get_plugins_by_nuclei(
             }
             if config.irr {
                 if let Some(mut t) = wwr.plugins_result {
-                    t.push(template.clone());
+                    t.push(PluginsResult::TemplateResult(template.clone()));
                     wwr.plugins_result = Some(t);
                 } else {
-                    wwr.plugins_result = Some(vec![template.clone()]);
+                    wwr.plugins_result =
+                        Some(vec![PluginsResult::TemplateResult(template.clone())]);
                 }
             }
             plugins_set.insert(template.template_id);
@@ -787,7 +872,7 @@ impl ObserverWard {
                 for _ in 0..3 {
                     match what_server_receiver.next().await {
                         Some(w) => {
-                            worker.push(get_plugins_by_nuclei(w, &config));
+                            worker.push(get_plugins_by_engine(w, &config));
                         }
                         None => {
                             break;
@@ -796,7 +881,7 @@ impl ObserverWard {
                 }
                 while let Some(wwr) = worker.next().await {
                     if let Some(v_wwr) = what_server_receiver.next().await {
-                        worker.push(get_plugins_by_nuclei(v_wwr, &config));
+                        worker.push(get_plugins_by_engine(v_wwr, &config));
                     }
                     verify_sender.start_send(wwr).unwrap_or_default();
                 }
