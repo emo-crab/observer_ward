@@ -123,11 +123,11 @@ pub struct ObserverWardConfig {
     #[argh(switch)]
     #[serde(skip)]
     pub irr: bool,
-    /// nuclei args
+    /// poc engine args
     #[argh(option)]
     #[serde(skip)]
     pub nargs: Option<String>,
-    /// poc engine default nuclei
+    /// poc engine "nuclei", "afrog" or "nuclei,afrog", default nuclei
     #[argh(option, default = "default_engine()")]
     #[serde(skip)]
     pub engine: String,
