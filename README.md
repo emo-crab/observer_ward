@@ -4,13 +4,13 @@
 
 # ObserverWard
 
-| 类别  | 说明                                                     |
-|-----|--------------------------------------------------------|
-| 作者  | [三米前有蕉皮](https://github.com/cn-kali-team)              |
-| 团队  | [0x727](https://github.com/0x727) 未来一段时间将陆续开源工具        |
-| 定位  | 社区化[指纹库](https://github.com/0x727/FingerprintHub)识别工具。 |
-| 语言  | Rust                                                   |
-| 功能  | 命令行Web指纹识别工具                                           |
+| 类别 | 说明                                                     |
+|----|--------------------------------------------------------|
+| 作者 | [三米前有蕉皮](https://github.com/cn-kali-team)              |
+| 团队 | [0x727](https://github.com/0x727) 未来一段时间将陆续开源工具        |
+| 定位 | 社区化[指纹库](https://github.com/0x727/FingerprintHub)识别工具。 |
+| 语言 | Rust                                                   |
+| 功能 | 命令行Web指纹识别工具                                           |
 
 ## 安装
 
@@ -22,7 +22,9 @@ cd ObserverWard
 cargo build --target x86_64-unknown-linux-musl --release --all-features
 ```
 
-- 更多安装细节请查看当前项目的Actions自动化编译构建流程[文件](https://github.com/0x727/ObserverWard/blob/main/.github/workflows/basic.yml)
+-
+
+更多安装细节请查看当前项目的Actions自动化编译构建流程[文件](https://github.com/0x727/ObserverWard/blob/main/.github/workflows/basic.yml)
 
 ### 2. 下载二进制安装
 
@@ -291,6 +293,44 @@ iconv -f UTF-8 -t GB18030 Result.csv > Result.csv
 
 - Window系统可以使用记事本打开csv文件后另存为，选择保存编码ANSI或者Unicode。
 
+### 调用AFrog检测漏洞
+
+- 如果需要使用[afrog](https://github.com/zan8in/afrog)检测漏洞，需要首先安装`afrog`
+  到当前目录，或者是加入环境变量里面，让`observe_ward`可以正常调用。
+- 使用`--engine`指定poc引擎使用afrog
+
+```bash
+➜  ~ ./observer_ward -t http://172.20.0.2/ --engine afrog --plugins default
+ __     __     ______     ______     _____
+/\ \  _ \ \   /\  __ \   /\  == \   /\  __-.
+\ \ \/ ".\ \  \ \  __ \  \ \  __<   \ \ \/\ \
+ \ \__/".~\_\  \ \_\ \_\  \ \_\ \_\  \ \____-
+  \/_/   \/_/   \/_/\/_/   \/_/ /_/   \/____/
+Community based web fingerprint analysis tool.
+_____________________________________________
+:  https://github.com/0x727/FingerprintHub  :
+:  https://github.com/0x727/ObserverWard    :
+ --------------------------------------------
+[ http://172.20.0.2/ |["apache-http", "thinkphp"] | 931 | 200 |  ]
+[critical] [thinkphp-5-0-23-index-php-method-rce] | [http://172.20.0.2/index.php?s=captcha] 
+[critical] [thinkphp-5023-rce] | [http://172.20.0.2/?s=captcha&test=-1] 
+Important technology:
++--------------------+-------------+--------+-------------+-------+----------+--------------------------------------+
+| url                | name        | length | status_code | title | priority | plugins                              |
++====================+=============+========+=============+=======+==========+======================================+
+| http://172.20.0.2/ | apache-http | 931    | 200         |       | 3        | thinkphp-5023-rce                    |
+|                    | thinkphp    |        |             |       |          | thinkphp-5-0-23-index-php-method-rce |
++--------------------+-------------+--------+-------------+-------+----------+--------------------------------------+
+➜  ~ 
+
+```
+
+- 可用参数`--nargs`指定afrog的参数，例如：只识别等级为严重的漏洞。
+
+```bash
+➜  ~ ./observer_ward -t http://172.20.0.2/ --engine afrog --plugins default --nargs "-S critical"
+```
+
 ### 调用Nuclei检测漏洞
 
 - **请确保nuclei更新至`2.5.3`以上版本**
@@ -511,7 +551,7 @@ curl --request POST \
 - ObserverWard使用到的指纹规则全部来自[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
 - 如果需要获取指纹库和提交指纹规则，请查看[FingerprintHub](https://github.com/0x727/FingerprintHub)项目。
 
-## 为ObserverWard_0x727做贡献
+## 为ObserverWard做贡献
 
 ### 提交代码
 
