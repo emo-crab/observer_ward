@@ -4,6 +4,18 @@
 
 ## [Unreleased] - ReleaseDate
 
+## [2024.3.20] - 2024.3.20
+
+### Fixes
+
+- 使用`--jsonl`参数将结果以一行一行保存到文件，不再是一个数组结果。
+- 同时也可以与`--silent`参数使用，将json一行一行打印，方便从命令行调用读取结果。
+
+```bash
+➜  ~ ./observer_ward -t https://httpbin.org --silent --jsonl
+{"url":"https://httpbin.org","name":["swagger"],"priority":5,"length":9593,"title":"httpbin.org","status_code":200,"is_web":true,"plugins":[]}
+```
+
 ## [2024.1.22] - 2024.1.22
 
 ### Fixes

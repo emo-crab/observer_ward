@@ -18,7 +18,7 @@ use serde_json::json;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io;
-use std::io::{BufRead, Read};
+use std::io::{BufRead, Read, Write};
 use std::io::{Cursor, IsTerminal};
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
@@ -42,8 +42,7 @@ pub struct VerifyWebFingerPrint {
 
 pub fn print_what_web(what_web_result: &WhatWebResult) {
   let color_web_name: Vec<String> = what_web_result.name.iter().map(String::from).collect();
-  let status_code =
-    reqwest::StatusCode::from_u16(what_web_result.status_code).unwrap_or_default();
+  let status_code = reqwest::StatusCode::from_u16(what_web_result.status_code).unwrap_or_default();
   if !what_web_result.name.is_empty() {
     print!("[ {} |", what_web_result.url);
     print!("{}", format!("{:?}", color_web_name).green());
@@ -161,29 +160,33 @@ impl<'a> Helper<'a> {
   }
   async fn update_fingerprint(&mut self) {
     let fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
-    self.download_file_from_github(
-      "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
-      fingerprint_path
-        .to_str()
-        .unwrap_or("web_fingerprint_v3.json"),
-    )
+    self
+      .download_file_from_github(
+        "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
+        fingerprint_path
+          .to_str()
+          .unwrap_or("web_fingerprint_v3.json"),
+      )
       .await;
-    self.download_file_from_github(
-      "https://0x727.github.io/FingerprintHub/plugins/tags.yaml",
-      self.config_path
-        .join("tags.yaml")
-        .to_str()
-        .unwrap_or("tags.yaml"),
-    )
+    self
+      .download_file_from_github(
+        "https://0x727.github.io/FingerprintHub/plugins/tags.yaml",
+        self
+          .config_path
+          .join("tags.yaml")
+          .to_str()
+          .unwrap_or("tags.yaml"),
+      )
       .await;
   }
   async fn update_plugins(&mut self) {
     let plugins_zip_path = self.config_path.join("plugins.zip");
     let extract_target_path = self.config_path;
-    self.download_file_from_github(
-      "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
-      plugins_zip_path.to_str().unwrap_or("plugins.zip"),
-    )
+    self
+      .download_file_from_github(
+        "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
+        plugins_zip_path.to_str().unwrap_or("plugins.zip"),
+      )
       .await;
     match extract_plugins_zip(&plugins_zip_path, extract_target_path) {
       Ok(_) => {
@@ -231,7 +234,8 @@ impl<'a> Helper<'_> {
     };
     base_url.push_str(download_name);
     let save_filename = "update_".to_owned() + download_name;
-    self.download_file_from_github(&base_url, &save_filename)
+    self
+      .download_file_from_github(&base_url, &save_filename)
       .await;
     println!(
       "Please rename the file {} => {}",
@@ -244,8 +248,7 @@ impl<'a> Helper<'_> {
     if let Ok(mut file) = File::open(nmap_fingerprint_path) {
       let mut data = String::new();
       file.read_to_string(&mut data).ok();
-      let nmap_fingerprint: Vec<NmapFingerPrint> =
-        serde_json::from_str(&data).expect("BAD JSON");
+      let nmap_fingerprint: Vec<NmapFingerPrint> = serde_json::from_str(&data).expect("BAD JSON");
       return nmap_fingerprint;
     } else {
       println!("The nmap fingerprint library cannot be found in the current directory!");
@@ -320,7 +323,9 @@ impl<'a> Helper<'_> {
       if let Ok(web_fingerprint) = serde_json::from_reader::<_, Vec<WebFingerPrint>>(&file) {
         return web_fingerprint;
       } else {
-        println!("The fingerprint format is incorrect. Please update the fingerprint library again");
+        println!(
+          "The fingerprint format is incorrect. Please update the fingerprint library again"
+        );
       };
     } else {
       println!("The fingerprint library cannot be found in the current directory!");
@@ -360,8 +365,7 @@ impl<'a> Helper<'_> {
     if let Some(csv_path) = &self.config.csv {
       if csv_path.exists() {
         let rdr = Reader::from_path(csv_path).expect("BAD CSV");
-        let iter: csv::DeserializeRecordsIntoIter<File, WhatWebResult> =
-          rdr.into_deserialize();
+        let iter: csv::DeserializeRecordsIntoIter<File, WhatWebResult> = rdr.into_deserialize();
         let wwr: Vec<WhatWebResult> = iter.filter_map(Result::ok).collect();
         for r in wwr {
           if !target_set.contains(&r.url) {
@@ -453,8 +457,8 @@ pub fn read_from_stdio() -> Result<HashSet<String>, io::Error> {
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-  where
-    P: AsRef<Path>,
+where
+  P: AsRef<Path>,
 {
   let file = File::open(filename)?;
   Ok(io::BufReader::new(file).lines())
@@ -462,8 +466,17 @@ fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
 
 pub fn print_results_and_save(results: Vec<WhatWebResult>, config: &ObserverWardConfig) {
   if let Some(json_path) = &config.json {
-    let out = File::create(json_path).expect("Failed to create file");
-    serde_json::to_writer(out, &results).expect("Failed to save file")
+    let mut out = File::create(json_path).expect("Failed to create file");
+    if config.jsonl {
+      for line in &results {
+        if let Ok(l) = serde_json::to_vec(line) {
+          out.write(&l).unwrap_or_default();
+          out.write(b"\n").unwrap_or_default();
+        }
+      }
+    } else {
+      serde_json::to_writer(out, &results).expect("Failed to save file");
+    }
   }
   let mut table = Table::new();
   let mut headers = vec![
@@ -474,36 +487,9 @@ pub fn print_results_and_save(results: Vec<WhatWebResult>, config: &ObserverWard
     Cell::new("title"),
     Cell::new("priority"),
   ];
-  if config.use_nuclei() {
+  if config.enable_engine() {
     headers.push(Cell::new("plugins"))
   }
-  table.set_titles(Row::new(headers.clone()));
-  for res in &results {
-    let wwn: Vec<String> = res.name.iter().map(String::from).collect();
-    let status_code = reqwest::StatusCode::from_u16(res.status_code).unwrap_or_default();
-    let mut status_code_color = Attr::ForegroundColor(color::RED);
-    if status_code.is_success() {
-      status_code_color = Attr::ForegroundColor(color::GREEN);
-    }
-    let mut rows = vec![
-      Cell::new(res.url.as_str()),
-      Cell::new(&wwn.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
-      Cell::new(&res.length.to_string()),
-      Cell::new(&res.status_code.to_string()).with_style(status_code_color),
-      Cell::new(&textwrap::fill(res.title.as_str(), 40)),
-      Cell::new(&res.priority.to_string()),
-    ];
-    if config.use_nuclei() {
-      let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
-      rows.push(Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::RED)))
-    }
-    table.add_row(Row::new(rows));
-  }
-  if let Some(csv_path) = &config.csv {
-    let out = File::create(csv_path).expect("Failed to create file");
-    table.to_csv(out).expect("Failed to save file");
-  }
-  let mut table = Table::new();
   table.set_titles(Row::new(headers.clone()));
   for res in &results {
     if config.filter && res.name.is_empty() {
@@ -523,11 +509,15 @@ pub fn print_results_and_save(results: Vec<WhatWebResult>, config: &ObserverWard
       Cell::new(&textwrap::fill(res.title.as_str(), 40)),
       Cell::new(&res.priority.to_string()),
     ];
-    if config.use_nuclei() {
+    if config.enable_engine() {
       let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
       rows.push(Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::RED)))
     }
     table.add_row(Row::new(rows));
+  }
+  if let Some(csv_path) = &config.csv {
+    let out = File::create(csv_path).expect("Failed to create file");
+    table.to_csv(out).expect("Failed to save file");
   }
   if !table.is_empty() && !config.silent {
     println!("{}", "Important technology:".yellow());
@@ -623,8 +613,8 @@ pub async fn get_plugins_by_afrog(
   }
   let tags_string = tags.iter().map(|k| k.to_string()).collect::<Vec<String>>();
   command_line.args(["-s", &tags_string.join(",")]);
-  if let Some(nargs) = &config.nargs {
-    let args: Vec<&str> = nargs.split(' ').collect();
+  if let Some(fargs) = &config.fargs {
+    let args: Vec<&str> = fargs.split(' ').collect();
     for arg in args {
       command_line.arg(arg);
     }
@@ -664,15 +654,18 @@ pub async fn get_plugins_by_engine(
   wwr: WhatWebResult,
   config: &ObserverWardConfig,
 ) -> WhatWebResult {
-  match config.engine.as_str() {
-    "nuclei" => get_plugins_by_nuclei(wwr, config).await,
-    "afrog" => get_plugins_by_afrog(wwr, config).await,
-    "nuclei,afrog" | "afrog,nuclei" => {
-      let mut wwr = get_plugins_by_nuclei(wwr, config).await;
-      wwr = get_plugins_by_afrog(wwr.clone(), config).await;
-      wwr
-    }
-    _ => wwr,
+  match &config.engine {
+    None => get_plugins_by_nuclei(wwr, config).await,
+    Some(engine) => match engine.as_str() {
+      "nuclei" => get_plugins_by_nuclei(wwr, config).await,
+      "afrog" => get_plugins_by_afrog(wwr, config).await,
+      "all" => {
+        let mut wwr = get_plugins_by_nuclei(wwr, config).await;
+        wwr = get_plugins_by_afrog(wwr.clone(), config).await;
+        wwr
+      }
+      _ => wwr,
+    },
   }
 }
 
@@ -758,8 +751,7 @@ pub async fn get_plugins_by_nuclei(
           t.push(PluginsResult::TemplateResult(template.clone()));
           wwr.plugins_result = Some(t);
         } else {
-          wwr.plugins_result =
-            Some(vec![PluginsResult::TemplateResult(template.clone())]);
+          wwr.plugins_result = Some(vec![PluginsResult::TemplateResult(template.clone())]);
         }
       }
       plugins_set.insert(template.template_id);
@@ -834,15 +826,15 @@ impl ObserverWard {
   pub async fn scan(
     &self,
     targets: HashSet<String>,
-    result: Option<Vec<WhatWebResult>>,
+    additional_result: Option<Vec<WhatWebResult>>,
   ) -> Vec<WhatWebResult> {
     let config = self.config.clone();
     let what_web_ins = self.what_web_ins.clone();
     let what_server_ins = self.what_server_ins.clone();
     let (what_web_sender, mut what_web_receiver) = unbounded();
-    let (mut what_server_sender, mut what_server_receiver) = unbounded();
-    let (mut verify_sender, mut verify_receiver) = unbounded();
-    let (mut results_sender, mut results_receiver) = unbounded();
+    let (what_server_sender, mut what_server_receiver) = unbounded();
+    let (verify_sender, mut verify_receiver) = unbounded();
+    let (results_sender, mut results_receiver) = unbounded();
     let mut vec_results: Vec<WhatWebResult> = vec![];
     let config_thread = config.thread;
     let webhook = config.webhook.clone();
@@ -852,7 +844,7 @@ impl ObserverWard {
       let mut targets_iter = targets.iter();
       for _ in 0..config_thread {
         match targets_iter.next() {
-          Some(target) => worker.push(what_web_ins.scan(target.to_string())),
+          Some(target) => worker.push(what_web_ins.scan(target)),
           None => {
             break;
           }
@@ -860,11 +852,11 @@ impl ObserverWard {
       }
       while let Some(result) = worker.next().await {
         if let Some(target) = targets_iter.next() {
-          worker.push(what_web_ins.scan(target.to_string()));
+          worker.push(what_web_ins.scan(target));
         }
         what_web_sender.unbounded_send(result).unwrap_or_default();
       }
-      if let Some(rs) = result {
+      if let Some(rs) = additional_result {
         for w in rs {
           what_web_sender.unbounded_send(w).unwrap_or_default();
         }
@@ -888,12 +880,14 @@ impl ObserverWard {
         if !config.silent {
           print_what_web(&wwr);
         }
-        what_server_sender.start_send(wwr).unwrap_or_default();
+        what_server_sender.unbounded_send(wwr).unwrap_or_default();
       }
       true
     });
+    let is_enable_engine = config.enable_engine();
+    let is_json_line = config.jsonl && config.silent;
     let verify_handle = tokio::task::spawn(async move {
-      if config.use_nuclei() {
+      if is_enable_engine {
         let mut worker = FuturesUnordered::new();
         for _ in 0..3 {
           match what_server_receiver.next().await {
@@ -909,11 +903,11 @@ impl ObserverWard {
           if let Some(v_wwr) = what_server_receiver.next().await {
             worker.push(get_plugins_by_engine(v_wwr, &config));
           }
-          verify_sender.start_send(wwr).unwrap_or_default();
+          verify_sender.unbounded_send(wwr).unwrap_or_default();
         }
       } else {
         while let Some(wwr) = what_server_receiver.next().await {
-          verify_sender.start_send(wwr).unwrap_or_default();
+          verify_sender.unbounded_send(wwr).unwrap_or_default();
         }
       }
       true
@@ -935,21 +929,26 @@ impl ObserverWard {
           if let Some(w) = verify_receiver.next().await {
             worker.push(webhook_results(w, &webhook_url, &webhook_auth));
           }
-          results_sender.start_send(wwr).unwrap_or_default();
+          results_sender.unbounded_send(wwr).unwrap_or_default();
         }
       } else {
         while let Some(wwr) = verify_receiver.next().await {
-          results_sender.start_send(wwr).unwrap_or_default();
+          if is_json_line {
+            if let Ok(l) = serde_json::to_string(&wwr) {
+              println!("{}", l);
+            }
+          }
+          results_sender.unbounded_send(wwr).unwrap_or_default();
         }
       }
       true
     });
     let (_r1, _r2, _r3, _r4) = tokio::join!(
-            what_web_handle,
-            what_server_handle,
-            verify_handle,
-            results_handle
-        );
+      what_web_handle,
+      what_server_handle,
+      verify_handle,
+      results_handle
+    );
     while let Some(wwr) = results_receiver.next().await {
       vec_results.push(wwr);
     }

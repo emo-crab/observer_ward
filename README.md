@@ -40,12 +40,13 @@ brew install observer_ward
 
 ## 使用方法
 
-```bash
-Usage: observer_ward [-t <target>] [--stdin] [--fpath <fpath>] [--yaml <yaml>] [--path <path>] [--verify <verify>] [-f <file>] [-u] [-c <csv>] [-j <json>] [--proxy <proxy>] [--timeout <timeout>] [--plugins <plugins>] [--update-plugins] [--update-self] [--thread <thread>] [--webhook <webhook>] [--service] [-s <api-server>] [--token <token>] [--ua <ua>] [--daemon] [--danger] [--silent] [--filter] [--irr]
+```text
+Usage: observer_ward [--targets <targets...>] [-t <target>] [--stdin] [--fpath <fpath>] [--yaml <yaml>] [--gen <gen>] [--path <path>] [--verify <verify>] [-f <file>] [-u] [-c <csv>] [-j <json>] [--jsonl] [--proxy <proxy>] [--timeout <timeout>] [--plugins <plugins>] [--update-plugins] [--update-self] [--thread <thread>] [--webhook <webhook>] [--webhook-auth <webhook-auth>] [--service] [-s <api-server>] [--token <token>] [--ua <ua>] [--daemon] [--danger] [--silent] [--filter] [--irr] [--nargs <nargs>] [--fargs <fargs>] [--engine <engine>]
 
 observer_ward
 
 Options:
+  --targets         multiple targets from the API
   -t, --target      the target (required, unless --stdin used)
   --stdin           read target(s) from STDIN
   --fpath           customized fingerprint file path
@@ -59,6 +60,7 @@ Options:
                     update web fingerprint
   -c, --csv         export to the csv file or Import form the csv file
   -j, --json        export to the json file or Import form the json file
+  --jsonl           write output in JSON Lines format
   --proxy           proxy to use for requests
                     (ex:[http(s)|socks5(h)]://host:port)
   --timeout         set request timeout.
@@ -69,6 +71,8 @@ Options:
   --thread          number of concurrent threads.
   --webhook         send results to webhook server
                     (ex:https://host:port/webhook)
+  --webhook-auth    the auth will be set to the webhook request header
+                    AUTHORIZATION
   --service         using nmap fingerprint identification service (slow)
   -s, --api-server  start a web API service (ex:127.0.0.1:8080)
   --token           api Bearer authentication
@@ -78,9 +82,10 @@ Options:
   --silent          silent mode
   --filter          filter mode,Display only the fingerprint that is not empty
   --irr             include request/response pairs in the JSONL output
+  --nargs           poc nuclei engine additional args
+  --fargs           poc afrog engine additional args
+  --engine          poc engine "nuclei", "afrog" or "all", default nuclei
   --help            display usage information
-  --nargs           nuclei args
-
 ```
 
 ### 更新指纹
@@ -266,6 +271,31 @@ Important technology:
 +---------------------+---------+--------+-------------+-------------+----------+
 ➜  ~ cat result.json
 [{"url":"https://httpbin.org","name":["swagger"],"priority":5,"length":9593,"title":"httpbin.org","status_code":200,"is_web":true,"plugins":[]}]
+```
+
+### 导出结果到JSON Line文件
+
+- 使用`--jsonl`参数将结果以一行一行保存到文件，不再是一个数组结果。
+
+```bash
+➜  ~ ./observer_ward -t https://httpbin.org --json result.json --jsonl
+[ https://httpbin.org |["swagger"] | 9593 | 200 | httpbin.org ]
+Important technology:
+
++---------------------+---------+--------+-------------+-------------+----------+
+| url                 | name    | length | status_code | title       | priority |
++=====================+=========+========+=============+=============+==========+
+| https://httpbin.org | swagger | 9593   | 200         | httpbin.org | 5        |
++---------------------+---------+--------+-------------+-------------+----------+
+➜  ~ cat result.json
+{"url":"https://httpbin.org","name":["swagger"],"priority":5,"length":9593,"title":"httpbin.org","status_code":200,"is_web":true,"plugins":[]}
+```
+
+- 同时也可以与`--silent`参数使用，将json一行一行打印，方便从命令行调用读取结果。
+
+```bash
+➜  ~ ./observer_ward -t https://httpbin.org --silent --jsonl
+{"url":"https://httpbin.org","name":["swagger"],"priority":5,"length":9593,"title":"httpbin.org","status_code":200,"is_web":true,"plugins":[]}
 ```
 
 ### 导出结果到CSV文件
