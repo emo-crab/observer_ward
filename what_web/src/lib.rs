@@ -362,10 +362,10 @@ pub struct Frog {
 #[serde(rename_all = "lowercase")]
 pub struct PocInfo {
   pub id: String,
-  pub infoname: String,
-  pub infoauthor: String,
+  pub infoname: Option<String>,
+  pub infoauthor: Option<String>,
   pub infoseg: String,
-  pub infodescription: String,
+  pub infodescription: Option<String>,
   #[serde(default)]
   pub inforeference: Vec<String>,
 }
@@ -375,4 +375,11 @@ pub struct PocInfo {
 pub struct PocResult {
   pub request: String,
   pub response: String,
+}
+
+#[cfg(test)]
+mod tests {
+
+  #[test]
+  fn it_works() {}
 }
