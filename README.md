@@ -355,10 +355,10 @@ Important technology:
 
 ```
 
-- 可用参数`--nargs`指定afrog的参数，例如：只识别等级为严重的漏洞。
+- 可用参数`--fargs`指定afrog的参数，例如：只识别等级为严重的漏洞。
 
 ```bash
-➜  ~ ./observer_ward -t http://172.20.0.2/ --engine afrog --plugins default --nargs "-S critical"
+➜  ~ ./observer_ward -t http://172.20.0.2/ --engine afrog --plugins default --fargs "-S critical"
 ```
 
 ### 调用Nuclei检测漏洞
