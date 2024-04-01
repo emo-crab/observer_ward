@@ -16,5 +16,5 @@ regex = { version = "1.10.3", default-features = false, features = [
     "std",
     "unicode",
 ] }
-tokio = { version = "1.36.0", default-features = false }
+tokio = { version = "1.37.0", default-features = false }
 observer_ward_what_web = { path = "../what_web", package = "what_web" }
