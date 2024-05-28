@@ -222,7 +222,7 @@ async fn fetch_raw_data(res: Response, config: RequestOption) -> anyhow::Result<
 
 // favicon的URL到Hash
 #[cached(
-  type = "SizedCache<String, String>",
+  ty = "SizedCache<String, String>",
   create = "{ SizedCache::with_size(100) }",
   result = true,
   convert = r#"{ format!("{}", url.as_str().to_owned()) }"#
@@ -345,7 +345,7 @@ pub fn get_title(text: &str) -> String {
 
 /// 首页请求
 #[cached(
-  type = "SizedCache<String, Vec<Arc<RawData>>>",
+  ty = "SizedCache<String, Vec<Arc<RawData>>>",
   create = "{ SizedCache::with_size(100) }",
   result = true,
   convert = r#"{ format!("{}{:?}", url_str.to_owned(), special_wfp) }"#
