@@ -31,7 +31,7 @@ observer_ward_what_web = { path = "../what_web", package = "what_web" }
 observer_ward_what_server = { path = "../what_server", package = "what_server" }
 openssl = { version = "0.10", features = ["vendored"] }
 env_logger = "0.11.3"
-actix-web-httpauth = "0.8.1"
+actix-web-httpauth = "0.8.2"
 zip = { version = "0.6" }
 actix-web = { version = "4.8.0", features = ["openssl"] }
 [target.'cfg(not(target_os = "windows"))'.dependencies]
