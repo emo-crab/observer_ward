@@ -1,24 +1,21 @@
-[workspace.package]
-#name = "observer_ward"
-version = "2022.3.13"
-authors = ["Kali-Team <root@kali-team.cn>"]
+[package]
+name = "observer-ward"                             #改这个
+version = "0.1.0"
 edition = "2021"
-description = "Cross platform community web fingerprint identification tool."
-license = "MIT"
+authors = ["Kali-Team <root@kali-team.cn>"]
 include = ["LICENSE", "Cargo.toml", "src/**/*.rs"]
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = ["observer_ward", "what_web", "what_server"]
-exclude = ["manager"]
-resolver = "2"
-default-members = ["observer_ward"]
+members = ["engine", "observer_ward"]
+
+#https://github.com/johnthagen/min-sized-rust
 [profile.release]
-lto = true
-opt-level = "z"
-codegen-units = 1
-panic = "abort"
-
-
+opt-level = "z"   # Optimize for size.
+lto = true        # Enable Link Time Optimization
+codegen-units = 1 # Reduce number of codegen units to increase optimizations.
+panic = "abort"   # Abort on panic
+strip = true      # Automatically strip symbols from the binary.
 
 [profile.dev.package."*"]
 opt-level = 3
@@ -30,3 +27,7 @@ lto = "thin"
 lto = true
 codegen-units = 1
 opt-level = 3
+
+
+[dependencies]
+thiserror = "1"

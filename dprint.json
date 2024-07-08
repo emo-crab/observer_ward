@@ -1,0 +1,12 @@
+{
+  "markdown": {
+  },
+  "dockerfile": {
+  },
+  "excludes": [],
+  "plugins": [
+    "https://plugins.dprint.dev/markdown-0.17.1.wasm",
+    "https://plugins.dprint.dev/dockerfile-0.3.2.wasm",
+    "https://plugins.dprint.dev/g-plane/pretty_yaml-v0.2.0.wasm"
+  ]
+}

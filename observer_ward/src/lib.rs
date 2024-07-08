@@ -1,990 +1,532 @@
-use crate::cli::ObserverWardConfig;
-use crossterm::style::Stylize;
-use error::Error;
-use futures::channel::mpsc::unbounded;
-use futures::stream::FuturesUnordered;
-use futures::StreamExt;
-use observer_ward_what_server::{NmapFingerPrint, WhatServer};
-use observer_ward_what_web::fingerprint::WebFingerPrint;
-use observer_ward_what_web::{
-  Frog, PluginsResult, RequestOption, TemplateResult, WhatWeb, WhatWebResult,
-};
-use once_cell::sync::Lazy;
-use prettytable::csv::Reader;
-use prettytable::{color, Attr, Cell, Row, Table};
-use reqwest::redirect::Policy;
-use reqwest::{header, Proxy};
-use serde_json::json;
+use crate::cli::{Mode, ObserverWardConfig};
+use crate::error::new_io_error;
+use crate::nuclei::{gen_nuclei_tags, NucleiRunner};
+use engine::common::html::extract_title;
+use engine::common::http::HttpRecord;
+use engine::execute::{ClusterExecute, ClusterType};
+use engine::matchers::FaviconMap;
+use engine::request::RequestGenerator;
+use engine::results::{NucleiResult, ResultEvent};
+use engine::slinger::http::header::HeaderValue;
+use engine::slinger::http::uri::Uri;
+use engine::slinger::http::StatusCode;
+use engine::slinger::openssl::x509::X509;
+use engine::slinger::redirect::{only_same_host, Policy};
+use engine::slinger::{http_serde, Request, Response};
+use engine::template::Template;
+use error::Result;
+use log::{debug, info};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io;
-use std::io::{BufRead, Read, Write};
-use std::io::{Cursor, IsTerminal};
-use std::iter::FromIterator;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
+use std::sync::mpsc::Sender;
 use std::time::Duration;
-use tempfile::tempdir;
-use tokio::process::Command;
+use console::{Emoji, style};
+use rustc_lexer::unescape;
+use threadpool::ThreadPool;
 
-pub mod api;
 pub mod cli;
 pub mod error;
+pub mod helper;
+pub mod input;
+mod nuclei;
+pub mod output;
+mod cluster;
+pub mod api;
 
-use serde::{Deserialize, Serialize};
+pub use cluster::cluster_templates;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct VerifyWebFingerPrint {
-  name: String,
-  priority: u32,
-  fingerprint: Vec<WebFingerPrint>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct X509Certificate {
+  text: String,
+  pem: Vec<u8>,
+  public_key: Option<Vec<u8>>,
+  subject_name: HashMap<String, String>,
+  issuer_name: HashMap<String, String>,
+  subject_alt_names: Option<Vec<GeneralName>>,
+  issuer_alt_names: Option<Vec<GeneralName>>,
+  subject_name_hash: u32,
+  signature: Vec<u8>,
+  signature_algorithm: String,
+  ocsp_responders: Vec<String>,
+  serial_number: Option<String>,
+  not_after: String,
+  not_before: String,
+  version: i32,
 }
 
-pub fn print_what_web(what_web_result: &WhatWebResult) {
-  let color_web_name: Vec<String> = what_web_result.name.iter().map(String::from).collect();
-  let status_code = reqwest::StatusCode::from_u16(what_web_result.status_code).unwrap_or_default();
-  if !what_web_result.name.is_empty() {
-    print!("[ {} |", what_web_result.url);
-    print!("{}", format!("{:?}", color_web_name).green());
-    print!(" | {} | ", what_web_result.length);
-    if status_code.is_success() {
-      print!("{}", status_code.as_u16().to_string().green());
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub struct GeneralName {
+  email: Option<String>,
+  dns_name: Option<String>,
+  uri: Option<String>,
+  ipaddress: Option<Vec<u8>>,
+}
+
+impl X509Certificate {
+  fn new(value: &X509) -> X509Certificate {
+    X509Certificate {
+      public_key: value
+        .public_key()
+        .ok()
+        .map(|x| x.public_key_to_pem().unwrap_or_default()),
+      text: String::from_utf8_lossy(&value.to_text().unwrap_or_default()).to_string(),
+      pem: value.to_pem().unwrap_or_default(),
+      not_after: value.not_after().to_string(),
+      not_before: value.not_before().to_string(),
+      version: value.version(),
+      subject_name_hash: value.subject_name_hash(),
+      serial_number: value
+        .serial_number()
+        .to_bn()
+        .ok().map(|x| x.to_string()),
+      ocsp_responders: value
+        .ocsp_responders()
+        .map_or(Vec::new(), |x| x.iter().map(|o| o.to_string()).collect()),
+      signature_algorithm: value.signature_algorithm().object().to_string(),
+      signature: value.signature().as_slice().to_vec(),
+      subject_alt_names: value.subject_alt_names().map(|x| {
+        x.into_iter()
+          .map(|g| GeneralName {
+            dns_name: g.dnsname().map(|d| d.to_string()),
+            email: g.email().map(|e| e.to_string()),
+            uri: g.uri().map(|u| u.to_string()),
+            ipaddress: g.ipaddress().map(|i| i.to_vec()),
+          })
+          .collect()
+      }),
+      issuer_alt_names: value.issuer_alt_names().map(|x| {
+        x.into_iter()
+          .map(|g| GeneralName {
+            dns_name: g.dnsname().map(|d| d.to_string()),
+            email: g.email().map(|e| e.to_string()),
+            uri: g.uri().map(|u| u.to_string()),
+            ipaddress: g.ipaddress().map(|i| i.to_vec()),
+          })
+          .collect()
+      }),
+      subject_name: value
+        .subject_name()
+        .entries()
+        .map(|e| {
+          (
+            kebab_case(&e.object().to_string()),
+            String::from_utf8_lossy(e.data().as_slice()).to_string(),
+          )
+        })
+        .collect(),
+      issuer_name: value
+        .issuer_name()
+        .entries()
+        .map(|e| {
+          (
+            kebab_case(&e.object().to_string()),
+            String::from_utf8_lossy(e.data().as_slice()).to_string(),
+          )
+        })
+        .collect(),
+    }
+  }
+}
+
+fn kebab_case(name: &str) -> String {
+  let mut new_name = String::new();
+  let chars = name.chars().collect::<Vec<_>>();
+  let l = chars.len();
+  for (index, c) in chars.into_iter().enumerate() {
+    if c.is_uppercase() && (index != 0 || index != l - 1) {
+      new_name.push('_');
+      c.to_lowercase().for_each(|nc| new_name.push(nc));
     } else {
-      print!("{}", status_code.as_u16().to_string().red());
-    }
-    println!(" | {} ]", what_web_result.title);
-  } else {
-    println!(
-      "[ {} | {:?} | {} | {} | {} ]",
-      what_web_result.url,
-      color_web_name,
-      what_web_result.length,
-      what_web_result.status_code,
-      what_web_result.title,
-    );
-  }
-}
-
-pub async fn webhook_results(
-  what_web_result: WhatWebResult,
-  webhook_url: &str,
-  webhook_auth: &Option<String>,
-) -> WhatWebResult {
-  let mut headers = header::HeaderMap::new();
-  headers.insert(
-    header::CONTENT_TYPE,
-    header::HeaderValue::from_static("application/json"),
-  );
-  let ua = "Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0";
-  headers.insert(header::USER_AGENT, header::HeaderValue::from_static(ua));
-  if let Some(wa) = webhook_auth {
-    let h = header::HeaderValue::from_str(wa);
-    headers.insert(
-      header::AUTHORIZATION,
-      h.unwrap_or(header::HeaderValue::from_static("AUTHORIZATION")),
-    );
-  }
-  let client = reqwest::Client::builder()
-    .default_headers(headers)
-    .pool_max_idle_per_host(0)
-    .danger_accept_invalid_certs(true)
-    .redirect(Policy::none())
-    .timeout(Duration::new(10, 0));
-  let what_web_result_json = json!(what_web_result)
-    .as_object()
-    .unwrap_or(&serde_json::Map::new())
-    .clone();
-  let _: Result<_, _> = client
-    .build()
-    .unwrap_or_default()
-    .post(webhook_url)
-    .json(&what_web_result_json)
-    .send()
-    .await;
-  what_web_result.clone()
-}
-
-pub fn print_opening() {
-  let s = r#" __     __     ______     ______     _____
-/\ \  _ \ \   /\  __ \   /\  == \   /\  __-.
-\ \ \/ ".\ \  \ \  __ \  \ \  __<   \ \ \/\ \
- \ \__/".~\_\  \ \_\ \_\  \ \_\ \_\  \ \____-
-  \/_/   \/_/   \/_/\/_/   \/_/ /_/   \/____/
-Community based web fingerprint analysis tool."#;
-  println!("{}", s.green());
-  let info = r#"_____________________________________________
-:  https://github.com/0x727/FingerprintHub  :
-:  https://github.com/0x727/ObserverWard    :
- --------------------------------------------"#;
-  println!("{}", info.yellow());
-}
-
-pub struct Helper<'a> {
-  request_option: RequestOption,
-  config_path: &'a PathBuf,
-  config: &'a ObserverWardConfig,
-  msg: HashMap<String, String>,
-}
-
-static OBSERVER_WARD_PATH: Lazy<PathBuf> = Lazy::new(|| -> PathBuf {
-  let mut config_path = PathBuf::new();
-  if let Some(cp) = dirs::config_dir() {
-    config_path = cp;
-  } else {
-    println!("Cannot create config directory{:?}", config_path);
-    std::process::exit(0);
-  }
-  let observer_ward = config_path.join("observer_ward");
-  if !observer_ward.is_dir() || !observer_ward.exists() {
-    std::fs::create_dir_all(&observer_ward).unwrap_or_default();
-  }
-  observer_ward
-});
-
-impl<'a> Helper<'a> {
-  pub fn new(config: &'a ObserverWardConfig) -> Self {
-    let ro = RequestOption::new(
-      &config.timeout,
-      &config.proxy,
-      &config.verify,
-      config.silent,
-      config.danger,
-      &config.ua,
-    );
-    Self {
-      request_option: ro,
-      config_path: &OBSERVER_WARD_PATH,
-      config,
-      msg: Default::default(),
+      new_name.push(c);
     }
   }
-  async fn update_fingerprint(&mut self) {
-    let fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
-    self
-      .download_file_from_github(
-        "https://0x727.github.io/FingerprintHub/web_fingerprint_v3.json",
-        fingerprint_path
-          .to_str()
-          .unwrap_or("web_fingerprint_v3.json"),
-      )
-      .await;
-    self
-      .download_file_from_github(
-        "https://0x727.github.io/FingerprintHub/plugins/tags.yaml",
-        self
-          .config_path
-          .join("tags.yaml")
-          .to_str()
-          .unwrap_or("tags.yaml"),
-      )
-      .await;
+  new_name
+}
+
+// 子路径下面的匹配结果
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub struct MatchedResult {
+  // 标题集合
+  title: HashSet<String>,
+  #[serde(with = "http_serde::option::status_code")]
+  // 最新状态码
+  #[serde(skip_serializing_if = "Option::is_none")]
+  status: Option<StatusCode>,
+  // favicon哈希
+  favicon: HashMap<String, FaviconMap>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  certificate: Option<X509Certificate>,
+  // 指纹信息
+  fingerprints: Vec<ResultEvent>,
+  // 漏洞信息
+  nuclei_result: HashMap<String, Vec<NucleiResult>>,
+}
+
+impl MatchedResult {
+  pub fn title(&self) -> &HashSet<String> {
+    &self.title
   }
-  async fn update_plugins(&mut self) {
-    let plugins_zip_path = self.config_path.join("plugins.zip");
-    let extract_target_path = self.config_path;
-    self
-      .download_file_from_github(
-        "https://github.com/0x727/FingerprintHub/releases/download/default/plugins.zip",
-        plugins_zip_path.to_str().unwrap_or("plugins.zip"),
-      )
-      .await;
-    match extract_plugins_zip(&plugins_zip_path, extract_target_path) {
-      Ok(_) => {
-        println!("It has been extracted to the {:?}", extract_target_path);
+  pub fn status(&self) -> &Option<StatusCode> {
+    &self.status
+  }
+  pub fn fingerprint(&self) -> &Vec<ResultEvent> {
+    &self.fingerprints
+  }
+  pub fn nuclei_result(&self) -> &HashMap<String, Vec<NucleiResult>> {
+    &self.nuclei_result
+  }
+
+  fn update_matched(&mut self, result: &ResultEvent) {
+    let response = result.response().unwrap_or_default();
+    let title = response.text().ok().and_then(|text| extract_title(&text));
+    let status_code = response.status_code();
+    if let Some(t) = title {
+      self.title.insert(t.clone());
+      self.status = Some(status_code);
+    }
+    if self.certificate.is_none() {
+      self.certificate = response.certificate().map(X509Certificate::new);
+    }
+    if let Some(fav) = response.extensions().get::<HashMap<String, FaviconMap>>() {
+      self.favicon.extend(fav.clone());
+    }
+    if !result.matcher_result().is_empty() {
+      let mut result = result.clone();
+      // 当标题为空时在提取器中template名称相同的键值为标题
+      if self.title.is_empty() {
+        result.matcher_result_mut().iter_mut().for_each(|x| {
+          if let Some(template) = x.extractor.remove(&x.template) {
+            self.title.extend(template);
+          }
+        });
       }
-      Err(err) => {
-        println!("{:?}", err);
-        println!("Please manually unzip the plugins to the directory");
-      }
+      self.fingerprints.push(result);
     }
   }
-  pub async fn run(&mut self) -> HashMap<String, String> {
-    if self.config.update_fingerprint {
-      self.update_fingerprint().await;
-    }
-    if self.config.update_self {
-      self.update_self().await;
-    }
-    if self.config.update_plugins {
-      self.update_plugins().await;
-    }
-    if !self.msg.is_empty() {
-      for (k, v) in &self.msg {
-        println!("{}:{}", k, v);
-      }
-    }
-    self.msg.clone()
-  }
-}
-
-impl<'a> Helper<'_> {
-  pub async fn update_self(&mut self) {
-    // https://doc.rust-lang.org/reference/conditional-compilation.html
-    let mut base_url =
-      String::from("https://github.com/0x727/ObserverWard/releases/download/default/");
-    let mut download_name = "observer_ward_amd64";
-    if cfg!(target_os = "windows") {
-      download_name = "observer_ward.exe";
-    } else if cfg!(target_os = "linux") {
-      download_name = "observer_ward_amd64";
-    } else if cfg!(target_os = "macos") && cfg!(target_arch = "x86_64") {
-      download_name = "observer_ward_darwin";
-    } else if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
-      download_name = "observer_ward_aarch64_darwin";
-    };
-    base_url.push_str(download_name);
-    let save_filename = "update_".to_owned() + download_name;
-    self
-      .download_file_from_github(&base_url, &save_filename)
-      .await;
-    println!(
-      "Please rename the file {} => {}",
-      save_filename, download_name
-    );
-  }
-
-  pub fn read_nmap_fingerprint(&mut self) -> Vec<NmapFingerPrint> {
-    let nmap_fingerprint_path = self.config_path.join("nmap_service_probes.json");
-    if let Ok(mut file) = File::open(nmap_fingerprint_path) {
-      let mut data = String::new();
-      file.read_to_string(&mut data).ok();
-      let nmap_fingerprint: Vec<NmapFingerPrint> = serde_json::from_str(&data).expect("BAD JSON");
-      return nmap_fingerprint;
-    } else {
-      println!("The nmap fingerprint library cannot be found in the current directory!");
-    }
-    Vec::new()
-  }
-  fn yaml_to_finger(&self, yaml_path: &Path) -> Vec<WebFingerPrint> {
-    let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
-    if let Ok(file) = File::open(yaml_path) {
-      match serde_yaml::from_reader::<_, VerifyWebFingerPrint>(&file) {
-        Ok(verify_fingerprints) => {
-          for mut verify_fingerprint in verify_fingerprints.fingerprint {
-            verify_fingerprint.name = verify_fingerprints.name.clone();
-            verify_fingerprint.priority = verify_fingerprints.priority;
-            web_fingerprint.push(verify_fingerprint);
+  fn merge_nuclei_args(&self, template_dir: &Path) -> HashMap<String, NucleiRunner> {
+    let mut nuclei_map: HashMap<String, NucleiRunner> = HashMap::new();
+    for result_event in self.fingerprints.iter() {
+      let all_matched_result = result_event.matcher_result();
+      for matcher_result in all_matched_result {
+        if let Some(vpf) = matcher_result.info.get_vpf() {
+          if let Some(nr) = nuclei_map.get_mut(&matcher_result.template) {
+            nr.targets.insert(result_event.matched_at().to_string());
+          } else {
+            let mut args = NucleiRunner::new(vpf.name());
+            args.targets.insert(result_event.matched_at().to_string());
+            let plugin_path = template_dir.join(&vpf.vendor).join(&vpf.product);
+            if vpf.verified && plugin_path.is_dir() {
+              args.plugins.insert(plugin_path);
+            } else {
+              args
+                .condition
+                .push(gen_nuclei_tags(&vpf.product, &matcher_result.info.tags));
+            }
+            nuclei_map.insert(matcher_result.template.clone(), args);
           }
         }
-        Err(err) => {
-          println!("{}", err);
-          std::process::exit(0);
-        }
-      };
+      }
     }
-    web_fingerprint
+    nuclei_map
   }
-  pub fn read_web_fingerprint(&mut self, config: &ObserverWardConfig) -> Vec<WebFingerPrint> {
-    if let Some(verify_path) = &config.verify {
-      let verify_file = PathBuf::from(verify_path);
-      if verify_file.exists() {
-        return self.yaml_to_finger(&verify_file);
-      }
-    }
-    if let Some(yaml_path) = &config.yaml {
-      let walker = std::fs::read_dir(yaml_path).into_iter();
-      let mut web_fingerprint: Vec<WebFingerPrint> = vec![];
-      for entry in walker.flatten().filter_map(|e| e.ok()).filter(is_hidden) {
-        if entry.path().extension() == Some("yaml".as_ref()) {
-          web_fingerprint.extend(self.yaml_to_finger(&entry.path()));
-        }
-      }
-      if !config.silent {
-        println!("Load {} fingerprints.", web_fingerprint.len());
-      }
-      if let Some(json_path) = &config.gen {
-        let out = File::create(json_path).expect("Failed to create file");
-        serde_json::to_writer(out, &web_fingerprint).expect("Failed to generate json file");
-        println!(
-          "completed generating json format files, totaling {} items",
-          web_fingerprint.len()
-        );
-      }
-      return web_fingerprint;
-    }
-    let mut web_fingerprint_path = PathBuf::from("web_fingerprint_v3.json");
-    // 如果有指定路径的指纹库
-    if let Some(p) = &config.fpath {
-      web_fingerprint_path = PathBuf::from(p);
-      if !web_fingerprint_path.exists() {
-        println!("The specified fingerprint path does not exist");
-        std::process::exit(1);
-      }
-    } else {
-      // 如果当前运行目录下没有指纹库，把路径改为config目录下的
-      if !web_fingerprint_path.exists() {
-        web_fingerprint_path = self.config_path.join("web_fingerprint_v3.json");
-      }
-      if !web_fingerprint_path.exists() {
-        println!("Update fingerprint library with `-u` parameter!");
-      }
-    }
-    if let Ok(file) = File::open(web_fingerprint_path) {
-      if let Ok(web_fingerprint) = serde_json::from_reader::<_, Vec<WebFingerPrint>>(&file) {
-        return web_fingerprint;
-      } else {
-        println!(
-          "The fingerprint format is incorrect. Please update the fingerprint library again"
-        );
-      };
-    } else {
-      println!("The fingerprint library cannot be found in the current directory!");
-      println!("Update fingerprint library with `-u` parameter!");
-    }
-    std::process::exit(1);
-  }
+}
 
-  pub fn read_results_file(&self) -> Vec<WhatWebResult> {
-    let mut results: Vec<WhatWebResult> = Vec::new();
-    let mut target_set = HashSet::new();
-    let read_file_data = |path: &PathBuf| {
-      let mut file = match File::open(path) {
-        Err(err) => {
-          println!("{}", err);
-          std::process::exit(0);
-        }
-        Ok(file) => file,
-      };
-      let mut data = String::new();
-      file.read_to_string(&mut data).ok();
-      data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterExecuteRunner {
+  // 单个目标
+  #[serde(with = "http_serde::uri")]
+  target: Uri,
+  // 子路径匹配结果
+  matched_result: HashMap<String, MatchedResult>,
+}
+
+impl ClusterExecuteRunner {
+  pub fn target(&self) -> &Uri {
+    &self.target
+  }
+  pub fn result(&self) -> &HashMap<String, MatchedResult> {
+    &self.matched_result
+  }
+  pub fn new(uri: Uri) -> Self {
+    Self {
+      target: uri,
+      matched_result: HashMap::new(),
+    }
+  }
+  fn update_result(&mut self, result: ResultEvent, key: Option<String>) {
+    let key = if let Some(key) = key {
+      key
+    } else {
+      let u = result.matched_at().clone();
+      let ub = Uri::builder()
+        .scheme(u.scheme_str().unwrap_or_default())
+        .authority(
+          u.authority()
+            .map_or(u.host().unwrap_or_default(), |a| a.as_str()),
+        )
+        .path_and_query("/");
+      ub.build().map_or(u, |x| x).to_string()
     };
-    if let Some(json_path) = &self.config.json {
-      if json_path.exists() {
-        let data = read_file_data(json_path);
-        if let Ok(wwr) = serde_json::from_str::<Vec<WhatWebResult>>(&data) {
-          for r in wwr {
-            if !target_set.contains(&r.url) {
-              target_set.insert(r.url.clone());
-              results.push(r);
+    if let Some(mr) = self.matched_result.get_mut(&key) {
+      mr.update_matched(&result);
+    } else {
+      let mut m = MatchedResult::default();
+      m.update_matched(&result);
+      self.matched_result.insert(key, m);
+    }
+  }
+  pub fn run(&mut self, iterator: Vec<ClusterType>, config: ObserverWardConfig) {
+    let mut http_record = HttpRecord::new(self.target.clone(), config.http_client_builder());
+    let mut favicon_cluster = Vec::new();
+    let mode = config.mode.clone().unwrap_or_default();
+    for (index, cluster_type) in iterator.iter().enumerate() {
+      match cluster_type {
+        ClusterType::Safe(clusters) => {
+          if matches!(mode, Mode::DANGER) {
+            continue;
+          }
+          if let Err(_err) = self.execute(&config, clusters, &mut http_record) {
+            // 首页访问失败
+            if index == 0 {
+              break;
             }
           }
         }
-      }
-    }
-    if let Some(csv_path) = &self.config.csv {
-      if csv_path.exists() {
-        let rdr = Reader::from_path(csv_path).expect("BAD CSV");
-        let iter: csv::DeserializeRecordsIntoIter<File, WhatWebResult> = rdr.into_deserialize();
-        let wwr: Vec<WhatWebResult> = iter.filter_map(Result::ok).collect();
-        for r in wwr {
-          if !target_set.contains(&r.url) {
-            target_set.insert(r.url.clone());
-            results.push(r);
+        ClusterType::Danger(clusters) => {
+          if matches!(mode, Mode::SAFE) {
+            continue;
           }
+          if let Err(_err) = self.execute(&config, clusters, &mut http_record) {
+            // 第一次访问失败
+            if index == 0 {
+              break;
+            }
+          }
+        }
+        ClusterType::Favicon(clusters) => {
+          favicon_cluster.push(clusters);
         }
       }
     }
-    results
-  }
-  async fn download_file_from_github(&mut self, update_url: &'a str, filename: &'a str) {
-    let proxy = self.request_option.proxy.as_ref().cloned();
-    let proxy_obj = Proxy::custom(move |_url| proxy.clone());
-    let client = reqwest::Client::builder().proxy(proxy_obj);
-    if let Ok(downloading_client) = client.build() {
-      if let Ok(response) = downloading_client.get(update_url).send().await {
-        let mut file = File::create(filename).unwrap();
-        let mut content = Cursor::new(response.bytes().await.unwrap_or_default());
-        std::io::copy(&mut content, &mut file).unwrap_or_default();
-        self.msg.insert(
-          String::from(update_url),
-          format!(
-            "=> {}' file size => {:?}",
-            filename,
-            file.metadata().unwrap().len()
-          ),
-        );
-        return;
+    if let Some(resp) = http_record.fav_response() {
+      let mut result = ResultEvent::new(&resp);
+      for clusters in favicon_cluster {
+        // 匹配favicon的，要等index的全部跑完
+        if http_record.has_favicon() {
+          debug!("favicon hash: {:#?}", http_record.favicon_hash());
+          clusters.operators.iter().for_each(|operator| {
+            operator.matcher(&mut result);
+          });
+        }
+      }
+      // 如果有图标或者结果什么都没有，保存一个首页请求
+      if !result.matcher_result().is_empty()
+        || self.matched_result.is_empty()
+        || !self.matched_result.contains_key(&self.target.to_string())
+        || self
+        .matched_result
+        .get(&self.target.to_string())
+        .map_or(false, |x| x.title.is_empty())
+      {
+        self.update_result(result, None);
       }
     }
-    self.msg.insert(
-      String::from("err"),
-      format!(
-        "Update failed, please download {} to local directory manually.",
-        update_url
-      ),
-    );
+    self.use_nuclei(&config);
+    self
+      .matched_result
+      .values_mut()
+      .for_each(|mr| {
+        if config.oc {
+          mr.certificate = None;
+        }
+        mr.fingerprints.iter_mut().for_each(|x| if config.or { x.omit_raw() })
+      });
+  }
+  fn use_nuclei(&mut self, config: &ObserverWardConfig) {
+    let template_dir = if let Some(path) = &config.plugin {
+      path.clone()
+    } else {
+      return;
+    };
+    // 相同插件和url只跑一次
+    let mut skip_target: HashMap<String, Vec<String>> = HashMap::new();
+    for (base_url, matched_result) in self.matched_result.iter_mut() {
+      let mut key_args = matched_result.merge_nuclei_args(&template_dir);
+      for (key, args) in key_args.iter_mut() {
+        if args.plugins.is_empty() && args.condition.is_empty() {
+          continue;
+        }
+        if let Some(targets) = skip_target.get_mut(&args.name) {
+          if !targets.contains(base_url) {
+            args.targets.insert(base_url.clone());
+          }
+        } else {
+          skip_target.insert(args.name.clone(), vec![base_url.clone()]);
+        }
+        let nuclei_results = args.run(config);
+        if let Some(nrs) = matched_result.nuclei_result.get_mut(key) {
+          nrs.extend(nuclei_results.clone());
+        } else {
+          matched_result
+            .nuclei_result
+            .insert(key.clone(), nuclei_results);
+        }
+      }
+    }
+  }
+
+  fn http(&mut self, config: &ObserverWardConfig, cluster: &ClusterExecute, http_record: &mut HttpRecord) -> Result<()> {
+    // 可能会有多个http，一般只有一个，多个会有flow控制
+    for http in cluster.requests.http.iter() {
+      let mut client_builder = http.http_option.builder_client();
+      client_builder = client_builder.timeout(Duration::from_secs(config.timeout));
+      client_builder = client_builder.redirect(Policy::Custom(only_same_host));
+      if let Ok(ua) = HeaderValue::from_str(&config.ua) {
+        client_builder = client_builder.user_agent(ua);
+      }
+      if let Some(proxy) = &config.proxy {
+        client_builder = client_builder.proxy(proxy.clone());
+      }
+      let client = client_builder.build().unwrap_or_default();
+      let operators = cluster.operators.clone();
+      let generator = RequestGenerator::new(http, self.target.clone());
+      // 请求全部路径
+      for request in generator {
+        debug!("{:#?}", request);
+        let mut response = client.execute(request.clone())?;
+        debug!("{:#?}", response);
+        // 提取icon
+        http_record.find_favicon_tag(&mut response);
+        let mut flag = false;
+        let mut result = ResultEvent::new(&response);
+        operators
+          .iter()
+          .for_each(|operator| operator.matcher(&mut result));
+        if !result.matcher_result().is_empty() {
+          flag = true;
+          self.update_result(result, Some(request.uri().to_string()));
+        }
+        if http.stop_at_first_match && flag {
+          break;
+        }
+      }
+    }
+    Ok(())
+  }
+  fn tcp(&mut self, config: &ObserverWardConfig, cluster: &ClusterExecute) -> Result<()> {
+    // 服务指纹识别，实验功能 #TODO
+    for tcp in cluster.requests.tcp.iter() {
+      let conn_builder = config.tcp_client_builder();
+      let mut socket = conn_builder.build()?.connect_with_uri(&self.target)?;
+      socket.set_nonblocking(true).unwrap_or_default();
+      let operators = cluster.operators.clone();
+      for input in tcp.inputs.iter() {
+        let data = input_to_byte(&input.data.clone().unwrap_or_default());
+        let request = Request::raw(self.target.clone(), data.clone(), true);
+        debug!("{:#?}", request);
+        socket.write_all(&data).unwrap_or_default();
+        socket.flush().unwrap_or_default();
+        let mut full = Vec::new();
+        let mut buffer = vec![0; 12]; // 定义一个缓冲区
+        let mut total_bytes_read = 0;
+        loop {
+          match socket.read(&mut buffer) {
+            Ok(0) => break, // 如果读取到的数据长度为0，表示对端关闭连接
+            Ok(n) => {
+              full.extend_from_slice(&buffer[..n]);
+              total_bytes_read += n;
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+              // 如果没有数据可读，但超时尚未到达，可以在这里等待或重试
+              if total_bytes_read > 0 {
+                break;
+              }
+            }
+            Err(_e) => {
+              // 处理其他错误
+              break;
+            }
+          }
+          // 检查是否读取到了全部数据，如果是，则退出循环
+          if total_bytes_read >= input.read.unwrap_or(2048) {
+            break;
+          }
+        }
+        let mut response: Response = Response::builder().body(full).unwrap_or_default().into();
+        response.extensions_mut().insert(request.clone());
+        debug!("{:#?}", response);
+        let mut result = ResultEvent::new(&response);
+        operators
+          .iter()
+          .for_each(|operator| operator.matcher(&mut result));
+        if !result.matcher_result().is_empty() {
+          self.update_result(result, Some(request.uri().to_string()));
+        }
+      }
+    }
+    Ok(())
+  }
+  fn execute(&mut self, config: &ObserverWardConfig, cluster: &ClusterExecute, http_record: &mut HttpRecord) -> Result<()> {
+    match self.target.scheme_str() {
+      // 只跑web指纹
+      Some("http") | Some("https") => { self.http(config, cluster, http_record)?; }
+      // 只跑服务指纹
+      None | Some("tcp") | Some("tls") => { self.tcp(config, cluster)?; }
+      // 跳过
+      _ => {}
+    }
+    Ok(())
   }
 }
 
-fn is_hidden(entry: &std::fs::DirEntry) -> bool {
-  entry
+// yaml字符串转字节
+fn input_to_byte(payload: &str) -> Vec<u8> {
+  let mut buf = Vec::new();
+  if !payload.is_empty() {
+    unescape::unescape_byte_str(payload, &mut |_x, y| if let Ok(c) = y {
+      buf.push(c)
+    });
+  }
+  buf
+}
+
+pub fn parse_yaml(yaml_path: &PathBuf) -> Result<Template> {
+  let name = yaml_path
     .file_name()
-    .to_str()
-    .map(|s| !s.starts_with('.'))
-    .unwrap_or(false)
+    .unwrap_or_default()
+    .to_string_lossy()
+    .to_string();
+  let name = name.trim_end_matches(&format!(".{}", yaml_path.extension().unwrap_or_default().to_string_lossy()));
+  let f = File::open(yaml_path)?;
+  serde_yaml::from_reader::<File, Template>(f).map_err(|x| new_io_error(&x.to_string())).map(|mut t| {
+    if name != t.id {
+      t.id = format!("{}:{}", t.id, name);
+    }
+    t
+  })
 }
 
-pub fn read_file_to_target(file_path: &str) -> HashSet<String> {
-  if let Ok(lines) = read_lines(file_path) {
-    let target_list: Vec<String> = lines.map_while(Result::ok).collect();
-    return HashSet::from_iter(target_list);
-  }
-  HashSet::from_iter([])
-}
-
-pub fn read_from_stdio() -> Result<HashSet<String>, io::Error> {
-  let (tx, rx) = std::sync::mpsc::channel::<String>();
-  let mut stdin = std::io::stdin();
-  if stdin.is_terminal() {
-    return Err(std::io::Error::new(
-      std::io::ErrorKind::InvalidInput,
-      "invalid input",
-    ));
-  }
-  std::thread::spawn(move || loop {
-    let mut buffer = String::new();
-    stdin.read_to_string(&mut buffer).unwrap_or_default();
-    if let Err(_err) = tx.send(buffer) {
-      break;
-    };
-  });
-  loop {
-    match rx.try_recv() {
-      Ok(line) => {
-        let l = line
-          .lines()
-          .map(|l| l.to_string())
-          .collect::<HashSet<String>>();
-        return Ok(l);
-      }
-      Err(std::sync::mpsc::TryRecvError::Empty) => {}
-      Err(std::sync::mpsc::TryRecvError::Disconnected) => panic!("Channel disconnected"),
-    }
-    let duration = std::time::Duration::from_millis(1000);
-    std::thread::sleep(duration);
-  }
-}
-
-fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where
-  P: AsRef<Path>,
-{
-  let file = File::open(filename)?;
-  Ok(io::BufReader::new(file).lines())
-}
-
-pub fn print_results_and_save(results: Vec<WhatWebResult>, config: &ObserverWardConfig) {
-  if let Some(json_path) = &config.json {
-    let mut out = File::create(json_path).expect("Failed to create file");
-    if config.jsonl {
-      for line in &results {
-        if let Ok(l) = serde_json::to_vec(line) {
-          out.write(&l).unwrap_or_default();
-          out.write(b"\n").unwrap_or_default();
-        }
-      }
-    } else {
-      serde_json::to_writer(out, &results).expect("Failed to save file");
-    }
-  }
-  let mut table = Table::new();
-  let mut headers = vec![
-    Cell::new("url"),
-    Cell::new("name"),
-    Cell::new("length"),
-    Cell::new("status_code"),
-    Cell::new("title"),
-    Cell::new("priority"),
-  ];
-  if config.enable_engine() {
-    headers.push(Cell::new("plugins"))
-  }
-  table.set_titles(Row::new(headers.clone()));
-  for res in &results {
-    if config.filter && res.name.is_empty() {
-      continue;
-    }
-    let wwn: Vec<String> = res.name.iter().map(String::from).collect();
-    let status_code = reqwest::StatusCode::from_u16(res.status_code).unwrap_or_default();
-    let mut status_code_color = Attr::ForegroundColor(color::RED);
-    if status_code.is_success() {
-      status_code_color = Attr::ForegroundColor(color::GREEN);
-    }
-    let mut rows = vec![
-      Cell::new(res.url.as_str()),
-      Cell::new(&wwn.join("\n")).with_style(Attr::ForegroundColor(color::GREEN)),
-      Cell::new(&res.length.to_string()),
-      Cell::new(&res.status_code.to_string()).with_style(status_code_color),
-      Cell::new(&textwrap::fill(res.title.as_str(), 40)),
-      Cell::new(&res.priority.to_string()),
-    ];
-    if config.enable_engine() {
-      let wp: Vec<String> = res.plugins.iter().map(String::from).collect();
-      rows.push(Cell::new(&wp.join("\n")).with_style(Attr::ForegroundColor(color::RED)))
-    }
-    table.add_row(Row::new(rows));
-  }
-  if let Some(csv_path) = &config.csv {
-    let out = File::create(csv_path).expect("Failed to create file");
-    table.to_csv(out).expect("Failed to save file");
-  }
-  if !table.is_empty() && !config.silent {
-    println!("{}", "Important technology:".yellow());
-    table.printstd();
-  }
-}
-
-fn extract_plugins_zip(f_name: &Path, extract_target_path: &Path) -> Result<(), Error> {
-  let plugins_path = extract_target_path.join("plugins");
-  if plugins_path.exists() {
-    std::fs::remove_dir_all(plugins_path)?;
-  }
-  let zipfile = File::open(f_name)?;
-  let mut archive = zip::ZipArchive::new(zipfile)?;
-  archive.extract(extract_target_path)?;
-  Ok(())
-}
-
-static NUCLEI_TAGS: Lazy<HashMap<String, Vec<Vec<String>>>> =
-  Lazy::new(|| -> HashMap<String, Vec<Vec<String>>> {
-    let mut config_path = PathBuf::new();
-    if let Some(cp) = dirs::config_dir() {
-      config_path = cp;
-    } else {
-      println!("Cannot create config directory{:?}", config_path);
-      std::process::exit(0);
-    }
-    let observer_ward = config_path.join("observer_ward");
-    if !observer_ward.is_dir() || !observer_ward.exists() {
-      std::fs::create_dir_all(&observer_ward).unwrap_or_default();
-    }
-    let tags_path = observer_ward.join("tags.yaml");
-    if !tags_path.exists() {
-      println!(
-        "Unable to find the {:?} file, please update with the `-u` parameter",
-        tags_path
-      );
-      std::process::exit(0);
-    }
-    let mut tags_map: HashMap<String, Vec<Vec<String>>> = HashMap::new();
-    // 读入tags.yaml文件，解析
-    if let Ok(file) = File::open(tags_path) {
-      match serde_yaml::from_reader::<_, HashMap<String, Vec<Vec<String>>>>(&file) {
-        Ok(s) => tags_map = s,
-        Err(err) => {
-          println!("tags.yaml serde err: {}", err);
-          std::process::exit(0);
-        }
-      };
-      return tags_map;
-    } else {
-      println!("The tags.yaml file cannot be found in the current directory!");
-    }
-    tags_map
-  });
-
-pub async fn get_plugins_by_afrog(
-  mut wwr: WhatWebResult,
-  config: &ObserverWardConfig,
-) -> WhatWebResult {
-  let default_name = wwr.name.clone();
-  let mut command_line = Command::new("afrog");
-  let tmp_dir = tempdir().expect("Can't Create TempDir");
-  let json_path = tmp_dir.path().join("result.json");
-  command_line.args([
-    "-t",
-    &wwr.url,
-    "-timeout",
-    &(config.timeout + 5).to_string(),
-    "-duc",
-    "-silent",
-    "-doh",
-  ]);
-  if config.irr {
-    command_line.args(["-ja", json_path.to_string_lossy().as_ref()]);
-  } else {
-    command_line.args(["-j", json_path.to_string_lossy().as_ref()]);
-  }
-  if let Some(path) = &config.path {
-    command_line.args(["-P", path]);
-  }
-  let mut tags = HashSet::new();
-  for name in default_name.into_iter() {
-    tags.insert(name.clone());
-    if let Some(ts) = NUCLEI_TAGS.get(&name) {
-      let tfs = ts
-        .iter()
-        .flatten()
-        .map(|t| t.to_string())
-        .collect::<Vec<String>>();
-      tags.extend(tfs);
-    }
-  }
-  let tags_string = tags.iter().map(|k| k.to_string()).collect::<Vec<String>>();
-  command_line.args(["-s", &tags_string.join(",")]);
-  if let Some(fargs) = &config.fargs {
-    let args: Vec<&str> = fargs.split(' ').collect();
-    for arg in args {
-      command_line.arg(arg);
-    }
-  }
-  if let Ok(mut child) = command_line
-    .stderr(Stdio::null())
-    .stdout(Stdio::null())
-    .spawn()
-  {
-    if let Ok(s) = child.wait().await {
-      if !s.success() {
-        return wwr;
-      }
-      let afrogs: Vec<Frog> =
-        serde_json::from_str(&std::fs::read_to_string(&json_path).unwrap_or_default())
-          .unwrap_or_default();
-      for afrog in afrogs {
-        if let Some(mut t) = wwr.plugins_result {
-          t.push(PluginsResult::Frog(afrog.clone()));
-          wwr.plugins_result = Some(t);
-        } else {
-          wwr.plugins_result = Some(vec![PluginsResult::Frog(afrog.clone())]);
-        }
-        if !config.silent {
-          print!("[{}] ", afrog.pocinfo.infoseg.to_string().green());
-          print!("[{}] ", afrog.pocinfo.id.to_string().red());
-          println!("| [{}] ", afrog.fulltarget);
-        }
-        wwr.plugins.insert(afrog.pocinfo.id);
-      }
-    }
-  };
-  wwr
-}
-
-pub async fn get_plugins_by_engine(
-  wwr: WhatWebResult,
-  config: &ObserverWardConfig,
-) -> WhatWebResult {
-  match &config.engine {
-    None => get_plugins_by_nuclei(wwr, config).await,
-    Some(engine) => match engine.as_str() {
-      "nuclei" => get_plugins_by_nuclei(wwr, config).await,
-      "afrog" => get_plugins_by_afrog(wwr, config).await,
-      "all" => {
-        let mut wwr = get_plugins_by_nuclei(wwr, config).await;
-        wwr = get_plugins_by_afrog(wwr.clone(), config).await;
-        wwr
-      }
-      _ => wwr,
-    },
-  }
-}
-
-pub async fn get_plugins_by_nuclei(
-  mut wwr: WhatWebResult,
-  config: &ObserverWardConfig,
-) -> WhatWebResult {
-  let mut plugins_set: HashSet<String> = HashSet::new();
-  let mut exist_plugins: Vec<String> = Vec::new();
-  let use_tags = config.path.is_some();
-  let mut template_condition = Vec::new();
-  let mut default_name = wwr.name.clone();
-  default_name.insert(String::from("default"));
-  for name in default_name.iter() {
-    if let Some(plugins_path) = &config.plugins {
-      let plugins_name_path = Path::new(plugins_path).join(name);
-      if plugins_name_path.exists() {
-        if let Some(p_path) = plugins_name_path.to_str() {
-          exist_plugins.push(p_path.to_string())
-        }
-      }
-    }
-    if use_tags {
-      if let Some(ts) = NUCLEI_TAGS.get(name) {
-        template_condition.push(gen_nuclei_tags(ts));
-      }
-    }
-  }
-  if exist_plugins.is_empty() && template_condition.is_empty() {
-    return wwr;
-  }
-  if let Some(t) = &config.path {
-    exist_plugins.push(t.to_string());
-  }
-  let mut command_line = Command::new("nuclei");
-  command_line.args([
-    "-u",
-    &wwr.url,
-    "-no-color",
-    "-timeout",
-    &(config.timeout + 5).to_string(),
-    "-es",
-    "info", //排除info模板
-    "-silent",
-    "-jsonl",
-    "-duc",
-  ]);
-  if let Some(nargs) = &config.nargs {
-    let args: Vec<&str> = nargs.split(' ').collect();
-    for arg in args {
-      command_line.arg(arg);
-    }
-  }
-  for p in exist_plugins.iter() {
-    command_line.args(["-t", p]);
-  }
-  if !template_condition.is_empty() {
-    command_line.args(["-tc", &template_condition.join("||")]);
-  }
-  if config.irr {
-    command_line.args(["-irr"]);
-  }
-  let output = command_line.output().await.expect("command_line_output");
-  if let Ok(template_output) = String::from_utf8(output.stdout) {
-    let templates_output: Vec<String> = template_output
-      .split_terminator('\n')
-      .map(String::from)
-      .collect();
-    for line in templates_output.iter() {
-      let template: TemplateResult = serde_json::from_str(line).unwrap_or_default();
-
-      if !config.silent {
-        print!("[{}] ", template.info.severity.to_string().green());
-        print!("[{}] ", template.template_id.to_string().red());
-        println!("| [{}] ", template.matched_at);
-        if !template.curl_command.is_empty() {
-          let patch_curl_command = format!("{} --path-as-is -k", template.curl_command);
-          println!("{}", patch_curl_command.dark_blue());
-        }
-      }
-      if config.irr {
-        if let Some(mut t) = wwr.plugins_result {
-          t.push(PluginsResult::TemplateResult(template.clone()));
-          wwr.plugins_result = Some(t);
-        } else {
-          wwr.plugins_result = Some(vec![PluginsResult::TemplateResult(template.clone())]);
-        }
-      }
-      plugins_set.insert(template.template_id);
-    }
-  }
-  wwr.plugins = plugins_set;
-  if !wwr.plugins.is_empty() {
-    wwr.priority += 1;
-  }
-  wwr
-}
-
-fn gen_nuclei_tags(tags_list: &Vec<Vec<String>>) -> String {
-  let mut or_condition = Vec::new();
-  for tags in tags_list {
-    // 只留单个的tags，防止误报
-    if tags.len() == 1 {
-      or_condition.push(format!("contains(tags,'{}')", tags[0]))
-    } else {
-      let mut and_condition = Vec::new();
-      for tag in tags {
-        and_condition.push(format!("contains(tags,'{}')", tag));
-      }
-      or_condition.push(format!("({})", and_condition.join("&&")));
-    }
-  }
-  or_condition.join("||")
-}
-
-#[derive(Clone)]
-pub struct ObserverWard {
-  what_server_ins: WhatServer,
-  what_web_ins: WhatWeb,
-  config: ObserverWardConfig,
-}
-
-impl Default for ObserverWard {
-  fn default() -> Self {
-    let config = ObserverWardConfig::new();
-    let mut helper = Helper::new(&config);
-    let web_fingerprint = helper.read_web_fingerprint(&config);
-    let mut nmap_fingerprint = vec![];
-    if config.service {
-      nmap_fingerprint = helper.read_nmap_fingerprint();
-    }
-    ObserverWard::new(config, web_fingerprint, nmap_fingerprint)
-  }
-}
-
-impl ObserverWard {
-  pub fn new(
-    config: ObserverWardConfig,
-    web_fingerprint: Vec<WebFingerPrint>,
-    nmap_fingerprint: Vec<NmapFingerPrint>,
-  ) -> Self {
-    let request_option = RequestOption::new(
-      &config.timeout,
-      &config.proxy,
-      &config.verify,
-      config.silent,
-      config.danger,
-      &config.ua,
-    );
-    let what_server_ins = WhatServer::new(300, nmap_fingerprint);
-    let what_web_ins = WhatWeb::new(request_option, web_fingerprint);
-    Self {
-      what_server_ins,
-      what_web_ins,
-      config,
-    }
-  }
-  pub async fn scan(
-    &self,
-    targets: HashSet<String>,
-    additional_result: Option<Vec<WhatWebResult>>,
-  ) -> Vec<WhatWebResult> {
-    let config = self.config.clone();
-    let what_web_ins = self.what_web_ins.clone();
-    let what_server_ins = self.what_server_ins.clone();
-    let (what_web_sender, mut what_web_receiver) = unbounded();
-    let (what_server_sender, mut what_server_receiver) = unbounded();
-    let (verify_sender, mut verify_receiver) = unbounded();
-    let (results_sender, mut results_receiver) = unbounded();
-    let mut vec_results: Vec<WhatWebResult> = vec![];
-    let config_thread = config.thread;
-    let webhook = config.webhook.clone();
-    let webhook_auth = config.webhook_auth.clone();
-    let what_web_handle = tokio::task::spawn(async move {
-      let mut worker = FuturesUnordered::new();
-      let mut targets_iter = targets.iter();
-      for _ in 0..config_thread {
-        match targets_iter.next() {
-          Some(target) => worker.push(what_web_ins.scan(target)),
-          None => {
-            break;
-          }
-        }
-      }
-      while let Some(result) = worker.next().await {
-        if let Some(target) = targets_iter.next() {
-          worker.push(what_web_ins.scan(target));
-        }
-        what_web_sender.unbounded_send(result).unwrap_or_default();
-      }
-      if let Some(rs) = additional_result {
-        for w in rs {
-          what_web_sender.unbounded_send(w).unwrap_or_default();
-        }
-      }
-      true
+pub fn scan(config: &ObserverWardConfig, cl: Vec<ClusterType>, tx: Sender<ClusterExecuteRunner>) {
+  let input = config.input();
+  info!("{}target loaded: {}",Emoji("🎯",""), style(input.len()).blue());
+  let pool = ThreadPool::new(config.thread);
+  for target in input.into_iter() {
+    let config = config.clone();
+    let cl = cl.clone();
+    let tx = tx.clone();
+    pool.execute(move || {
+      debug!("start: {}", target);
+      let mut runner = ClusterExecuteRunner::new(target);
+      runner.run(cl.clone(), config.clone());
+      debug!("end: {}", runner.target());
+      tx.send(runner).unwrap_or_default();
     });
-    let what_server_handle = tokio::task::spawn(async move {
-      let mut worker = FuturesUnordered::new();
-      for _ in 0..3 {
-        match what_web_receiver.next().await {
-          Some(w) => worker.push(what_server_ins.scan(w)),
-          None => {
-            break;
-          }
-        }
-      }
-      while let Some(wwr) = worker.next().await {
-        if let Some(v_wwr) = what_web_receiver.next().await {
-          worker.push(what_server_ins.scan(v_wwr));
-        }
-        if !config.silent {
-          print_what_web(&wwr);
-        }
-        what_server_sender.unbounded_send(wwr).unwrap_or_default();
-      }
-      true
-    });
-    let is_enable_engine = config.enable_engine();
-    let is_json_line = config.jsonl && config.silent;
-    let verify_handle = tokio::task::spawn(async move {
-      if is_enable_engine {
-        let mut worker = FuturesUnordered::new();
-        for _ in 0..3 {
-          match what_server_receiver.next().await {
-            Some(w) => {
-              worker.push(get_plugins_by_engine(w, &config));
-            }
-            None => {
-              break;
-            }
-          }
-        }
-        while let Some(wwr) = worker.next().await {
-          if let Some(v_wwr) = what_server_receiver.next().await {
-            worker.push(get_plugins_by_engine(v_wwr, &config));
-          }
-          verify_sender.unbounded_send(wwr).unwrap_or_default();
-        }
-      } else {
-        while let Some(wwr) = what_server_receiver.next().await {
-          verify_sender.unbounded_send(wwr).unwrap_or_default();
-        }
-      }
-      true
-    });
-    let results_handle = tokio::task::spawn(async move {
-      if let Some(webhook_url) = webhook {
-        let mut worker = FuturesUnordered::new();
-        for _ in 0..3 {
-          match verify_receiver.next().await {
-            Some(w) => {
-              worker.push(webhook_results(w, &webhook_url, &webhook_auth));
-            }
-            None => {
-              break;
-            }
-          }
-        }
-        while let Some(wwr) = worker.next().await {
-          if let Some(w) = verify_receiver.next().await {
-            worker.push(webhook_results(w, &webhook_url, &webhook_auth));
-          }
-          results_sender.unbounded_send(wwr).unwrap_or_default();
-        }
-      } else {
-        while let Some(wwr) = verify_receiver.next().await {
-          if is_json_line {
-            if let Ok(l) = serde_json::to_string(&wwr) {
-              println!("{}", l);
-            }
-          }
-          results_sender.unbounded_send(wwr).unwrap_or_default();
-        }
-      }
-      true
-    });
-    let (_r1, _r2, _r3, _r4) = tokio::join!(
-      what_web_handle,
-      what_server_handle,
-      verify_handle,
-      results_handle
-    );
-    while let Some(wwr) = results_receiver.next().await {
-      vec_results.push(wwr);
-    }
-    if vec_results.len() < 2000 {
-      vec_results.sort_by(|a, b| b.priority.cmp(&a.priority));
-    }
-    vec_results
   }
-  pub fn reload(&mut self, config: &ObserverWardConfig) {
-    let mut helper = Helper::new(config);
-    let web_fingerprint = helper.read_web_fingerprint(config);
-    let mut nmap_fingerprint = vec![];
-    if config.service {
-      nmap_fingerprint = helper.read_nmap_fingerprint();
-    }
-    let request_option = RequestOption::new(
-      &config.timeout,
-      &config.proxy,
-      &config.verify,
-      config.silent,
-      config.danger,
-      &config.ua,
-    );
-    let what_server_ins = WhatServer::new(300, nmap_fingerprint);
-    let what_web_ins = WhatWeb::new(request_option, web_fingerprint);
-    self.config = config.clone();
-    self.what_web_ins = what_web_ins;
-    self.what_server_ins = what_server_ins;
-  }
-}
-
-// 去重
-pub fn strings_to_urls(domains: String) -> HashSet<String> {
-  let target_list = domains
-    .split_terminator('\n')
-    .map(String::from)
-    .collect::<Vec<_>>();
-  HashSet::from_iter(target_list)
+  pool.join();
 }

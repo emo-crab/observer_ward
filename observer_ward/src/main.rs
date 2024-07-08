@@ -1,51 +1,57 @@
-use std::collections::HashSet;
-use std::io::{self, Read};
-
-use observer_ward::api::run_server;
+use console::{Emoji, style};
+use log::{info};
 use observer_ward::cli::ObserverWardConfig;
-use observer_ward::error::Error;
-use observer_ward::{
-  print_opening, print_results_and_save, read_file_to_target, strings_to_urls, Helper, ObserverWard,
-};
+use observer_ward::helper::Helper;
+use observer_ward::output::Output;
+use observer_ward::{scan};
+use observer_ward::cluster_templates;
+use std::sync::mpsc::channel;
+use std::thread;
+#[cfg(not(target_os = "windows"))]
+use observer_ward::api::background;
+use observer_ward::api::{api_server};
 
-#[tokio::main]
-async fn main() {
-  match start().await {
-    Ok(_) => {}
-    Err(e) => println!("{}", e),
+fn main() {
+  let config = ObserverWardConfig::default();
+  if config.debug {
+    std::env::set_var("RUST_LOG", "observer_ward=debug,actix_web=debug");
+  } else if config.silent {
+    std::env::set_var("RUST_LOG", "observer_ward=off,actix_web=off");
+  } else {
+    std::env::set_var("RUST_LOG", "observer_ward=info,actix_web=info");
   }
-}
-
-async fn start() -> Result<(), Error> {
-  let config = ObserverWardConfig::new();
-  if !(config.stdin || config.silent) {
-    print_opening();
+  if config.no_color {
+    console::set_colors_enabled(false);
+    std::env::set_var("RUST_LOG_STYLE", "never");
   }
-  if let Some(server) = &config.api_server {
-    run_server(server);
+  // 自定义日志输出
+  env_logger::builder()
+    .format_target(false)
+    // .format_level(false)
+    .format_timestamp(None)
+    .init();
+  if let Some(address) = config.api_server {
+    #[cfg(not(target_os = "windows"))]
+    if config.daemon {
+      background();
+    }
+    api_server(address, config.clone()).unwrap_or_default();
+    std::process::exit(0);
   }
-  let mut targets = HashSet::new();
-  if config.stdin {
-    let mut buffer = String::new();
-    io::stdin().read_to_string(&mut buffer)?;
-    targets.extend(strings_to_urls(buffer));
+  let helper = Helper::new(&config);
+  helper.run();
+  let templates = config.templates();
+  info!("{}probes loaded: {}",Emoji("📇",""), style(templates.len()).blue());
+  let cl = cluster_templates(&templates);
+  info!("{}optimized probes: {}",Emoji("🚀",""), style(cl.len()).blue());
+  let (tx, rx) = channel();
+  let output_config = config.clone();
+  thread::spawn(move || {
+    scan(&config, cl, tx);
+  });
+  let mut output = Output::new(&output_config);
+  for result in rx {
+    output.save_and_print(result.clone());
+    output.webhook_results(vec![result]);
   }
-  if let Some(target) = &config.target {
-    targets.insert(String::from(target));
-  }
-  if let Some(file_path) = &config.file {
-    targets.extend(read_file_to_target(file_path));
-  }
-  let mut helper = Helper::new(&config);
-  helper.run().await;
-  let web_fingerprint = helper.read_web_fingerprint(&config);
-  let mut nmap_fingerprint = vec![];
-  if config.service {
-    nmap_fingerprint = helper.read_nmap_fingerprint();
-  }
-  let observer_ward_ins = ObserverWard::new(config.clone(), web_fingerprint, nmap_fingerprint);
-  let r = helper.read_results_file();
-  let vec_results = observer_ward_ins.scan(targets, Some(r)).await;
-  print_results_and_save(vec_results, &config);
-  Ok(())
 }

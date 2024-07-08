@@ -174,7 +174,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ${{ env.BIN_FILE }}
           asset_name: ${{ matrix.file }}
-          tag: default
+          tag: v4
           overwrite: true
   homebrew:
     runs-on: ubuntu-latest

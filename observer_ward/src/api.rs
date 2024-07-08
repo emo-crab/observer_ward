@@ -1,38 +1,26 @@
-#[cfg(not(target_os = "windows"))]
-extern crate daemonize;
-
-use crate::error::Error;
-use crate::{Helper, ObserverWard, ObserverWardConfig, OBSERVER_WARD_PATH};
-use actix_web::web::Data;
-use actix_web::{get, middleware, post, web, App, HttpResponse, HttpServer, Responder};
-use actix_web_httpauth::extractors::bearer::{BearerAuth, Config};
-use crossterm::style::Stylize;
+use std::net::SocketAddr;
+use std::sync::mpsc::channel;
+use std::sync::RwLock;
+use std::thread;
+use actix_web::{get, middleware, post, web, App, HttpResponse, HttpServer, Responder, rt};
+use actix_web_httpauth::extractors::bearer::BearerAuth;
+use console::{Emoji, style};
 #[cfg(not(target_os = "windows"))]
 use daemonize::Daemonize;
-use openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslFiletype, SslMethod};
-use std::collections::{HashMap, HashSet};
-#[cfg(not(target_os = "windows"))]
-use std::fs::File;
-use std::net::SocketAddr;
-use std::str::FromStr;
-use std::thread;
-use tokio::sync::RwLock;
-
-fn get_ssl_config() -> Result<SslAcceptorBuilder, Error> {
-  let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
-  let key_path = OBSERVER_WARD_PATH.join("key.pem");
-  let cert_path = OBSERVER_WARD_PATH.join("cert.pem");
-  builder.set_private_key_file(key_path, SslFiletype::PEM)?;
-  builder.set_certificate_chain_file(cert_path)?;
-  Ok(builder)
-}
+use log::{info};
+use engine::execute::ClusterType;
+use engine::slinger::openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslFiletype, SslMethod};
+use crate::cli::ObserverWardConfig;
+use crate::{cluster_templates, ClusterExecuteRunner, scan};
+use crate::helper::Helper;
+use crate::output::Output;
 
 #[derive(Clone, Debug)]
 struct TokenAuth {
   token: String,
 }
 
-fn validator(token_auth: Data<TokenAuth>, credentials: BearerAuth) -> bool {
+fn validator(token_auth: web::Data<TokenAuth>, credentials: BearerAuth) -> bool {
   return token_auth.token.is_empty() || token_auth.token == credentials.token();
 }
 
@@ -41,27 +29,30 @@ async fn what_web_api(
   token: web::Data<TokenAuth>,
   auth: BearerAuth,
   config: web::Json<ObserverWardConfig>,
-  observer_ward_ins: web::Data<RwLock<ObserverWard>>,
+  cl: web::Data<RwLock<Vec<ClusterType>>>,
 ) -> impl Responder {
   if !validator(token, auth) {
     return HttpResponse::Unauthorized().finish();
   }
-  let mut targets = HashSet::new();
-  let config = config.0;
-  targets.insert(config.target.clone().unwrap_or_default());
-  targets.extend(config.targets);
-  let mut observer_ward = observer_ward_ins.read().await.clone();
-  observer_ward.config.webhook_auth = config.webhook_auth;
-  if observer_ward.config.webhook.is_none() {
-    let vec_results = observer_ward.scan(targets, None).await;
-    HttpResponse::Ok().json(vec_results)
+  let webhook = config.webhook.is_some();
+  if let Ok(cl) = cl.read() {
+    let output = Output::new(&config);
+    let (tx, rx) = channel();
+    let cl = cl.clone();
+    thread::spawn(move || {
+      scan(&config, cl, tx);
+    });
+    if webhook {
+      rx.iter().for_each(|r| {
+        output.webhook_results(vec![r]);
+      });
+      HttpResponse::Ok().finish()
+    } else {
+      let results: Vec<ClusterExecuteRunner> = rx.iter().collect();
+      HttpResponse::Ok().json(results)
+    }
   } else {
-    tokio::task::spawn(async move { observer_ward.scan(targets, None).await });
-    let data: HashMap<String, String> = HashMap::from_iter(vec![(
-      "results".to_string(),
-      "The results will be pushed to the set webhook server".to_string(),
-    )]);
-    HttpResponse::Ok().json(data)
+    HttpResponse::InternalServerError().finish()
   }
 }
 
@@ -70,16 +61,25 @@ async fn set_config_api(
   token: web::Data<TokenAuth>,
   auth: BearerAuth,
   config: web::Json<ObserverWardConfig>,
-  observer_ward_ins: web::Data<RwLock<ObserverWard>>,
+  cl: web::Data<RwLock<Vec<ClusterType>>>,
 ) -> impl Responder {
   if !validator(token, auth) {
     return HttpResponse::Unauthorized().finish();
   }
-  let mut helper = Helper::new(&config);
-  helper.run().await;
-  helper.msg = HashMap::new();
-  observer_ward_ins.write().await.reload(&config);
-  let config = observer_ward_ins.read().await.config.clone();
+  let helper = Helper::new(&config);
+  if config.update_fingerprint {
+    helper.update_plugins();
+  }
+  if config.update_plugin {
+    helper.update_plugins();
+  }
+  if let Ok(mut cl) = cl.write() {
+    let templates = config.templates();
+    info!("{}probes loaded: {}", Emoji("📇",""),style(templates.len().to_string()).blue());
+    let new_cl = cluster_templates(&templates);
+    info!("{}optimized probes: {}", Emoji("🚀",""),style(new_cl.len()).blue());
+    *cl = new_cl;
+  }
   HttpResponse::Ok().json(config)
 }
 
@@ -87,88 +87,78 @@ async fn set_config_api(
 async fn get_config_api(
   token: web::Data<TokenAuth>,
   auth: BearerAuth,
-  observer_ward_ins: web::Data<RwLock<ObserverWard>>,
+  config: web::Data<ObserverWardConfig>,
 ) -> impl Responder {
   if !validator(token, auth) {
     return HttpResponse::Unauthorized().finish();
   }
-  let config = observer_ward_ins.read().await.config.clone();
-  HttpResponse::Ok().json(config)
+  HttpResponse::Ok().json(config.clone())
 }
 
-#[actix_web::main]
-async fn api_server(listening_address: SocketAddr, token: String) {
-  std::env::set_var("RUST_LOG", "actix_web=info");
-  env_logger::init();
-  let observer_ward_ins = web::Data::new(RwLock::new(ObserverWard::default()));
+pub fn api_server(listening_address: SocketAddr, config: ObserverWardConfig) -> std::io::Result<()> {
+  let templates = config.templates();
+  info!("{}probes loaded: {}",Emoji("📇",""), style(templates.len()).blue());
+  let cl = cluster_templates(&templates);
+  info!("{}optimized probes: {}",Emoji("🚀",""), style(cl.len()).blue());
+  let cluster_templates = web::Data::new(RwLock::new(cl));
+  let web_config = web::Data::new(config.clone());
   let token_auth = web::Data::new(TokenAuth {
-    token: token.clone(),
+    token: config.token.clone(),
   });
+  let mut s = format!("http://{}/v1/observer_ward", listening_address);
+  let token = config.token.clone();
+  let ssl = get_ssl_config(&config);
   let http_server = HttpServer::new(move || {
     App::new()
       .wrap(middleware::Logger::default())
       .app_data(token_auth.clone())
-      .app_data(Config::default())
+      .app_data(web_config.clone())
       .app_data(web::JsonConfig::default().limit(40960))
-      .app_data(observer_ward_ins.clone())
+      .app_data(cluster_templates.clone())
       .service(what_web_api)
       .service(get_config_api)
       .service(set_config_api)
   });
-  let mut s = format!("http://{}/v1/observer_ward", listening_address);
-  if let Ok(ssl_config) = get_ssl_config() {
-    let https_server = http_server.bind_openssl(listening_address, ssl_config);
+  let http_server = if let Ok(ssl_config) = ssl {
     s = s.replace("http://", "https://");
-    if let Ok(server) = https_server {
-      print_help(&s, &token);
-      server.workers(32).run().await.unwrap_or_default();
-    }
+    http_server.bind_openssl(listening_address, ssl_config)?
   } else {
-    let http_server = http_server.bind(listening_address);
-    if let Ok(server) = http_server {
-      print_help(&s, &token);
-      server.workers(32).run().await.unwrap_or_default();
-    }
-  }
+    http_server.bind(listening_address)?
+  };
+  print_help(&s, &token);
+  rt::System::new().block_on(http_server.workers(32).run())
 }
 
 fn print_help(s: &str, t: &str) {
-  println!("API service has been started:{}", s);
+  info!("{}API service has been started:{}",Emoji("🌐",""), s);
   let api_doc = format!(
     r#"curl --request POST \
   --url {} \
   --header 'Authorization: Bearer {}' \
   --header 'Content-Type: application/json' \
-  --data '{{"target":"https://httpbin.org/"}}'"#,
+  --data '{{"target":["https://httpbin.org/"],"or":true,"oc":true}}'"#,
     s, t
   );
-  let result = r#"[{"url":"http://httpbin.org/","name":["swagger"],"priority":5,"length":9593,"title":"httpbin.org","status_code":200,"is_web":true,"plugins":[]}]"#;
-  println!("Request:");
-  println!("{}", api_doc.dark_blue());
-  println!("Response:");
-  println!("{}", result.green());
+  let result = r#"[result...]"#;
+  info!("{}:",Emoji("📤",""));
+  info!("{}:{}",Emoji("📔",""), style(api_doc).green());
+  info!("{}:",Emoji("📥",""));
+  info!("{}:{}",Emoji("🗳",""), style(result).green());
 }
 
-pub fn run_server(server: &str) {
-  let config = ObserverWardConfig::new();
-  if config.daemon {
-    background();
-  }
-  if let Ok(address) = SocketAddr::from_str(server) {
-    thread::spawn(move || {
-      api_server(address, config.token);
-    })
-    .join()
-    .expect("API service startup failed")
-  } else {
-    println!("Invalid listening address");
-  }
+fn get_ssl_config(config: &ObserverWardConfig) -> Result<SslAcceptorBuilder, engine::slinger::openssl::error::ErrorStack> {
+  let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
+  let key_path = config.config_dir.join("key.pem");
+  let cert_path = config.config_dir.join("cert.pem");
+  builder.set_private_key_file(key_path, SslFiletype::PEM)?;
+  builder.set_certificate_chain_file(cert_path)?;
+  Ok(builder)
 }
 
 #[cfg(not(target_os = "windows"))]
-fn background() {
-  let stdout = File::create("/tmp/observer_ward.out").unwrap();
-  let stderr = File::create("/tmp/observer_ward.err").unwrap();
+pub fn background() {
+  let stdout = std::fs::File::create("/tmp/observer_ward.out").unwrap();
+  let stderr = std::fs::File::create("/tmp/observer_ward.err").unwrap();
 
   let daemonize = Daemonize::new()
     .pid_file("/tmp/observer_ward.pid") // Every method except `new` and `start`
@@ -187,6 +177,6 @@ fn background() {
 }
 
 #[cfg(target_os = "windows")]
-fn background() {
+pub fn background() {
   println!("Windows does not support background services");
 }

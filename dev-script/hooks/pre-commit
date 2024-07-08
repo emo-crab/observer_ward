@@ -1,0 +1,8 @@
+#!/bin/sh
+# 执行 fmt 脚本，如果不正确需要将退出码设为非零
+cargo clippy --fix --allow-dirty --workspace --all-features --all-targets -- -D warnings --allow deprecated
+cargo fmt --all
+
+# 获取上面脚本的退出码
+exitCode="$?"
+exit $exitCode

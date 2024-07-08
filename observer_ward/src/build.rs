@@ -9,7 +9,7 @@ fn main() {
   // as calling rc.exe might be slow
   if std::env::var("PROFILE").unwrap() == "release" {
     let mut res = winres::WindowsResource::new();
-    res.set_icon("res//fingerprint_black_24dp.ico");
+    res.set_icon("res//logo.ico");
     match res.compile() {
       Err(e) => {
         write!(std::io::stderr(), "{}", e).unwrap();
