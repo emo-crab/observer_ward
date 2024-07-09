@@ -91,6 +91,7 @@ brew install observer_ward
 ## 入门
 
 ```bash,no-run
+➜  ~ ./observer_ward -u
 ➜  ~ ./observer_ward -t http://httpbin.org/
 [INFO ] 📇probes loaded: 6183
 [INFO ] 🎯target loaded: 1
