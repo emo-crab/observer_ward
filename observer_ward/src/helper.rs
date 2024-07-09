@@ -1,5 +1,5 @@
 use crate::cli::ObserverWardConfig;
-use console::Emoji;
+use console::{style, Emoji};
 use engine::template::Template;
 use log::{error, info, warn};
 use std::fs::File;
@@ -22,14 +22,23 @@ impl<'a> Helper<'a> {
         .unwrap_or("web_fingerprint_v4.json"),
     );
     if let Ok(f) = std::fs::File::open(&fingerprint_path) {
-      if let Err(err) = serde_json::from_reader::<File, Vec<Template>>(f) {
-        error!("{}update fingerprint err: {}", Emoji("💢", ""), err);
-        std::fs::remove_file(&fingerprint_path).unwrap_or_default();
-        warn!(
-          "{}deleted fingerprint file: {:?}",
-          Emoji("⚠️", ""),
-          fingerprint_path
-        );
+      match serde_json::from_reader::<File, Vec<Template>>(f) {
+        Ok(ts) => {
+          info!(
+            "{}successfully updated {} fingerprint",
+            Emoji("🔄", ""),
+            style(ts.len()).blue()
+          );
+        }
+        Err(err) => {
+          error!("{}update fingerprint err: {}", Emoji("💢", ""), err);
+          std::fs::remove_file(&fingerprint_path).unwrap_or_default();
+          warn!(
+            "{}deleted fingerprint file: {:?}",
+            Emoji("⚠️", ""),
+            fingerprint_path
+          );
+        }
       }
     }
   }
