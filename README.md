@@ -73,9 +73,7 @@
 
 ## 安装
 
--
-
-从源码编译安装，更多可以查看github的action工作流文件 [workflow](https://github.com/emo-crab/observer_ward/blob/main/.github/workflows/post-release.yml)
+- 从源码编译安装，更多可以查看github的action工作流文件 [workflow](https://github.com/emo-crab/observer_ward/blob/main/.github/workflows/post-release.yml)
 
 ```bash,no-run
 cargo build --release --manifest-path=observer_ward/Cargo.toml
@@ -358,13 +356,11 @@ Press CTRL+C to quit
 [INFO ] 📇probes loaded: 6183
 [INFO ] 🚀optimized probes: 8
 [INFO ] 🌐API service has been started:http://127.0.0.1:8000/v1/observer_ward
-[INFO ] 📤:
 [INFO ] 📔:curl --request POST \
       --url http://127.0.0.1:8000/v1/observer_ward \
       --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
       --header 'Content-Type: application/json' \
       --data '{"target":["https://httpbin.org/"],"or":true,"oc":true}'
-[INFO ] 📥:
 [INFO ] 🗳:[result...]
 ```
 

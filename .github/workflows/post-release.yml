@@ -59,7 +59,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [ linux, macos, macos_m1, win-msvc, linux-arm-v7, linux-aarch64 ]
+        build: [linux, macos, macos_m1, win-msvc, linux-arm-v7, linux-aarch64]
         include:
           - build: linux
             os: ubuntu-latest
@@ -174,7 +174,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: ${{ env.BIN_FILE }}
           asset_name: ${{ matrix.file }}
-          tag: v4
+          tag: defaultv4
           overwrite: true
   homebrew:
     runs-on: ubuntu-latest
