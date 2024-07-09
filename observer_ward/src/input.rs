@@ -36,10 +36,7 @@ pub fn read_from_stdio() -> std::result::Result<Vec<String>, std::io::Error> {
   loop {
     match rx.try_recv() {
       Ok(line) => {
-        let l = line
-          .lines()
-          .map(|l| l.to_string())
-          .collect::<Vec<String>>();
+        let l = line.lines().map(|l| l.to_string()).collect::<Vec<String>>();
         return Ok(l);
       }
       Err(std::sync::mpsc::TryRecvError::Empty) => {}

@@ -1,9 +1,9 @@
 use crate::cli::ObserverWardConfig;
+use console::Emoji;
 use engine::template::Template;
 use log::{error, info, warn};
 use std::fs::File;
 use std::io::Cursor;
-use console::Emoji;
 
 pub struct Helper<'a> {
   config: &'a ObserverWardConfig,
@@ -14,18 +14,22 @@ impl<'a> Helper<'a> {
     Self { config }
   }
   pub fn update_fingerprint(&self) {
-    let fingerprint_path = self.config.config_dir.join("fingerprint_v4.json");
+    let fingerprint_path = self.config.config_dir.join("web_fingerprint_v4.json");
     self.download_file_from_github(
-      "https://0x727.github.io/FingerprintHub/fingerprint_v4.json",
+      "https://0x727.github.io/FingerprintHub/web_fingerprint_v4.json",
       fingerprint_path
         .to_str()
-        .unwrap_or("fingerprint_v4.json"),
+        .unwrap_or("web_fingerprint_v4.json"),
     );
     if let Ok(f) = std::fs::File::open(&fingerprint_path) {
       if let Err(err) = serde_json::from_reader::<File, Vec<Template>>(f) {
-        error!("{}update fingerprint err: {}",Emoji("💢",""), err);
+        error!("{}update fingerprint err: {}", Emoji("💢", ""), err);
         std::fs::remove_file(&fingerprint_path).unwrap_or_default();
-        warn!("{}deleted fingerprint file: {:?}",Emoji("⚠️",""), fingerprint_path);
+        warn!(
+          "{}deleted fingerprint file: {:?}",
+          Emoji("⚠️", ""),
+          fingerprint_path
+        );
       }
     }
   }
@@ -42,11 +46,16 @@ impl<'a> Helper<'a> {
           std::io::copy(&mut content, &mut f).unwrap_or_default();
         }
         Err(err) => {
-          error!("{}create file: {}",Emoji("💢",""), err);
+          error!("{}create file: {}", Emoji("💢", ""), err);
         }
       },
       Err(err) => {
-        error!("{}download from github {}, err: {}",Emoji("💢",""), download_url, err);
+        error!(
+          "{}download from github {}, err: {}",
+          Emoji("💢", ""),
+          download_url,
+          err
+        );
       }
     }
   }
@@ -68,7 +77,9 @@ impl<'a> Helper<'a> {
     self.download_file_from_github(&base_url, &save_filename);
     info!(
       "{} please rename the file {} => {}",
-      Emoji("ℹ️",""),save_filename, download_name
+      Emoji("ℹ️", ""),
+      save_filename,
+      download_name
     );
   }
   pub fn update_plugins(&self) {
@@ -77,7 +88,7 @@ impl<'a> Helper<'a> {
       "https://github.com/0x727/FingerprintHub/releases/download/v4/plugins.zip",
       plugins_zip_path.to_str().unwrap_or("plugins.zip"),
     );
-    let plugins_path = self.config.config_dir.join("../../../FingerprintHub/plugins");
+    let plugins_path = self.config.config_dir.join("plugins");
     if plugins_path.exists() {
       std::fs::remove_dir_all(&plugins_path).unwrap_or_default();
     }
@@ -86,16 +97,23 @@ impl<'a> Helper<'a> {
         match zip::ZipArchive::new(zf) {
           Ok(mut archive) => {
             archive.extract(plugins_path).unwrap_or_default();
-            info!("{}It has been extracted to the {:?}",Emoji("ℹ️",""), self.config.config_dir);
+            info!(
+              "{}It has been extracted to the {:?}",
+              Emoji("ℹ️", ""),
+              self.config.config_dir
+            );
           }
           Err(err) => {
-            error!("{}open zip archive err: {}",Emoji("💢",""), err);
+            error!("{}open zip archive err: {}", Emoji("💢", ""), err);
           }
         };
       }
       Err(err) => {
-        error!("{}{:?}",Emoji("💢",""), err);
-        warn!("{}Please manually unzip the plugins to the directory",Emoji("⚠️",""));
+        error!("{}{:?}", Emoji("💢", ""), err);
+        warn!(
+          "{}Please manually unzip the plugins to the directory",
+          Emoji("⚠️", "")
+        );
       }
     };
   }
@@ -118,7 +136,7 @@ impl<'a> Helper<'a> {
         serde_json::to_writer(f, ts).unwrap_or_default();
         info!(
           "{}convert the {} yaml file of the probe directory to a json file {}",
-          Emoji("ℹ️",""),
+          Emoji("ℹ️", ""),
           ts.len(),
           save_path.to_string_lossy()
         );

@@ -1,9 +1,11 @@
 use crate::cli::ObserverWardConfig;
+use console::Emoji;
 use engine::results::NucleiResult;
 use log::debug;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::process::Command;
+
 #[derive(Debug, Clone)]
 pub struct NucleiRunner {
   pub name: String,
@@ -11,6 +13,7 @@ pub struct NucleiRunner {
   pub condition: Vec<String>,
   pub targets: HashSet<String>,
 }
+
 impl NucleiRunner {
   pub fn new(name: String) -> Self {
     Self {
@@ -21,7 +24,7 @@ impl NucleiRunner {
     }
   }
   fn output(&self, command: &mut Command) -> Vec<NucleiResult> {
-    debug!("nuclei command: {:?}", command);
+    debug!("{}: {:?}", Emoji("🐚", "nuclei command"), command);
     let mut result = Vec::new();
     let output = command.output().expect("command_line_output");
     if let Ok(template_output) = String::from_utf8(output.stdout) {

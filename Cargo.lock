@@ -1069,13 +1069,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "observer-ward"
-version = "0.1.0"
-dependencies = [
- "thiserror",
-]
-
-[[package]]
 name = "observer_ward"
 version = "0.1.0"
 dependencies = [

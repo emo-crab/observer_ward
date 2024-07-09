@@ -1,3 +1,4 @@
+use crate::error::{new_regex_error, Result};
 use crate::info::Version;
 use crate::matchers::Part;
 use crate::serde_format::{is_default, part_serde};
@@ -5,7 +6,6 @@ use jsonpath_rust::JsonPathInst;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
-use crate::error::{new_regex_error, Result};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]

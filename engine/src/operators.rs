@@ -1,4 +1,4 @@
-use crate::error::{Error, new_regex_error, Result};
+use crate::error::{new_regex_error, Error, Result};
 use crate::extractors::{Extractor, ExtractorType};
 use crate::info::Version;
 use crate::matchers::{Condition, FaviconMap, Matcher, MatcherType};

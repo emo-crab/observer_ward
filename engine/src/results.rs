@@ -78,7 +78,12 @@ impl ResultEvent {
         if let Some(e) = em.get_mut(k) {
           e.extend(h.iter().map(|x| x.trim().to_string()).collect::<Vec<_>>());
         } else {
-          em.insert(k.clone(), h.iter().map(|x| x.trim().to_string()).collect::<HashSet<_>>());
+          em.insert(
+            k.clone(),
+            h.iter()
+              .map(|x| x.trim().to_string())
+              .collect::<HashSet<_>>(),
+          );
         }
       }
     }

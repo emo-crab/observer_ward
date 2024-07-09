@@ -1,10 +1,10 @@
+use crate::error::{new_regex_error, Result};
 use crate::info::Info;
 use crate::matchers::MatcherType;
 use crate::request::{HttpRaw, Requests};
 use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::error::{new_regex_error, Result};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -101,6 +101,10 @@ impl Template {
         new_template.requests.http[request_index].operators = new_operators;
       }
     }
-    if flag { Some(new_template) } else { None }
+    if flag {
+      Some(new_template)
+    } else {
+      None
+    }
   }
 }

@@ -1,5 +1,7 @@
 <!-- Improved compatibility of back to top link: See: https://github.com/emo-crab/observer_ward/pull/73 -->
+
 <a name="readme-top"></a>
+
 <!--
 *** Thanks for checking out the observer_ward. If you have a suggestion
 *** that would make this better, please fork the repo and create a pull request
@@ -7,8 +9,6 @@
 *** Don't forget to give the project a star!
 *** Thanks again! Now go create something AMAZING! :D
 -->
-
-
 
 <!-- PROJECT SHIELDS -->
 <!--
@@ -18,14 +18,11 @@
 *** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
 *** https://www.markdownguide.org/basic-syntax/#reference-style-links
 -->
+
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
-
-
-
 
 <!-- PROJECT LOGO -->
 <br />
@@ -36,7 +33,7 @@
 
 <h3 align="center">observer_ward(侦查守卫)</h3>
 
-  <p align="center">
+<p align="center">
     Customizable fingerprint scan tool based on yaml
     <br />
     <a href="https://github.com/emo-crab/observer_ward"><strong>Explore the docs »</strong></a>
@@ -85,14 +82,16 @@ brew install observer_ward
 <!-- GETTING STARTED -->
 
 ## Getting Started
+
 ```bash,no-run
 ➜  observer_ward git:(main) ✗ ./observer_ward -t https://www.example.com/                                 
 [INFO  observer_ward] probes loaded: 2223
 [INFO  observer_ward] target loaded: 1
 [INFO  observer_ward] optimized probes: 7
 target: https://www.example.com/
- |_ uri:[ https://www.example.com/ [0example]  <Example Domain> (200 OK) ] 
+ |_ uri:[ https://www.example.com/ [0example]  <Example Domain> (200 OK) ]
 ```
+
 - using
 
 ```bash,no-run
@@ -136,16 +135,17 @@ Options:
 ➜  observer_ward git:(main) ✗ ./observer_ward -u
 ```
 
-| platforms | path                                                                           |
-|-----------|--------------------------------------------------------------------------------|
-| Windows   | C:\Users\Alice\AppData\Roaming\observer_ward\fingerprint_v4.json               |
-| Linux     | /home/alice/.config/observer_ward/fingerprint_v4.json                          |
-| macOS     | /Users/Alice/Library/Application Support/observer_ward/fingerprint_v4.json     |
+| platforms | path                                                                                      |
+| --------- | ----------------------------------------------------------------------------------------- |
+| Windows   | C:\Users\Alice\AppData\Roaming\observer_ward\web_or_service_fingerprint_v4.json           |
+| Linux     | /home/alice/.config/observer_ward/web_or_service_fingerprint_v4.json                      |
+| macOS     | /Users/Alice/Library/Application Support/observer_ward/web_or_service_fingerprint_v4.json |
 
 - convert YAML files to JSON files, `--probe-dir` specify yaml folder,and `--probe-path` specify save json path
 - then copy the json file to the configuration folder
+
 ```base,no-run
-➜  observer_ward git:(main) ✗ ./observer_ward --probe-dir fingerprint --probe-path fingerprint_v4.json
+➜  observer_ward git:(main) ✗ ./observer_ward --probe-dir fingerprint --probe-path web_or_service_fingerprint_v4.json
 [INFO  observer_ward::helper] convert the 2223 yaml file of the probe directory to a json file fingerprint_v4.json
 ➜  observer_ward git:(main) ✗ cp fingerprint_v4.json /home/kali-team/.config/observer_ward/
 ```
@@ -243,8 +243,9 @@ Options:
     }
 [DEBUG observer_ward] end: https://www.example.com/
 target: https://www.example.com/
- |_ uri:[ https://www.example.com/ [0example]  <Example Domain> (200 OK) ] 
+ |_ uri:[ https://www.example.com/ [0example]  <Example Domain> (200 OK) ]
 ```
+
 </details>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -261,7 +262,7 @@ target: https://www.example.com/
 target: http://httpbin.org/
  |_ uri:[ http://httpbin.org/ [swagger]  <httpbin.org> (200 OK) ] 
 target: https://www.example.com/
- |_ uri:[ https://www.example.com/ [0example]  <Example Domain> (200 OK) ] 
+ |_ uri:[ https://www.example.com/ [0example]  <Example Domain> (200 OK) ]
 ```
 
 - `--list` or `-l`
@@ -274,17 +275,18 @@ target: https://www.example.com/
 target: http://httpbin.org/
  |_ uri:[ http://httpbin.org/ [swagger]  <httpbin.org> (200 OK) ] 
 target: https://www.example.com/
- |_ uri:[ https://www.example.com/ [0example]  <Example Domain> (200 OK) ] 
+ |_ uri:[ https://www.example.com/ [0example]  <Example Domain> (200 OK) ]
 ```
 
 - from stdio
+
 ```bash,no-run
 ➜  observer_ward git:(main) ✗ echo https://www.example.com/ | ./observer_ward
 [INFO  observer_ward] probes loaded: 2223
 [INFO  observer_ward] target loaded: 1
 [INFO  observer_ward] optimized probes: 7
 target: https://www.example.com/
- |_ uri:[ https://www.example.com/ [0example]  <Example Domain> (200 OK) ] 
+ |_ uri:[ https://www.example.com/ [0example]  <Example Domain> (200 OK) ]
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -299,7 +301,7 @@ target: https://www.example.com/
 [INFO  observer_ward] optimized probes: 7
 ➜  observer_ward git:(main) ✗ cat output.txt 
 target: https://www.example.com/
- |_ uri:[ https://www.example.com/ [0example]  <Example Domain> (200 OK) ] 
+ |_ uri:[ https://www.example.com/ [0example]  <Example Domain> (200 OK) ]
 ```
 
 - automatically adapt output format based on file extension, or use `--format` support: `txt`,`json`,`csv`
@@ -351,8 +353,6 @@ Don't forget to give the project a star! Thanks again!
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
 <!-- LICENSE -->
 
 ## License
@@ -360,8 +360,6 @@ Don't forget to give the project a star! Thanks again!
 Distributed under the `GPL-3.0-only` License. See `LICENSE` for more information.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
 
 <!-- CONTACT -->
 
@@ -377,38 +375,23 @@ Project Link: [https://github.com/emo-crab/observer_ward](https://github.com/emo
 
 ## Acknowledgments
 
-* [slinger](https://github.com/emo-crab/slinger)
-* [nuclei](https://github.com/projectdiscovery/nuclei)
+- [slinger](https://github.com/emo-crab/slinger)
+- [nuclei](https://github.com/projectdiscovery/nuclei)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 
 [contributors-shield]: https://img.shields.io/github/contributors/emo-crab/observer_ward.svg?style=for-the-badge
-
 [contributors-url]: https://github.com/emo-crab/observer_ward/graphs/contributors
-
 [forks-shield]: https://img.shields.io/github/forks/emo-crab/observer_ward.svg?style=for-the-badge
-
 [forks-url]: https://github.com/emo-crab/observer_ward/network/members
-
 [stars-shield]: https://img.shields.io/github/stars/emo-crab/observer_ward.svg?style=for-the-badge
-
 [stars-url]: https://github.com/emo-crab/observer_ward/stargazers
-
 [issues-shield]: https://img.shields.io/github/issues/emo-crab/observer_ward.svg?style=for-the-badge
-
 [issues-url]: https://github.com/emo-crab/observer_ward/issues
-
 [license-shield]: https://img.shields.io/github/license/emo-crab/observer_ward.svg?style=for-the-badge
-
 [license-url]: https://github.com/emo-crab/observer_ward/blob/master/LICENSE.txt
-
 [product-screenshot]: images/screenshot.png
-
 [crates-shield]: https://img.shields.io/crates/v/observer_ward.svg?style=for-the-badge
-
-[crates-url]: https://crates.io/crates/observer_ward

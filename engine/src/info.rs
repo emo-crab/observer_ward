@@ -1,7 +1,7 @@
 use crate::serde_format::{is_default, string_vec_serde, Value};
+use fancy_regex::Captures;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
-use fancy_regex::Captures;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -59,10 +59,14 @@ impl Info {
         flag = true;
         x.to_string()
       }),
-      cpe: self.metadata.get("cpe").map(|x| {
-        flag = true;
-        x.to_vec()
-      }).unwrap_or_default(),
+      cpe: self
+        .metadata
+        .get("cpe")
+        .map(|x| {
+          flag = true;
+          x.to_vec()
+        })
+        .unwrap_or_default(),
     };
     if flag {
       return Some(version);
@@ -153,7 +157,15 @@ impl Version {
       r.insert("operating_system".to_string(), replace(x));
     }
     if !self.cpe.is_empty() {
-      r.insert("cpe".to_string(), self.cpe.iter().map(|x| replace(x)).collect::<Vec<_>>().join(","));
+      r.insert(
+        "cpe".to_string(),
+        self
+          .cpe
+          .iter()
+          .map(|x| replace(x))
+          .collect::<Vec<_>>()
+          .join(","),
+      );
     }
     r
   }
@@ -231,8 +243,8 @@ pub struct Classification {
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
   #[default]
-  // name:undefined
-  Undefined,
+  // name:unknown
+  Unknown,
   // name:info
   Info,
   // name:low
@@ -243,6 +255,4 @@ pub enum Severity {
   High,
   // name:critical
   Critical,
-  // name:unknown
-  Unknown,
 }

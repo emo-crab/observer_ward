@@ -1,19 +1,19 @@
+use crate::cli::ObserverWardConfig;
+use crate::helper::Helper;
+use crate::output::Output;
+use crate::{cluster_templates, scan, ClusterExecuteRunner};
+use actix_web::{get, middleware, post, rt, web, App, HttpResponse, HttpServer, Responder};
+use actix_web_httpauth::extractors::bearer::BearerAuth;
+use console::{style, Emoji};
+#[cfg(not(target_os = "windows"))]
+use daemonize::Daemonize;
+use engine::execute::ClusterType;
+use engine::slinger::openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslFiletype, SslMethod};
+use log::{error, info};
 use std::net::SocketAddr;
 use std::sync::mpsc::channel;
 use std::sync::RwLock;
 use std::thread;
-use actix_web::{get, middleware, post, web, App, HttpResponse, HttpServer, Responder, rt};
-use actix_web_httpauth::extractors::bearer::BearerAuth;
-use console::{Emoji, style};
-#[cfg(not(target_os = "windows"))]
-use daemonize::Daemonize;
-use log::{info};
-use engine::execute::ClusterType;
-use engine::slinger::openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslFiletype, SslMethod};
-use crate::cli::ObserverWardConfig;
-use crate::{cluster_templates, ClusterExecuteRunner, scan};
-use crate::helper::Helper;
-use crate::output::Output;
 
 #[derive(Clone, Debug)]
 struct TokenAuth {
@@ -68,16 +68,24 @@ async fn set_config_api(
   }
   let helper = Helper::new(&config);
   if config.update_fingerprint {
-    helper.update_plugins();
+    helper.update_fingerprint();
   }
   if config.update_plugin {
     helper.update_plugins();
   }
   if let Ok(mut cl) = cl.write() {
     let templates = config.templates();
-    info!("{}probes loaded: {}", Emoji("📇",""),style(templates.len().to_string()).blue());
+    info!(
+      "{}probes loaded: {}",
+      Emoji("📇", ""),
+      style(templates.len().to_string()).blue()
+    );
     let new_cl = cluster_templates(&templates);
-    info!("{}optimized probes: {}", Emoji("🚀",""),style(new_cl.len()).blue());
+    info!(
+      "{}optimized probes: {}",
+      Emoji("🚀", ""),
+      style(new_cl.len()).blue()
+    );
     *cl = new_cl;
   }
   HttpResponse::Ok().json(config)
@@ -95,11 +103,22 @@ async fn get_config_api(
   HttpResponse::Ok().json(config.clone())
 }
 
-pub fn api_server(listening_address: SocketAddr, config: ObserverWardConfig) -> std::io::Result<()> {
+pub fn api_server(
+  listening_address: SocketAddr,
+  config: ObserverWardConfig,
+) -> std::io::Result<()> {
   let templates = config.templates();
-  info!("{}probes loaded: {}",Emoji("📇",""), style(templates.len()).blue());
+  info!(
+    "{}probes loaded: {}",
+    Emoji("📇", ""),
+    style(templates.len()).blue()
+  );
   let cl = cluster_templates(&templates);
-  info!("{}optimized probes: {}",Emoji("🚀",""), style(cl.len()).blue());
+  info!(
+    "{}optimized probes: {}",
+    Emoji("🚀", ""),
+    style(cl.len()).blue()
+  );
   let cluster_templates = web::Data::new(RwLock::new(cl));
   let web_config = web::Data::new(config.clone());
   let token_auth = web::Data::new(TokenAuth {
@@ -130,7 +149,7 @@ pub fn api_server(listening_address: SocketAddr, config: ObserverWardConfig) -> 
 }
 
 fn print_help(s: &str, t: &str) {
-  info!("{}API service has been started:{}",Emoji("🌐",""), s);
+  info!("{}API service has been started:{}", Emoji("🌐", ""), s);
   let api_doc = format!(
     r#"curl --request POST \
   --url {} \
@@ -140,13 +159,13 @@ fn print_help(s: &str, t: &str) {
     s, t
   );
   let result = r#"[result...]"#;
-  info!("{}:",Emoji("📤",""));
-  info!("{}:{}",Emoji("📔",""), style(api_doc).green());
-  info!("{}:",Emoji("📥",""));
-  info!("{}:{}",Emoji("🗳",""), style(result).green());
+  info!("{}:{}", Emoji("📔", ""), style(api_doc).green());
+  info!("{}:{}", Emoji("🗳", ""), style(result).green());
 }
 
-fn get_ssl_config(config: &ObserverWardConfig) -> Result<SslAcceptorBuilder, engine::slinger::openssl::error::ErrorStack> {
+fn get_ssl_config(
+  config: &ObserverWardConfig,
+) -> Result<SslAcceptorBuilder, engine::slinger::openssl::error::ErrorStack> {
   let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
   let key_path = config.config_dir.join("key.pem");
   let cert_path = config.config_dir.join("cert.pem");
@@ -171,12 +190,15 @@ pub fn background() {
     .stderr(stderr) // Redirect stderr to `/tmp/observer_ward.err`.
     .privileged_action(|| "Executed before drop privileges");
   match daemonize.start() {
-    Ok(_) => println!("Success, daemonized"),
-    Err(e) => eprintln!("Error, {}", e),
+    Ok(_) => info!("{}Success, daemonized", Emoji("ℹ️", "")),
+    Err(e) => error!("{}Error, {}", Emoji("💢", ""), e),
   }
 }
 
 #[cfg(target_os = "windows")]
 pub fn background() {
-  println!("Windows does not support background services");
+  error!(
+    "{}Windows does not support background services",
+    Emoji("💢", "")
+  );
 }

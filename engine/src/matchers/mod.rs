@@ -1,7 +1,7 @@
-use crate::error::{Error, new_regex_error, Result};
+use crate::error::{new_regex_error, Error, Result};
 use crate::serde_format::{is_default, part_serde};
 use serde::{Deserialize, Serialize};
-use slinger::{Response};
+use slinger::Response;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
@@ -113,7 +113,9 @@ impl Matcher {
       };
       match matcher {
         Some(c) => {
-          if let Some(m) = c.get(regexs.group.unwrap_or(0)) { matched_regexes.push(m.as_str().to_string()); }
+          if let Some(m) = c.get(regexs.group.unwrap_or(0)) {
+            matched_regexes.push(m.as_str().to_string());
+          }
           if matches!(self.condition, Condition::Or) && !self.match_all {
             return (true, matched_regexes);
           }
@@ -261,16 +263,10 @@ impl Part {
     };
     let mut header_string = String::new();
     for (k, v) in response.headers() {
-      header_string.push_str(&format!(
-        "{}: {}\r\n",
-        k,
-        v.to_str().unwrap_or_default()
-      ));
+      header_string.push_str(&format!("{}: {}\r\n", k, v.to_str().unwrap_or_default()));
     }
     let result = match &self {
-      Part::Body => {
-        body.to_string()
-      }
+      Part::Body => body.to_string(),
       Part::Header => header_string,
       Part::Response => {
         format!("{}\r\n\r\n{}", header_string, body)

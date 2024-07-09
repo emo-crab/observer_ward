@@ -13,7 +13,10 @@ pub struct ClusteredOperator {
 
 impl ClusteredOperator {
   pub fn new(t: Template) -> Self {
-    let template = t.id.split_once(':').map_or(t.id.to_string(), |(name, _hash)| name.to_string());
+    let template = t
+      .id
+      .split_once(':')
+      .map_or(t.id.to_string(), |(name, _hash)| name.to_string());
     Self {
       template,
       info: t.info,
@@ -47,4 +50,3 @@ pub struct ClusterExecute {
   pub requests: Requests,
   pub operators: Vec<ClusteredOperator>,
 }
-

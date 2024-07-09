@@ -1,6 +1,6 @@
 use crate::cli::{ObserverWardConfig, OutputFormat};
 use crate::ClusterExecuteRunner;
-use console::{Emoji, style};
+use console::{style, Emoji};
 use engine::slinger::http::header;
 use std::collections::HashSet;
 use std::fs::File;
@@ -51,7 +51,13 @@ impl Output {
   pub fn save_and_print(&mut self, result: ClusterExecuteRunner) {
     match self.format {
       OutputFormat::STD => {
-        writeln!(self.writer, "{}: {}", Emoji("🏹", ""), style(&result.target).blue()).unwrap_or_default();
+        writeln!(
+          self.writer,
+          "{}: {}",
+          Emoji("🏹", "target"),
+          style(&result.target).blue()
+        )
+        .unwrap_or_default();
         for (uri, mr) in result.result() {
           let nr = mr.nuclei_result();
           // 根据状态码显示颜色
@@ -66,7 +72,7 @@ impl Output {
           });
           // 打印指纹
           for fp in mr.fingerprint() {
-            write!(self.writer, " |_{}:[ {}", Emoji("🎯", ""), uri).unwrap_or_default();
+            write!(self.writer, " |_{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
             let apps: HashSet<String> = fp
               .matcher_result()
               .iter()
@@ -79,7 +85,7 @@ impl Output {
             }
             writeln!(self.writer, "]").unwrap_or_default();
             if !fp.matcher_result().iter().all(|x| x.extractor.is_empty()) {
-              write!(self.writer, "  |_{}: ", Emoji("📰", "")).unwrap_or_default();
+              write!(self.writer, "  |_{}: ", Emoji("📰", "extractor")).unwrap_or_default();
               fp.extractor().iter().for_each(|(n, v)| {
                 write!(
                   self.writer,
@@ -87,7 +93,7 @@ impl Output {
                   style(n).red(),
                   style(set_to_string(v).trim()).yellow()
                 )
-                  .unwrap_or_default();
+                .unwrap_or_default();
               });
               writeln!(self.writer).unwrap_or_default();
             }
@@ -100,23 +106,35 @@ impl Output {
                 for v in n {
                   writeln!(
                     self.writer,
-                    "  |_{}: [{}] {}: {}", Emoji("🐞", ""),
+                    "  |_{}: [{}] {}: {}",
+                    Emoji("🐞", "exploitable"),
                     style(format!("{:?}", v.info.severity)).red(),
                     style(&v.template_id).green(),
                     style(&v.info.name).cyan()
                   )
-                    .unwrap_or_default();
-                  writeln!(self.writer, "   |_{}: {}", Emoji("🔥", ""), v.matched_at).unwrap_or_default();
+                  .unwrap_or_default();
+                  writeln!(
+                    self.writer,
+                    "   |_{}: {}",
+                    Emoji("🔥", "matched_at"),
+                    v.matched_at
+                  )
+                  .unwrap_or_default();
                   if !v.curl_command.is_empty() {
-                    writeln!(self.writer, "   |_🐚: {}", style(&v.curl_command).yellow())
-                      .unwrap_or_default();
+                    writeln!(
+                      self.writer,
+                      "   |_{}: {}",
+                      Emoji("🐚", "shell"),
+                      style(&v.curl_command).yellow()
+                    )
+                    .unwrap_or_default();
                   }
                 }
               }
             }
           }
           if mr.fingerprint().is_empty() {
-            write!(self.writer, " |_{}:[ {}", Emoji("🎯", ""), uri).unwrap_or_default();
+            write!(self.writer, " |_{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
             if !mr.title().is_empty() {
               write!(
                 self.writer,
@@ -127,7 +145,7 @@ impl Output {
                   .collect::<Vec<String>>()
                   .join(",")
               )
-                .unwrap_or_default();
+              .unwrap_or_default();
             }
             if let Some(csc) = &osc {
               write!(self.writer, " ({}) ", csc).unwrap_or_default();
@@ -142,7 +160,7 @@ impl Output {
           "{}",
           serde_json::to_string(&result).unwrap_or_default()
         )
-          .unwrap_or_default();
+        .unwrap_or_default();
       }
       OutputFormat::CSV => {
         for (uri, mr) in result.result() {
@@ -174,7 +192,7 @@ impl Output {
             mr.status.map_or(0, |x| x.as_u16()),
             nuclei.join(";").trim()
           )
-            .unwrap_or_default();
+          .unwrap_or_default();
         }
       }
     }

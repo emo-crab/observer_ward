@@ -1,5 +1,5 @@
-[package]
-name = "observer-ward"                             #改这个
+[workspace.package]
+#name = "observer-ward"                             #改这个
 version = "0.1.0"
 edition = "2021"
 authors = ["Kali-Team <root@kali-team.cn>"]
@@ -8,7 +8,8 @@ include = ["LICENSE", "Cargo.toml", "src/**/*.rs"]
 
 [workspace]
 members = ["engine", "observer_ward"]
-
+default-members = ["observer_ward"]
+resolver = "2"
 #https://github.com/johnthagen/min-sized-rust
 [profile.release]
 opt-level = "z"   # Optimize for size.
@@ -27,7 +28,3 @@ lto = "thin"
 lto = true
 codegen-units = 1
 opt-level = 3
-
-
-[dependencies]
-thiserror = "1"

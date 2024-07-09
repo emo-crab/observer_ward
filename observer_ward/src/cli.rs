@@ -1,21 +1,21 @@
-use std::env::current_dir;
-use std::fs::File;
 use crate::input::{read_file_to_target, read_from_stdio};
 use crate::parse_yaml;
 use argh::FromArgs;
-use engine::{find_yaml_file};
+use console::Emoji;
+use engine::find_yaml_file;
 use engine::slinger::http::header::HeaderValue;
+use engine::slinger::http::Uri;
 use engine::slinger::redirect::{only_same_host, Policy};
-use engine::slinger::{ClientBuilder, ConnectorBuilder, openssl, Proxy};
+use engine::slinger::{openssl, ClientBuilder, ConnectorBuilder, Proxy};
 use engine::template::Template;
 use log::{error, warn};
 use serde::{Deserialize, Serialize};
+use std::env::current_dir;
+use std::fs::File;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
-use console::Emoji;
-use engine::slinger::http::Uri;
 
 #[derive(Debug, Clone, Default)]
 pub enum OutputFormat {
@@ -70,7 +70,7 @@ impl FromStr for Mode {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromArgs)]
-#[argh(description = "observer_ward")]
+#[argh(description = "observer_ward version")]
 #[serde(rename_all = "kebab-case")]
 pub struct ObserverWardConfig {
   /// multiple targets from file path
@@ -80,7 +80,7 @@ pub struct ObserverWardConfig {
   /// the target (required)
   #[argh(option, short = 't')]
   pub target: Vec<String>,
-  /// customized fingerprint json file path
+  /// customized fingerprint file path
   #[argh(option, short = 'p')]
   #[serde(skip)]
   pub probe_path: Option<PathBuf>,
@@ -92,7 +92,7 @@ pub struct ObserverWardConfig {
   #[argh(option, default = "default_ua()")]
   #[serde(default = "default_ua")]
   pub ua: String,
-  /// mode probes option[index,danger,all] defaule: all
+  /// mode probes option[safe,danger,all] defaule: all
   #[argh(option)]
   #[serde(skip)]
   pub mode: Option<Mode>,
@@ -274,11 +274,9 @@ impl ObserverWardConfig {
       let yaml_paths = find_yaml_file(fd, true);
       for path in yaml_paths {
         match parse_yaml(&path) {
-          Ok(t) => {
-            templates.push(t)
-          }
+          Ok(t) => templates.push(t),
           Err(err) => {
-            warn!("{}load template err: {}",Emoji("⚠️",""), err);
+            warn!("{}load template err: {}", Emoji("⚠️", ""), err);
           }
         }
       }
@@ -297,15 +295,15 @@ impl ObserverWardConfig {
     } else {
       read_from_stdio().unwrap_or_default()
     };
-    i.iter().filter_map(|target| {
-      match Uri::from_str(target.trim()) {
-        Ok(u) => { Some(u) }
+    i.iter()
+      .filter_map(|target| match Uri::from_str(target.trim()) {
+        Ok(u) => Some(u),
         Err(err) => {
-          error!("{}uri: {}, err: {}",Emoji("💢",""), target, err);
+          error!("{}uri: {}, err: {}", Emoji("💢", ""), target, err);
           None
         }
-      }
-    }).collect()
+      })
+      .collect()
   }
   pub fn templates(&self) -> Vec<Template> {
     let mut templates = Vec::new();
@@ -324,14 +322,14 @@ impl ObserverWardConfig {
               templates.push(t);
             }
             Err(err) => {
-              error!("{}{}",Emoji("💢",""), err);
+              error!("{}{}", Emoji("💢", ""), err);
             }
           },
           _ => {}
         }
       };
     } else {
-      for path in ["fingerprint_v4.json", "web_fingerprint_v4.json", "service_fingerprint_v4.json"] {
+      for path in ["web_fingerprint_v4.json", "service_fingerprint_v4.json"] {
         let fingerprint_path = current_dir().map_or(self.config_dir.join(path), |x| {
           let p = x.join(path);
           if p.exists() {
@@ -346,7 +344,7 @@ impl ObserverWardConfig {
               templates.extend(t);
             }
             Err(err) => {
-              error!("{}{}",Emoji("💢",""), err);
+              error!("{}{}", Emoji("💢", ""), err);
             }
           }
         }

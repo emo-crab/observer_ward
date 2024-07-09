@@ -1,15 +1,15 @@
-use console::{Emoji, style};
-use log::{info};
-use observer_ward::cli::ObserverWardConfig;
-use observer_ward::helper::Helper;
-use observer_ward::output::Output;
-use observer_ward::{scan};
-use observer_ward::cluster_templates;
-use std::sync::mpsc::channel;
-use std::thread;
+use console::{style, Emoji};
+use log::info;
+use observer_ward::api::api_server;
 #[cfg(not(target_os = "windows"))]
 use observer_ward::api::background;
-use observer_ward::api::{api_server};
+use observer_ward::cli::ObserverWardConfig;
+use observer_ward::cluster_templates;
+use observer_ward::helper::Helper;
+use observer_ward::output::Output;
+use observer_ward::scan;
+use std::sync::mpsc::channel;
+use std::thread;
 
 fn main() {
   let config = ObserverWardConfig::default();
@@ -41,9 +41,17 @@ fn main() {
   let helper = Helper::new(&config);
   helper.run();
   let templates = config.templates();
-  info!("{}probes loaded: {}",Emoji("📇",""), style(templates.len()).blue());
+  info!(
+    "{}probes loaded: {}",
+    Emoji("📇", ""),
+    style(templates.len()).blue()
+  );
   let cl = cluster_templates(&templates);
-  info!("{}optimized probes: {}",Emoji("🚀",""), style(cl.len()).blue());
+  info!(
+    "{}optimized probes: {}",
+    Emoji("🚀", ""),
+    style(cl.len()).blue()
+  );
   let (tx, rx) = channel();
   let output_config = config.clone();
   thread::spawn(move || {

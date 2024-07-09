@@ -49,6 +49,8 @@
 
 ## 关于这个项目
 
+- 郑重声明：文中所涉及的技术、思路和工具仅供以安全为目的的学习交流使用，任何人不得将其用于非法用途以及盈利等目的，否则后果自行承担。
+
 | 类别 | 说明                                                              |
 | ---- | ----------------------------------------------------------------- |
 | 作者 | [三米前有蕉皮](https://github.com/cn-kali-team)                   |
@@ -61,8 +63,8 @@
 
 - 基于yaml编写探针，匹配规则和提取器
 - 支持服务和Web应用版本识别
-- 基于通用平台枚举 ([CPE](https://scap.kali-team.cn/cpe/)) 规范命名
-- 社区化指纹库和nmap服务探针 [fingerprint](https://github.com/0x727/FingerprintHub)
+- 使用nvd标准通用平台枚举 ([CPE](https://scap.kali-team.cn/cpe/)) 命名规范
+- [社区化指纹库](https://github.com/0x727/FingerprintHub)和nmap服务探针
 - 集成 [Nuclei](https://github.com/projectdiscovery/nuclei) 验证漏洞
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -142,11 +144,11 @@ Options:
 ➜ ./observer_ward -u
 ```
 
-| 操作系统 | 保存路径                                                                   |
-| -------- | -------------------------------------------------------------------------- |
-| Windows  | C:\Users\Alice\AppData\Roaming\observer_ward\fingerprint_v4.json           |
-| Linux    | /home/alice/.config/observer_ward/fingerprint_v4.json                      |
-| macOS    | /Users/Alice/Library/Application Support/observer_ward/fingerprint_v4.json |
+| 操作系统 | 保存路径                                                                                  |
+| -------- | ----------------------------------------------------------------------------------------- |
+| Windows  | C:\Users\Alice\AppData\Roaming\observer_ward\web_or_service_fingerprint_v4.json           |
+| Linux    | /home/alice/.config/observer_ward/web_or_service_fingerprint_v4.json                      |
+| macOS    | /Users/Alice/Library/Application Support/observer_ward/web_or_service_fingerprint_v4.json |
 
 - 指定yaml文件夹`--probe-dir`和单个json文件`--probe-path`参数将全部yaml文件转换为一个单json文件，方便携带
 - 然后将这个json文件复制到配置文件夹
@@ -154,7 +156,6 @@ Options:
 ```base,no-run
 ➜ ./observer_ward --probe-dir web_fingerprint --probe-dir service_fingerprint/null -p fingerprint_v4.json
 [INFO ] ℹ️ convert the 6183 yaml file of the probe directory to a json file fingerprint_v4.json
-
 ```
 
 <!-- USAGE EXAMPLES -->
@@ -198,7 +199,7 @@ Options:
         extensions: Extensions,
         body: Some(
             {
-              "origin": "183.159.54.33"
+              "origin": "1.1.1.1"
             }
             ,
         ),
@@ -207,8 +208,7 @@ Options:
 🏹: http://httpbin.org/
  |_🎯:[ http://httpbin.org/]
  |_🎯:[ http://httpbin.org/ip [httpbin-ip]  <>]
-  |_📰: ip:["183.159.54.33"] 
-
+  |_📰: ip:["1.1.1.1"]
 ```
 
 </details>
@@ -245,7 +245,6 @@ Options:
  |_🎯:[ http://172.17.0.2/ [thinkphp]  <>]
 🏹: http://httpbin.org/
  |_🎯:[ http://httpbin.org/ [swagger,0example]  <httpbin.org> (200 OK) ]
-
 ```
 
 - 从标准输入读取目标
@@ -285,7 +284,6 @@ Options:
 [INFO ] 🎯target loaded: 1
 ➜  ~ cat output.json 
 {"target":"https://www.example.com/","matched_result":{"https://www.example.com/":{"title":["Example Domain"],"status":200,"favicon":{},"fingerprints":[],"nuclei-result":{}}}}
-
 ```
 
 - 使用`--webhook`指定要将结果发送到的服务器url，如果webhook服务器有认证也可以使用`--webhook-auth`添加值到`Authorization`
@@ -415,21 +413,21 @@ Press CTRL+C to quit
 
 - 点击Fork按钮克隆这个项目到你的仓库
 
-```bash
-git clone git@github.com:你的个人github用户名/ObserverWard.git
+```bash,no-run
+git clone git@github.com:你的个人github用户名/observer_ward.git
 ```
 
 - 添加上游接收更新
 
-```bash
-cd ObserverWard
-git remote add upstream git@github.com:0x727/ObserverWard.git
+```bash,no-run
+cd observer_ward
+git remote add upstream git@github.com:emo-crab/observer_ward.git
 git fetch upstream
 ```
 
 - 配置你的github个人信息
 
-```bash
+```bash,no-run
 git config --global user.name "$GITHUB_USERNAME"
 git config --global user.email "$GITHUB_EMAIL"
 git config --global github.user "$GITHUB_USERNAME"
@@ -437,28 +435,27 @@ git config --global github.user "$GITHUB_USERNAME"
 
 - 拉取所有分支的规则
 
-```bash
+```bash,no-run
 git fetch --all
 git fetch upstream
 ```
 
 - **不要**直接在`main`分支上修改，例如我想修改某个bug，创建一个新的分支并切换到新的分支。
 
-```bash
+```bash,no-run
 git checkout -b dev
 ```
 
 - 修改完成后，测试通过
 - 跟踪修改和提交Pull-Requests。
 
-```
+```bash,no-run
 git add 你添加或者修改的文件名
 git commit -m "添加你的描述"
 git push origin dev
 ```
 
 - 打开你Fork这个项目的地址，点击与上游合并，等待审核合并代码。
-
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -491,8 +488,7 @@ Project Link: [https://github.com/emo-crab/observer_ward](https://github.com/emo
 
 ## Stargazers over time
 
-[![Stargazers over time](https://starchart.cc/0x727/ObserverWard.svg)](https://github.com/0x727/ObserverWard)
-
+[![Stargazers over time](https://starchart.cc/emo-crab/observer_ward.svg)](https://github.com/emo-crab/observer_ward)
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->

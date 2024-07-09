@@ -1,6 +1,7 @@
 use crate::cli::{Mode, ObserverWardConfig};
 use crate::error::new_io_error;
 use crate::nuclei::{gen_nuclei_tags, NucleiRunner};
+use console::{style, Emoji};
 use engine::common::html::extract_title;
 use engine::common::http::HttpRecord;
 use engine::execute::{ClusterExecute, ClusterType};
@@ -16,6 +17,7 @@ use engine::slinger::{http_serde, Request, Response};
 use engine::template::Template;
 use error::Result;
 use log::{debug, info};
+use rustc_lexer::unescape;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -23,18 +25,16 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::time::Duration;
-use console::{Emoji, style};
-use rustc_lexer::unescape;
 use threadpool::ThreadPool;
 
+pub mod api;
 pub mod cli;
+mod cluster;
 pub mod error;
 pub mod helper;
 pub mod input;
 mod nuclei;
 pub mod output;
-mod cluster;
-pub mod api;
 
 pub use cluster::cluster_templates;
 
@@ -80,10 +80,7 @@ impl X509Certificate {
       not_before: value.not_before().to_string(),
       version: value.version(),
       subject_name_hash: value.subject_name_hash(),
-      serial_number: value
-        .serial_number()
-        .to_bn()
-        .ok().map(|x| x.to_string()),
+      serial_number: value.serial_number().to_bn().ok().map(|x| x.to_string()),
       ocsp_responders: value
         .ocsp_responders()
         .map_or(Vec::new(), |x| x.iter().map(|o| o.to_string()).collect()),
@@ -319,7 +316,11 @@ impl ClusterExecuteRunner {
       for clusters in favicon_cluster {
         // 匹配favicon的，要等index的全部跑完
         if http_record.has_favicon() {
-          debug!("favicon hash: {:#?}", http_record.favicon_hash());
+          debug!(
+            "{}: {:#?}",
+            Emoji("⭐️", "favicon"),
+            http_record.favicon_hash()
+          );
           clusters.operators.iter().for_each(|operator| {
             operator.matcher(&mut result);
           });
@@ -330,23 +331,24 @@ impl ClusterExecuteRunner {
         || self.matched_result.is_empty()
         || !self.matched_result.contains_key(&self.target.to_string())
         || self
-        .matched_result
-        .get(&self.target.to_string())
-        .map_or(false, |x| x.title.is_empty())
+          .matched_result
+          .get(&self.target.to_string())
+          .map_or(false, |x| x.title.is_empty())
       {
         self.update_result(result, None);
       }
     }
     self.use_nuclei(&config);
-    self
-      .matched_result
-      .values_mut()
-      .for_each(|mr| {
-        if config.oc {
-          mr.certificate = None;
+    self.matched_result.values_mut().for_each(|mr| {
+      if config.oc {
+        mr.certificate = None;
+      }
+      mr.fingerprints.iter_mut().for_each(|x| {
+        if config.or {
+          x.omit_raw()
         }
-        mr.fingerprints.iter_mut().for_each(|x| if config.or { x.omit_raw() })
-      });
+      })
+    });
   }
   fn use_nuclei(&mut self, config: &ObserverWardConfig) {
     let template_dir = if let Some(path) = &config.plugin {
@@ -381,7 +383,12 @@ impl ClusterExecuteRunner {
     }
   }
 
-  fn http(&mut self, config: &ObserverWardConfig, cluster: &ClusterExecute, http_record: &mut HttpRecord) -> Result<()> {
+  fn http(
+    &mut self,
+    config: &ObserverWardConfig,
+    cluster: &ClusterExecute,
+    http_record: &mut HttpRecord,
+  ) -> Result<()> {
     // 可能会有多个http，一般只有一个，多个会有flow控制
     for http in cluster.requests.http.iter() {
       let mut client_builder = http.http_option.builder_client();
@@ -398,9 +405,9 @@ impl ClusterExecuteRunner {
       let generator = RequestGenerator::new(http, self.target.clone());
       // 请求全部路径
       for request in generator {
-        debug!("{:#?}", request);
+        debug!("{}{:#?}", Emoji("📤", ""), request);
         let mut response = client.execute(request.clone())?;
-        debug!("{:#?}", response);
+        debug!("{}{:#?}", Emoji("📥", ""), response);
         // 提取icon
         http_record.find_favicon_tag(&mut response);
         let mut flag = false;
@@ -429,7 +436,7 @@ impl ClusterExecuteRunner {
       for input in tcp.inputs.iter() {
         let data = input_to_byte(&input.data.clone().unwrap_or_default());
         let request = Request::raw(self.target.clone(), data.clone(), true);
-        debug!("{:#?}", request);
+        debug!("{}{:#?}", Emoji("📤", ""), request);
         socket.write_all(&data).unwrap_or_default();
         socket.flush().unwrap_or_default();
         let mut full = Vec::new();
@@ -460,7 +467,7 @@ impl ClusterExecuteRunner {
         }
         let mut response: Response = Response::builder().body(full).unwrap_or_default().into();
         response.extensions_mut().insert(request.clone());
-        debug!("{:#?}", response);
+        debug!("{}{:#?}", Emoji("📥", ""), response);
         let mut result = ResultEvent::new(&response);
         operators
           .iter()
@@ -472,12 +479,21 @@ impl ClusterExecuteRunner {
     }
     Ok(())
   }
-  fn execute(&mut self, config: &ObserverWardConfig, cluster: &ClusterExecute, http_record: &mut HttpRecord) -> Result<()> {
+  fn execute(
+    &mut self,
+    config: &ObserverWardConfig,
+    cluster: &ClusterExecute,
+    http_record: &mut HttpRecord,
+  ) -> Result<()> {
     match self.target.scheme_str() {
       // 只跑web指纹
-      Some("http") | Some("https") => { self.http(config, cluster, http_record)?; }
+      Some("http") | Some("https") => {
+        self.http(config, cluster, http_record)?;
+      }
       // 只跑服务指纹
-      None | Some("tcp") | Some("tls") => { self.tcp(config, cluster)?; }
+      None | Some("tcp") | Some("tls") => {
+        self.tcp(config, cluster)?;
+      }
       // 跳过
       _ => {}
     }
@@ -489,8 +505,10 @@ impl ClusterExecuteRunner {
 fn input_to_byte(payload: &str) -> Vec<u8> {
   let mut buf = Vec::new();
   if !payload.is_empty() {
-    unescape::unescape_byte_str(payload, &mut |_x, y| if let Ok(c) = y {
-      buf.push(c)
+    unescape::unescape_byte_str(payload, &mut |_x, y| {
+      if let Ok(c) = y {
+        buf.push(c)
+      }
     });
   }
   buf
@@ -502,29 +520,38 @@ pub fn parse_yaml(yaml_path: &PathBuf) -> Result<Template> {
     .unwrap_or_default()
     .to_string_lossy()
     .to_string();
-  let name = name.trim_end_matches(&format!(".{}", yaml_path.extension().unwrap_or_default().to_string_lossy()));
+  let name = name.trim_end_matches(&format!(
+    ".{}",
+    yaml_path.extension().unwrap_or_default().to_string_lossy()
+  ));
   let f = File::open(yaml_path)?;
-  serde_yaml::from_reader::<File, Template>(f).map_err(|x| new_io_error(&x.to_string())).map(|mut t| {
-    if name != t.id {
-      t.id = format!("{}:{}", t.id, name);
-    }
-    t
-  })
+  serde_yaml::from_reader::<File, Template>(f)
+    .map_err(|x| new_io_error(&x.to_string()))
+    .map(|mut t| {
+      if name != t.id {
+        t.id = format!("{}:{}", t.id, name);
+      }
+      t
+    })
 }
 
 pub fn scan(config: &ObserverWardConfig, cl: Vec<ClusterType>, tx: Sender<ClusterExecuteRunner>) {
   let input = config.input();
-  info!("{}target loaded: {}",Emoji("🎯",""), style(input.len()).blue());
+  info!(
+    "{}target loaded: {}",
+    Emoji("🎯", ""),
+    style(input.len()).blue()
+  );
   let pool = ThreadPool::new(config.thread);
   for target in input.into_iter() {
     let config = config.clone();
     let cl = cl.clone();
     let tx = tx.clone();
     pool.execute(move || {
-      debug!("start: {}", target);
+      debug!("{}: {}", Emoji("🚦", "start"), target);
       let mut runner = ClusterExecuteRunner::new(target);
       runner.run(cl.clone(), config.clone());
-      debug!("end: {}", runner.target());
+      debug!("{}: {}", Emoji("🔚", "end"), runner.target());
       tx.send(runner).unwrap_or_default();
     });
   }

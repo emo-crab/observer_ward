@@ -1,7 +1,8 @@
-use std::collections::HashSet;
-use log::{debug};
-use engine::execute::{ClusteredOperator, ClusterExecute, ClusterType};
+use console::Emoji;
+use engine::execute::{ClusterExecute, ClusterType, ClusteredOperator};
 use engine::template::Template;
+use log::debug;
+use std::collections::HashSet;
 
 // 根据优化生成请求和匹配组合
 pub fn cluster_templates(templates_list: &[Template]) -> Vec<ClusterType> {
@@ -28,7 +29,7 @@ pub fn cluster_templates(templates_list: &[Template]) -> Vec<ClusterType> {
         }
       }
       Err(err) => {
-        debug!("{}",err);
+        debug!("{}{}", Emoji("💢", ""), err);
       }
     }
   }
