@@ -61,7 +61,8 @@ impl<'a> Helper<'a> {
   }
   pub fn update_self(&self) {
     // https://doc.rust-lang.org/reference/conditional-compilation.html
-    let mut base_url = String::from("https://github.com/0x727/ObserverWard/releases/download/v4/");
+    let mut base_url =
+      String::from("https://github.com/emo-crab/observer_ward/releases/download/defaultv4/");
     let mut download_name = "observer_ward_amd64";
     if cfg!(target_os = "windows") {
       download_name = "observer_ward.exe";
@@ -85,7 +86,7 @@ impl<'a> Helper<'a> {
   pub fn update_plugins(&self) {
     let plugins_zip_path = self.config.config_dir.join("plugins.zip");
     self.download_file_from_github(
-      "https://github.com/0x727/FingerprintHub/releases/download/v4/plugins.zip",
+      "https://github.com/0x727/FingerprintHub/releases/download/defaultv4/plugins.zip",
       plugins_zip_path.to_str().unwrap_or("plugins.zip"),
     );
     let plugins_path = self.config.config_dir.join("plugins");
