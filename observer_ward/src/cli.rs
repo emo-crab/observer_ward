@@ -1,4 +1,5 @@
 use std::env::current_dir;
+use std::fs::File;
 use crate::input::{read_file_to_target, read_from_stdio};
 use crate::parse_yaml;
 use argh::FromArgs;
@@ -330,12 +331,25 @@ impl ObserverWardConfig {
         }
       };
     } else {
-      let fingerprint_path = current_dir().map_or(self.config_dir.join("fingerprint_v4.json"), |x| {
-        let p = x.join("fingerprint_v4.json");
-        if p.is_file() { p } else { self.config_dir.join("fingerprint_v4.json") }
-      });
-      if let Ok(f) = std::fs::File::open(fingerprint_path) {
-        templates = serde_json::from_reader(f).expect("load fingerprint err");
+      for path in ["fingerprint_v4.json", "web_fingerprint_v4.json", "service_fingerprint_v4.json"] {
+        let fingerprint_path = current_dir().map_or(self.config_dir.join(path), |x| {
+          let p = x.join(path);
+          if p.exists() {
+            p
+          } else {
+            self.config_dir.join(path)
+          }
+        });
+        if let Ok(f) = std::fs::File::open(fingerprint_path) {
+          match serde_json::from_reader::<File, Vec<_>>(f) {
+            Ok(t) => {
+              templates.extend(t);
+            }
+            Err(err) => {
+              error!("{}{}",Emoji("💢",""), err);
+            }
+          }
+        }
       }
     }
     templates
