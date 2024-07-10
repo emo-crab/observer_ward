@@ -14,9 +14,9 @@ use std::env::current_dir;
 use std::fs::File;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::str::FromStr;
 use std::time::Duration;
-
 #[derive(Debug, Clone, Default)]
 pub enum OutputFormat {
   #[default]
@@ -238,6 +238,18 @@ impl Default for ObserverWardConfig {
         default.format = Some(OutputFormat::from_str(&ext.to_string_lossy()).unwrap_or_default());
       }
     }
+    if let Some(plugin) = &default.plugin {
+      if !has_nuclei_app() {
+        println!(
+          "{}please install nuclei to the environment path!",
+          Emoji("💢", ""),
+        );
+        std::process::exit(0);
+      }
+      if plugin.to_string_lossy() == "default" {
+        default.plugin = Some(default.config_dir.clone());
+      }
+    }
     default
   }
 }
@@ -352,4 +364,20 @@ impl ObserverWardConfig {
     }
     templates
   }
+}
+
+fn has_nuclei_app() -> bool {
+  return if cfg!(target_os = "windows") {
+    Command::new("nuclei.exe")
+      .args(["-version"])
+      .stdin(Stdio::null())
+      .output()
+      .is_ok()
+  } else {
+    Command::new("nuclei")
+      .args(["-version"])
+      .stdin(Stdio::null())
+      .output()
+      .is_ok()
+  };
 }
