@@ -329,14 +329,22 @@ Press CTRL+C to quit
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+### 更新nuclei插件
+
+- 使用`--update-plugin`更新nuclei插件到配置文件夹的`plugins`目录
+- 当然你也可以手动将[plugins.zip](https://github.com/0x727/FingerprintHub/releases/download/defaultv4/plugins.zip)下载到配置文件夹并解压
+- 注意：每次更新会将原来的插件文件夹删除掉再解压，如果你有自己的插件需要单独存放在别的文件夹
+
 ### 集成nuclei验证漏洞
 
+- 开启该功能前先安装最新版的[nuclei](https://github.com/projectdiscovery/nuclei)到系统环境变量，使得程序可以在命令行中正常调用
 - 使用`--plugin`指定nuclei的template文件夹开启nuclei,这个`plugins`文件夹可以到社区指纹库项目下载
+- 当`--plugin`的参数为`default`时，默认使用配置文件夹中的`plugins`文件夹，也就是使用`--update-plugin`下载的插件
 - 文件夹结构为`厂商/产品/nuclei的yaml文件`，如果识别到的指纹解析cpe后得到了厂商和产品在这个文件夹可以找到就会调用这个文件夹下面的yaml进行漏洞验证
 - 例如：指纹识别到了`tomcat`，通过解析cpe得到厂商为`apache`和产品为`tomcat`，调用`apache/tomcat`文件夹下面的全部yaml验证漏洞
 
 ```bash,no-run
-➜  ~ ./observer_ward -t http://172.17.0.2/ --plugin IdeaProjects/observer_ward/plugins
+➜  ~ ./observer_ward -t http://172.17.0.2/ --plugin default
 [INFO ] 📇probes loaded: 6183
 [INFO ] 🚀optimized probes: 8
 [INFO ] 🎯target loaded: 1
