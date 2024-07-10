@@ -135,7 +135,7 @@ pub struct ObserverWardConfig {
   /// poc nuclei engine additional args
   #[argh(option)]
   #[serde(skip)]
-  pub nuclei_args: Option<String>,
+  pub nuclei_args: Vec<String>,
   /// silent mode
   #[argh(switch)]
   #[serde(skip)]

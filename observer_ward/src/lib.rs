@@ -183,6 +183,9 @@ impl MatchedResult {
     let response = result.response().unwrap_or_default();
     let title = response.text().ok().and_then(|text| extract_title(&text));
     let status_code = response.status_code();
+    if self.status.is_none() {
+      self.status = Some(status_code);
+    }
     if let Some(t) = title {
       self.title.insert(t.clone());
       self.status = Some(status_code);

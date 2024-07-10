@@ -75,11 +75,10 @@ impl NucleiRunner {
     for target in self.targets.iter() {
       command.args(["-u", target]);
     }
-    if let Some(args) = &config.nuclei_args {
-      let args: Vec<&str> = args.split(' ').collect();
-      for arg in args {
-        command.arg(arg);
-      }
+    for args in &config.nuclei_args {
+      if let Some((arg, value)) = args.split_once(' ') {
+        command.args([arg, value]);
+      };
     }
     if config.or {
       command.args(["-or"]);
