@@ -129,7 +129,7 @@ impl<'a> Helper<'a> {
       Ok(zf) => {
         match zip::ZipArchive::new(zf) {
           Ok(mut archive) => {
-            archive.extract(plugins_path).unwrap_or_default();
+            archive.extract(&self.config.config_dir).unwrap_or_default();
             info!(
               "{}It has been extracted to the {:?}",
               Emoji("ℹ️", ""),
