@@ -1081,6 +1081,7 @@ dependencies = [
  "engine",
  "env_logger",
  "log",
+ "openssl",
  "rustc_lexer",
  "serde",
  "serde_json",
