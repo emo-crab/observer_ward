@@ -55,9 +55,12 @@ impl Output {
   pub fn save_and_print(&mut self, result: ClusterExecuteRunner) {
     match self.format {
       OutputFormat::STD => {
-        console::set_colors_enabled(false);
-        write_to_buf(&mut self.writer, &result);
-        if !self.config.silent && self.output {
+        // 保存到文件
+        if self.output {
+          console::set_colors_enabled(false);
+          write_to_buf(&mut self.writer, &result);
+        }
+        if !self.config.silent {
           console::set_colors_enabled(true);
           write_to_buf(&mut BufWriter::new(Box::new(std::io::stdout())), &result);
         }
