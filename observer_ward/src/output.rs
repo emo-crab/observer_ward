@@ -7,9 +7,10 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 
 pub struct Output {
-  pub config: ObserverWardConfig,
-  pub format: OutputFormat,
-  pub writer: BufWriter<Box<dyn Write + Sync + Send + 'static>>,
+  config: ObserverWardConfig,
+  format: OutputFormat,
+  writer: BufWriter<Box<dyn Write + Sync + Send + 'static>>,
+  output: bool,
 }
 
 fn set_to_string(set: &HashSet<String>) -> String {
@@ -26,11 +27,12 @@ fn set_to_string(set: &HashSet<String>) -> String {
 impl Output {
   pub fn new(config: &ObserverWardConfig) -> Self {
     let output_format = config.format.clone().unwrap_or_default();
+    let mut output = false;
     // 选择了json,只打印到标准输出
     let mut writer: BufWriter<Box<dyn Write + Sync + Send + 'static>> = match &config.output {
       Some(path) => {
+        output = true;
         // 保存文件禁用颜色输出
-        console::set_colors_enabled(false);
         let f = File::create(path).expect("create output file err");
         BufWriter::new(Box::new(f))
       }
@@ -46,115 +48,24 @@ impl Output {
       config: config.clone(),
       format: output_format,
       writer,
+      output,
     }
   }
+
   pub fn save_and_print(&mut self, result: ClusterExecuteRunner) {
     match self.format {
       OutputFormat::STD => {
-        writeln!(
-          self.writer,
-          "{}: {}",
-          Emoji("🏹", "target"),
-          style(&result.target).blue()
-        )
-        .unwrap_or_default();
-        for (uri, mr) in result.result() {
-          let nr = mr.nuclei_result();
-          // 根据状态码显示颜色
-          let osc = mr.status().as_ref().map(|sc| {
-            if sc.is_success() {
-              style(sc).green()
-            } else if sc.is_server_error() {
-              style(sc).red()
-            } else {
-              style(sc).cyan()
-            }
-          });
-          // 打印指纹
-          for fp in mr.fingerprint() {
-            write!(self.writer, " |_{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
-            let apps: HashSet<String> = fp
-              .matcher_result()
-              .iter()
-              .map(|x| x.template.clone())
-              .collect();
-            write!(self.writer, " [{}] ", style(set_to_string(&apps)).green()).unwrap_or_default();
-            write!(self.writer, " <{}>", set_to_string(mr.title())).unwrap_or_default();
-            if let Some(csc) = &osc {
-              write!(self.writer, " ({}) ", csc).unwrap_or_default();
-            }
-            writeln!(self.writer, "]").unwrap_or_default();
-            if !fp.matcher_result().iter().all(|x| x.extractor.is_empty()) {
-              write!(self.writer, "  |_{}: ", Emoji("📰", "extractor")).unwrap_or_default();
-              fp.extractor().iter().for_each(|(n, v)| {
-                write!(
-                  self.writer,
-                  "{}:[{}] ",
-                  style(n).red(),
-                  style(set_to_string(v).trim()).yellow()
-                )
-                .unwrap_or_default();
-              });
-              writeln!(self.writer).unwrap_or_default();
-            }
-            // 指纹对应的nuclei结果
-            for app in apps {
-              if let Some(n) = nr.get(&app) {
-                if n.is_empty() {
-                  continue;
-                }
-                for v in n {
-                  writeln!(
-                    self.writer,
-                    "  |_{}: [{}] {}: {}",
-                    Emoji("🐞", "exploitable"),
-                    style(format!("{:?}", v.info.severity)).red(),
-                    style(&v.template_id).green(),
-                    style(&v.info.name).cyan()
-                  )
-                  .unwrap_or_default();
-                  writeln!(
-                    self.writer,
-                    "   |_{}: {}",
-                    Emoji("🔥", "matched_at"),
-                    v.matched_at
-                  )
-                  .unwrap_or_default();
-                  if !v.curl_command.is_empty() {
-                    writeln!(
-                      self.writer,
-                      "   |_{}: {}",
-                      Emoji("🐚", "shell"),
-                      style(&v.curl_command).yellow()
-                    )
-                    .unwrap_or_default();
-                  }
-                }
-              }
-            }
-          }
-          if mr.fingerprint().is_empty() {
-            write!(self.writer, " |_{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
-            if !mr.title().is_empty() {
-              write!(
-                self.writer,
-                " <{}> ",
-                mr.title()
-                  .iter()
-                  .map(|x| x.to_string())
-                  .collect::<Vec<String>>()
-                  .join(",")
-              )
-              .unwrap_or_default();
-            }
-            if let Some(csc) = &osc {
-              write!(self.writer, " ({}) ", csc).unwrap_or_default();
-            }
-            writeln!(self.writer, "]").unwrap_or_default();
-          }
+        console::set_colors_enabled(false);
+        write_to_buf(&mut self.writer, &result);
+        if !self.config.silent && self.output {
+          console::set_colors_enabled(true);
+          write_to_buf(&mut BufWriter::new(Box::new(std::io::stdout())), &result);
         }
       }
       OutputFormat::JSON => {
+        if !self.config.silent {
+          write_to_buf(&mut BufWriter::new(Box::new(std::io::stdout())), &result);
+        }
         writeln!(
           self.writer,
           "{}",
@@ -163,6 +74,9 @@ impl Output {
         .unwrap_or_default();
       }
       OutputFormat::CSV => {
+        if !self.config.silent {
+          write_to_buf(&mut BufWriter::new(Box::new(std::io::stdout())), &result);
+        }
         for (uri, mr) in result.result() {
           let app: Vec<String> = mr
             .fingerprint()
@@ -222,6 +136,110 @@ impl Output {
         .unwrap_or_default();
       let what_web_result_json = serde_json::to_string(&result).unwrap_or("[]".to_string());
       let _: Result<_, _> = client.post(webhook_url).body(what_web_result_json).send();
+    }
+  }
+}
+fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &ClusterExecuteRunner) {
+  writeln!(
+    writer,
+    "{}: {}",
+    Emoji("🏹", "target"),
+    style(&result.target).blue()
+  )
+  .unwrap_or_default();
+  for (uri, mr) in result.result() {
+    let nr = mr.nuclei_result();
+    // 根据状态码显示颜色
+    let osc = mr.status().as_ref().map(|sc| {
+      if sc.is_success() {
+        style(sc).green()
+      } else if sc.is_server_error() {
+        style(sc).red()
+      } else {
+        style(sc).cyan()
+      }
+    });
+    // 打印指纹
+    for fp in mr.fingerprint() {
+      write!(writer, " |_{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
+      let apps: HashSet<String> = fp
+        .matcher_result()
+        .iter()
+        .map(|x| x.template.clone())
+        .collect();
+      write!(writer, " [{}] ", style(set_to_string(&apps)).green()).unwrap_or_default();
+      write!(writer, " <{}>", set_to_string(mr.title())).unwrap_or_default();
+      if let Some(csc) = &osc {
+        write!(writer, " ({}) ", csc).unwrap_or_default();
+      }
+      writeln!(writer, "]").unwrap_or_default();
+      if !fp.matcher_result().iter().all(|x| x.extractor.is_empty()) {
+        write!(writer, "  |_{}: ", Emoji("📰", "extractor")).unwrap_or_default();
+        fp.extractor().iter().for_each(|(n, v)| {
+          write!(
+            writer,
+            "{}:[{}] ",
+            style(n).red(),
+            style(set_to_string(v).trim()).yellow()
+          )
+          .unwrap_or_default();
+        });
+        writeln!(writer).unwrap_or_default();
+      }
+      // 指纹对应的nuclei结果
+      for app in apps {
+        if let Some(n) = nr.get(&app) {
+          if n.is_empty() {
+            continue;
+          }
+          for v in n {
+            writeln!(
+              writer,
+              "  |_{}: [{}] {}: {}",
+              Emoji("🐞", "exploitable"),
+              style(format!("{:?}", v.info.severity)).red(),
+              style(&v.template_id).green(),
+              style(&v.info.name).cyan()
+            )
+            .unwrap_or_default();
+            writeln!(
+              writer,
+              "   |_{}: {}",
+              Emoji("🔥", "matched_at"),
+              v.matched_at
+            )
+            .unwrap_or_default();
+            if !v.curl_command.is_empty() {
+              writeln!(
+                writer,
+                "   |_{}: {}",
+                Emoji("🐚", "shell"),
+                style(&v.curl_command).yellow()
+              )
+              .unwrap_or_default();
+            }
+          }
+        }
+      }
+    }
+    if mr.fingerprint().is_empty() {
+      write!(writer, " |_{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
+      if !mr.title().is_empty() {
+        write!(
+          writer,
+          " <{}> ",
+          mr.title()
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .join(",")
+        )
+        .unwrap_or_default();
+      }
+      if let Some(csc) = &osc {
+        write!(writer, " ({}) ", csc).unwrap_or_default();
+      }
+      writeln!(writer, "]").unwrap_or_default();
     }
   }
 }
