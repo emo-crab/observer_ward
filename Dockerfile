@@ -19,7 +19,6 @@ ENV TZ=Asia/Shanghai
 RUN apk -U upgrade --no-cache \
     && apk add --no-cache bind-tools ca-certificates
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/observer_ward /usr/local/bin/
-ARG SKIP_COPY=false
 ADD "https://0x727.github.io/FingerprintHub/web_fingerprint_v4.json" web_fingerprint_v4.json
 RUN observer_ward --update-plugin
 ENTRYPOINT [ "observer_ward" ]
