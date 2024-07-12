@@ -39,6 +39,6 @@ jobs:
           platforms: linux/amd64
           target: observer_ward_with_nuclei
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/observer_ward:with_nuclei
-          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/observer_ward:with_nuclei
+          tags: ${{ secrets.DOCKER_USERNAME }}/observer_ward:nuclei
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/observer_ward:nuclei
           cache-to: type=inline

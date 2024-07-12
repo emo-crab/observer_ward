@@ -106,10 +106,10 @@ target: http://172.17.0.2/
  |_uri:[ http://172.17.0.2/ [thinkphp]  <> (200 OK) ]
 ```
 
-- `kaliteam/observer_ward:with_nuclei`是内置nuclei，在默认配置文件夹有`plugins`目录
+- `kaliteam/observer_ward:nuclei`是内置nuclei，在默认配置文件夹有`plugins`目录，但是更新时间不会最新了，是构建docker时的版本
 
 ```bash,no-run
-➜  docker run --rm -it kaliteam/observer_ward:with_nuclei -t http://172.17.0.2 --plugin default
+➜  docker run --rm -it kaliteam/observer_ward:nuclei -t http://172.17.0.2 --plugin default
 [INFO ] probes loaded: 2223
 [INFO ] optimized probes: 7
 [INFO ] target loaded: 1
