@@ -32,3 +32,6 @@ openssl = { version = "0.10", features = ["vendored"] }
 winres = "0.1"
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 daemonize = "0.5.0"
+[[bin]]
+name = "observer_ward"
+path = "src/main.rs"

