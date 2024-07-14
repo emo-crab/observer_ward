@@ -238,7 +238,7 @@ impl Default for ObserverWardConfig {
         default.format = Some(OutputFormat::from_str(&ext.to_string_lossy()).unwrap_or_default());
       }
     }
-    if let Some(plugin) = &default.plugin {
+    if let Some(mut plugin) = default.plugin {
       if !has_nuclei_app() {
         println!(
           "{}please install nuclei to the environment path!",
@@ -247,7 +247,17 @@ impl Default for ObserverWardConfig {
         std::process::exit(0);
       }
       if plugin.to_string_lossy() == "default" {
-        default.plugin = Some(default.config_dir.clone());
+        plugin = default.config_dir.join("plugins");
+      }
+      if plugin.is_dir() {
+        default.plugin = Some(plugin.to_path_buf());
+      } else {
+        println!(
+          "{}please update plugins to {} use `--update-plugin`!",
+          Emoji("💢", ""),
+          plugin.to_string_lossy()
+        );
+        std::process::exit(0);
       }
     }
     default

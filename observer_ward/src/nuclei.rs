@@ -1,7 +1,7 @@
 use crate::cli::ObserverWardConfig;
 use console::Emoji;
 use engine::results::NucleiResult;
-use log::debug;
+use log::{debug, error};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::process::Command;
@@ -33,8 +33,11 @@ impl NucleiRunner {
         .map(String::from)
         .collect();
       for line in templates_output.iter() {
-        if let Ok(template) = serde_json::from_str::<NucleiResult>(line) {
-          result.push(template);
+        match serde_json::from_str::<NucleiResult>(line) {
+          Ok(template) => result.push(template),
+          Err(err) => {
+            error!("{}", err);
+          }
         };
       }
     }

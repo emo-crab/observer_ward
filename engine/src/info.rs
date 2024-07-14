@@ -223,10 +223,10 @@ impl VPF {
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 pub struct Classification {
-  #[serde(default, skip_serializing_if = "is_default")]
-  pub cve_id: Option<String>,
-  #[serde(default, skip_serializing_if = "is_default")]
-  pub cwe_id: Option<String>,
+  #[serde(with = "string_vec_serde", default, skip_serializing_if = "is_default")]
+  pub cve_id: Vec<String>,
+  #[serde(with = "string_vec_serde", default, skip_serializing_if = "is_default")]
+  pub cwe_id: Vec<String>,
   #[serde(default, skip_serializing_if = "is_default")]
   pub cvss_metrics: Option<String>,
   #[serde(default, skip_serializing_if = "is_default")]
