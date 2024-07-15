@@ -43,8 +43,11 @@ async fn what_web_api(
       scan(&config, cl, tx);
     });
     if webhook {
-      rx.iter().for_each(|r| {
-        output.webhook_results(vec![r]);
+      // 异步识别任务，通过webhook返回结果
+      rt::spawn(async move {
+        for r in rx {
+          output.webhook_results(vec![r]);
+        }
       });
       HttpResponse::Ok().finish()
     } else {

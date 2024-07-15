@@ -486,6 +486,8 @@ Press CTRL+C to quit
 {"target":[],"ua":"Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0","timeout":10,"thread":4,"or":false,"oc":false,"update-fingerprint":true,"update-plugin":true,"webhook":null,"webhook-auth":null
 ```
 
+- 如果同时开启了`--webhook`或者提交的任务配置中的`webhook`不为空，请求api后会在后台运行任务，结果将通过webhook发送到指定服务器
+
 <!-- CONTRIBUTING -->
 
 ## 提交指纹

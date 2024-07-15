@@ -1,5 +1,5 @@
 use console::{style, Emoji};
-use log::info;
+use log::{error, info};
 use observer_ward::api::api_server;
 #[cfg(not(target_os = "windows"))]
 use observer_ward::api::background;
@@ -35,7 +35,7 @@ fn main() {
     if config.daemon {
       background();
     }
-    api_server(address, config.clone()).unwrap_or_default();
+    api_server(address, config.clone()).map_err(|err| error!("start api server err:{}",err)).unwrap_or_default();
     std::process::exit(0);
   }
   let helper = Helper::new(&config);

@@ -5,6 +5,7 @@ use console::Emoji;
 use engine::find_yaml_file;
 use engine::slinger::http::header::HeaderValue;
 use engine::slinger::http::Uri;
+use engine::slinger::http_serde;
 use engine::slinger::redirect::{only_same_host, Policy};
 use engine::slinger::{openssl, ClientBuilder, ConnectorBuilder, Proxy};
 use engine::template::Template;
@@ -170,9 +171,9 @@ pub struct ObserverWardConfig {
   #[serde(skip)]
   pub token: String,
   /// send results to webhook server (ex:https://host:port/webhook)
-  #[argh(option)]
-  #[serde(default)]
-  pub webhook: Option<String>,
+  #[argh(option, from_str_fn(uri))]
+  #[serde(default, with = "http_serde::option::uri")]
+  pub webhook: Option<Uri>,
   /// the auth will be set to the webhook request header AUTHORIZATION
   #[argh(option)]
   #[serde(default)]
@@ -217,6 +218,9 @@ fn default_thread() -> usize {
   std::thread::available_parallelism().map_or(12, |x| x.get())
 }
 
+fn uri(value: &str) -> Result<Uri, String> {
+  Uri::from_str(value).map_err(|x| x.to_string())
+}
 fn proxy(value: &str) -> Result<Proxy, String> {
   Proxy::parse(value).map_err(|x| x.to_string())
 }
