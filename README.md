@@ -198,17 +198,20 @@ Options:
 
 ### 更新指纹库
 
-- 从github下载指纹库
+- 从github下载指纹库，默认只更新web指纹，如果需要加载服务指纹需要自行下载[service_fingerprint_v4.json](https://github.com/0x727/FingerprintHub/blob/main/service_fingerprint_v4.json)到配置文件夹。
 
 ```bash,no-run
 ➜ ./observer_ward -u
 ```
 
-| 操作系统 | 保存路径                                                                                  |
-| -------- | ----------------------------------------------------------------------------------------- |
-| Windows  | C:\Users\Alice\AppData\Roaming\observer_ward\web_or_service_fingerprint_v4.json           |
-| Linux    | /home/alice/.config/observer_ward/web_or_service_fingerprint_v4.json                      |
-| macOS    | /Users/Alice/Library/Application Support/observer_ward/web_or_service_fingerprint_v4.json |
+- 默认的指纹文件名有两个`web_fingerprint_v4.json`和`service_fingerprint_v4.json`，如果在配置文件夹中存在将会自动加载。
+- 例如：`web_fingerprint_v4.json`文件在配置文件夹下的路径
+
+| 操作系统 | 保存路径                                                                       |
+| -------- | ------------------------------------------------------------------------------ |
+| Windows  | C:\Users\Alice\AppData\Roaming\observer_ward\web_fingerprint_v4.json           |
+| Linux    | /home/alice/.config/observer_ward/web_fingerprint_v4.json                      |
+| macOS    | /Users/Alice/Library/Application Support/observer_ward/web_fingerprint_v4.json |
 
 - 指定yaml文件夹`--probe-dir`和单个json文件`--probe-path`参数将全部yaml文件转换为一个单json文件，方便携带
 - 然后将这个json文件复制到配置文件夹
@@ -216,6 +219,13 @@ Options:
 ```base,no-run
 ➜ ./observer_ward --probe-dir web_fingerprint --probe-dir service_fingerprint/null -p fingerprint_v4.json
 [INFO ] ℹ️ convert the 6183 yaml file of the probe directory to a json file fingerprint_v4.json
+```
+
+- 例如你可以将`FingerprintHub`项目下的服务指纹中`null`探针转换为json文件，并保存到配置文件夹
+
+```
+➜ ~ ./observer_ward --probe-dir FingerprintHub/service-fingerprint/null -p .config/observer_ward/service_fingerprint_v4.json
+[INFO ] ℹ️ convert the 3960 yaml file of the probe directory to a json file .config/observer_ward/service_fingerprint_v4.json
 ```
 
 <!-- USAGE EXAMPLES -->
