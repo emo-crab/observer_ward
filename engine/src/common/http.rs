@@ -8,7 +8,7 @@ use slinger::http::header;
 use slinger::http::header::HeaderMap;
 use slinger::http::uri::Uri;
 use slinger::{Body, ClientBuilder, Response};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -17,7 +17,7 @@ pub struct HttpRecord {
   base: Uri,
   response: Response,
   skip: HashSet<String>,
-  favicon: HashMap<String, FaviconMap>,
+  favicon: BTreeMap<String, FaviconMap>,
   client_builder: ClientBuilder,
 }
 
@@ -73,7 +73,7 @@ impl HttpRecord {
       None
     }
   }
-  pub fn favicon_hash(&self) -> &HashMap<String, FaviconMap> {
+  pub fn favicon_hash(&self) -> &BTreeMap<String, FaviconMap> {
     &self.favicon
   }
   pub fn has_favicon(&self) -> bool {

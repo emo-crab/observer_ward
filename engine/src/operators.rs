@@ -5,7 +5,7 @@ use crate::matchers::{Condition, FaviconMap, Matcher, MatcherType};
 use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 use slinger::Response;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "kebab-case")]
@@ -46,7 +46,7 @@ impl Operators {
         ExtractorType::Regex(re) => extractor.extract_regex(re, words, &version),
         ExtractorType::JSON(json) => extractor.extrat_json(json, words),
         ExtractorType::KVal(..) | ExtractorType::XPath(..) | ExtractorType::DSL(..) => {
-          (HashSet::new(), HashMap::new())
+          (HashSet::new(), BTreeMap::new())
         }
       };
       if !extract_result.is_empty() {
@@ -74,7 +74,7 @@ impl Operators {
         MatcherType::Favicon(fav) => {
           let hm = response
             .extensions()
-            .get::<HashMap<String, FaviconMap>>()
+            .get::<BTreeMap<String, FaviconMap>>()
             .ok_or(Error::IO(std::io::Error::new(
               std::io::ErrorKind::InvalidData,
               "not found favicon",

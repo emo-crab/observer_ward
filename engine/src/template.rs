@@ -4,7 +4,7 @@ use crate::matchers::MatcherType;
 use crate::request::{HttpRaw, Requests};
 use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -53,7 +53,7 @@ pub struct Template {
   pub stop_at_first_match: bool,
   // pub signature:
   #[serde(default, skip_serializing_if = "is_default")]
-  pub variables: HashMap<String, String>,
+  pub variables: BTreeMap<String, String>,
 }
 
 impl Template {

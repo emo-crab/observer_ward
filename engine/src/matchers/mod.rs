@@ -2,7 +2,7 @@ use crate::error::{new_regex_error, Error, Result};
 use crate::serde_format::{is_default, part_serde};
 use serde::{Deserialize, Serialize};
 use slinger::Response;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
@@ -56,7 +56,7 @@ impl Matcher {
   pub(crate) fn match_favicon(
     &self,
     fav: &Favicon,
-    corpus: &HashMap<String, FaviconMap>,
+    corpus: &BTreeMap<String, FaviconMap>,
   ) -> (bool, Vec<String>) {
     let mut matched_words = Vec::new();
     for (u, map) in corpus.iter().map(|(k, v)| (k.to_string(), v.hash())) {

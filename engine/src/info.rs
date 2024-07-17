@@ -1,7 +1,7 @@
 use crate::serde_format::{is_default, string_vec_serde, Value};
 use fancy_regex::Captures;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -127,7 +127,7 @@ pub struct Version {
 }
 
 impl Version {
-  pub fn captures(&self, captures: Captures) -> HashMap<String, String> {
+  pub fn captures(&self, captures: Captures) -> BTreeMap<String, String> {
     let replace = |x: &str| {
       let mut x = x.to_string();
       for (index, value) in self.extract_parameters(&x) {
@@ -137,7 +137,7 @@ impl Version {
       }
       x
     };
-    let mut r: HashMap<String, String> = HashMap::new();
+    let mut r: BTreeMap<String, String> = BTreeMap::new();
     if let Some(x) = &self.info {
       r.insert("info".to_string(), replace(x));
     }
@@ -169,8 +169,8 @@ impl Version {
     }
     r
   }
-  fn extract_parameters(&self, s: &str) -> HashMap<usize, String> {
-    let mut parameters = HashMap::new();
+  fn extract_parameters(&self, s: &str) -> BTreeMap<usize, String> {
+    let mut parameters = BTreeMap::new();
     let mut chars = s.chars().peekable();
     while let Some(&c) = chars.peek() {
       if c == '$' {

@@ -19,7 +19,7 @@ use error::Result;
 use log::{debug, info};
 use rustc_lexer::unescape;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -44,8 +44,8 @@ pub struct X509Certificate {
   text: String,
   pem: Vec<u8>,
   public_key: Option<Vec<u8>>,
-  subject_name: HashMap<String, String>,
-  issuer_name: HashMap<String, String>,
+  subject_name: BTreeMap<String, String>,
+  issuer_name: BTreeMap<String, String>,
   subject_alt_names: Option<Vec<GeneralName>>,
   issuer_alt_names: Option<Vec<GeneralName>>,
   subject_name_hash: u32,
@@ -156,13 +156,13 @@ pub struct MatchedResult {
   #[serde(skip_serializing_if = "Option::is_none")]
   status: Option<StatusCode>,
   // favicon哈希
-  favicon: HashMap<String, FaviconMap>,
+  favicon: BTreeMap<String, FaviconMap>,
   #[serde(skip_serializing_if = "Option::is_none")]
   certificate: Option<X509Certificate>,
   // 指纹信息
   fingerprints: Vec<ResultEvent>,
   // 漏洞信息
-  nuclei_result: HashMap<String, Vec<NucleiResult>>,
+  nuclei_result: BTreeMap<String, Vec<NucleiResult>>,
 }
 
 impl MatchedResult {
@@ -175,7 +175,7 @@ impl MatchedResult {
   pub fn fingerprint(&self) -> &Vec<ResultEvent> {
     &self.fingerprints
   }
-  pub fn nuclei_result(&self) -> &HashMap<String, Vec<NucleiResult>> {
+  pub fn nuclei_result(&self) -> &BTreeMap<String, Vec<NucleiResult>> {
     &self.nuclei_result
   }
 
@@ -193,7 +193,7 @@ impl MatchedResult {
     if self.certificate.is_none() {
       self.certificate = response.certificate().map(X509Certificate::new);
     }
-    if let Some(fav) = response.extensions().get::<HashMap<String, FaviconMap>>() {
+    if let Some(fav) = response.extensions().get::<BTreeMap<String, FaviconMap>>() {
       self.favicon.extend(fav.clone());
     }
     if !result.matcher_result().is_empty() {
@@ -209,8 +209,8 @@ impl MatchedResult {
       self.fingerprints.push(result);
     }
   }
-  fn merge_nuclei_args(&self, template_dir: &Path) -> HashMap<String, NucleiRunner> {
-    let mut nuclei_map: HashMap<String, NucleiRunner> = HashMap::new();
+  fn merge_nuclei_args(&self, template_dir: &Path) -> BTreeMap<String, NucleiRunner> {
+    let mut nuclei_map: BTreeMap<String, NucleiRunner> = BTreeMap::new();
     for result_event in self.fingerprints.iter() {
       let all_matched_result = result_event.matcher_result();
       for matcher_result in all_matched_result {
@@ -243,20 +243,20 @@ pub struct ClusterExecuteRunner {
   #[serde(with = "http_serde::uri")]
   target: Uri,
   // 子路径匹配结果
-  matched_result: HashMap<String, MatchedResult>,
+  matched_result: BTreeMap<String, MatchedResult>,
 }
 
 impl ClusterExecuteRunner {
   pub fn target(&self) -> &Uri {
     &self.target
   }
-  pub fn result(&self) -> &HashMap<String, MatchedResult> {
+  pub fn result(&self) -> &BTreeMap<String, MatchedResult> {
     &self.matched_result
   }
   pub fn new(uri: Uri) -> Self {
     Self {
       target: uri,
-      matched_result: HashMap::new(),
+      matched_result: BTreeMap::new(),
     }
   }
   fn update_result(&mut self, result: ResultEvent, key: Option<String>) {
@@ -360,7 +360,7 @@ impl ClusterExecuteRunner {
       return;
     };
     // 相同插件和url只跑一次
-    let mut skip_target: HashMap<String, Vec<String>> = HashMap::new();
+    let mut skip_target: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (base_url, matched_result) in self.matched_result.iter_mut() {
       let mut key_args = matched_result.merge_nuclei_args(&template_dir);
       for (key, args) in key_args.iter_mut() {

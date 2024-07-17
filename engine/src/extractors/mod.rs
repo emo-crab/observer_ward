@@ -4,7 +4,7 @@ use crate::matchers::Part;
 use crate::serde_format::{is_default, part_serde};
 use jsonpath_rust::JsonPathInst;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,12 +49,12 @@ impl Extractor {
     &self,
     json_path: &JsonPath,
     corpus: String,
-  ) -> (HashSet<String>, HashMap<String, String>) {
+  ) -> (HashSet<String>, BTreeMap<String, String>) {
     let mut extract_result = HashSet::new();
     let json = if let Ok(x) = serde_json::from_str(&corpus) {
       x
     } else {
-      return (extract_result, HashMap::new());
+      return (extract_result, BTreeMap::new());
     };
     for path in json_path.json.iter() {
       if let Ok(p) = JsonPathInst::from_str(path) {
@@ -65,16 +65,16 @@ impl Extractor {
         };
       }
     }
-    (extract_result, HashMap::new())
+    (extract_result, BTreeMap::new())
   }
   pub(crate) fn extract_regex(
     &self,
     regexps: &ERegex,
     corpus: String,
     version: &Option<Version>,
-  ) -> (HashSet<String>, HashMap<String, String>) {
+  ) -> (HashSet<String>, BTreeMap<String, String>) {
     let mut extract_result = HashSet::new();
-    let mut version_map = HashMap::new();
+    let mut version_map = BTreeMap::new();
     let group = regexps.group.unwrap_or(0);
     for re in self.regex.iter() {
       re.captures(&corpus)

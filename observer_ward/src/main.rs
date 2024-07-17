@@ -35,7 +35,9 @@ fn main() {
     if config.daemon {
       background();
     }
-    api_server(address, config.clone()).map_err(|err| error!("start api server err:{}",err)).unwrap_or_default();
+    api_server(address, config.clone())
+      .map_err(|err| error!("start api server err:{}", err))
+      .unwrap_or_default();
     std::process::exit(0);
   }
   let helper = Helper::new(&config);

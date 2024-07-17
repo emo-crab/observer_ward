@@ -6,7 +6,7 @@ use slinger::http::uri::Uri;
 use slinger::http_serde;
 use slinger::record::HTTPRecord;
 use slinger::Response;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 // 指纹匹配结果
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,8 +71,8 @@ impl ResultEvent {
   pub fn matcher_result_mut(&mut self) -> &mut Vec<MatcherResult> {
     &mut self.matcher_results
   }
-  pub fn extractor(&self) -> HashMap<String, HashSet<String>> {
-    let mut em: HashMap<String, HashSet<String>> = HashMap::new();
+  pub fn extractor(&self) -> BTreeMap<String, HashSet<String>> {
+    let mut em: BTreeMap<String, HashSet<String>> = BTreeMap::new();
     for mr in self.matcher_results.iter() {
       for (k, h) in mr.extractor.iter() {
         if let Some(e) = em.get_mut(k) {
@@ -99,7 +99,7 @@ pub struct NucleiResult {
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub extracted_results: Option<Vec<String>>,
   #[serde(default)]
-  pub meta: HashMap<String, Value>,
+  pub meta: BTreeMap<String, Value>,
   pub info: Info,
   #[serde(default)]
   pub curl_command: String,
