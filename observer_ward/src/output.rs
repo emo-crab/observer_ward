@@ -1,8 +1,8 @@
 use crate::cli::{ObserverWardConfig, OutputFormat};
-use crate::ClusterExecuteRunner;
+use crate::MatchedResult;
 use console::{style, Emoji};
 use engine::slinger::http::header;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
@@ -52,7 +52,7 @@ impl Output {
     }
   }
 
-  pub fn save_and_print(&mut self, result: ClusterExecuteRunner) {
+  pub fn save_and_print(&mut self, result: BTreeMap<String, MatchedResult>) {
     match self.format {
       OutputFormat::STD => {
         // 保存到文件
@@ -80,7 +80,7 @@ impl Output {
         if !self.config.silent {
           write_to_buf(&mut BufWriter::new(Box::new(std::io::stdout())), &result);
         }
-        for (uri, mr) in result.result() {
+        for (uri, mr) in result {
           let app: Vec<String> = mr
             .fingerprint()
             .iter()
@@ -115,7 +115,7 @@ impl Output {
     }
     self.writer.flush().unwrap_or_default();
   }
-  pub fn webhook_results(&self, result: Vec<ClusterExecuteRunner>) {
+  pub fn webhook_results(&self, result: Vec<BTreeMap<String, MatchedResult>>) {
     if let Some(webhook_url) = &self.config.webhook {
       let mut headers = header::HeaderMap::new();
       headers.insert(
@@ -142,15 +142,9 @@ impl Output {
     }
   }
 }
-fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &ClusterExecuteRunner) {
-  writeln!(
-    writer,
-    "{}: {}",
-    Emoji("🏹", "target"),
-    style(&result.target).blue()
-  )
-  .unwrap_or_default();
-  for (uri, mr) in result.result() {
+
+fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &BTreeMap<String, MatchedResult>) {
+  for (uri, mr) in result {
     let nr = mr.nuclei_result();
     // 根据状态码显示颜色
     let osc = mr.status().as_ref().map(|sc| {
@@ -164,7 +158,7 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &ClusterExecuteRunner
     });
     // 打印指纹
     for fp in mr.fingerprint() {
-      write!(writer, " |_{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
+      write!(writer, "{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
       let apps: HashSet<String> = fp
         .matcher_result()
         .iter()
@@ -177,7 +171,7 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &ClusterExecuteRunner
       }
       writeln!(writer, "]").unwrap_or_default();
       if !fp.matcher_result().iter().all(|x| x.extractor.is_empty()) {
-        write!(writer, "  |_{}: ", Emoji("📰", "extractor")).unwrap_or_default();
+        write!(writer, " |_{}: ", Emoji("📰", "extractor")).unwrap_or_default();
         fp.extractor().iter().for_each(|(n, v)| {
           write!(
             writer,
@@ -198,7 +192,7 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &ClusterExecuteRunner
           for v in n {
             writeln!(
               writer,
-              "  |_{}: [{}] {}: {}",
+              " |_{}: [{}] {}: {}",
               Emoji("🐞", "exploitable"),
               style(format!("{:?}", v.info.severity)).red(),
               style(&v.template_id).green(),
@@ -207,7 +201,7 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &ClusterExecuteRunner
             .unwrap_or_default();
             writeln!(
               writer,
-              "   |_{}: {}",
+              "  |_{}: {}",
               Emoji("🔥", "matched_at"),
               v.matched_at
             )
@@ -215,7 +209,7 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &ClusterExecuteRunner
             if !v.curl_command.is_empty() {
               writeln!(
                 writer,
-                "   |_{}: {}",
+                "  |_{}: {}",
                 Emoji("🐚", "shell"),
                 style(&v.curl_command).yellow()
               )
@@ -226,7 +220,7 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &ClusterExecuteRunner
       }
     }
     if mr.fingerprint().is_empty() {
-      write!(writer, " |_{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
+      write!(writer, "{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
       if !mr.title().is_empty() {
         write!(
           writer,

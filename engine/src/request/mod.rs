@@ -128,4 +128,27 @@ impl Requests {
     );
     all
   }
+
+  pub fn default_web_index() -> Self {
+    Self {
+      http: vec![HTTPRequest {
+        http_raw: HttpRaw::Path(Http {
+          method: Default::default(),
+          path: vec!["{{BaseURL}}/".to_string()],
+          body: Default::default(),
+          headers: Default::default(),
+        }),
+        id: None,
+        name: None,
+        payload_attack: None,
+        skip_variables_check: false,
+        stop_at_first_match: false,
+        http_option: Default::default(),
+        operators: Default::default(),
+      }],
+      tcp: vec![],
+      headless: vec![],
+      code: vec![],
+    }
+  }
 }

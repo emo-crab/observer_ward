@@ -36,12 +36,20 @@ impl HttpRecord {
     let client = self.client_builder.clone().build().unwrap_or_default();
     if let Ok(resp) = client.get(url).send().map_err(Error::Http) {
       if resp.status_code().as_u16() != 200
-        || !is_image(resp.headers(), &resp.body().clone().unwrap_or_default())
+        || (if let Some(b) = resp.body() {
+          !is_image(resp.headers(), b)
+        } else {
+          true
+        })
       {
         return None;
       }
-      let hash = favicon_hash(&resp.body().clone().unwrap_or_default());
-      return Some(hash);
+      return if let Some(b) = resp.body() {
+        let hash = favicon_hash(b);
+        Some(hash)
+      } else {
+        None
+      };
     }
     None
   }

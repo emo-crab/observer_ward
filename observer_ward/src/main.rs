@@ -4,10 +4,9 @@ use observer_ward::api::api_server;
 #[cfg(not(target_os = "windows"))]
 use observer_ward::api::background;
 use observer_ward::cli::ObserverWardConfig;
-use observer_ward::cluster_templates;
 use observer_ward::helper::Helper;
 use observer_ward::output::Output;
-use observer_ward::scan;
+use observer_ward::{cluster_templates, ObserverWard};
 use std::sync::mpsc::channel;
 use std::thread;
 
@@ -57,7 +56,7 @@ fn main() {
   let (tx, rx) = channel();
   let output_config = config.clone();
   thread::spawn(move || {
-    scan(&config, cl, tx);
+    ObserverWard::new(&config, cl).execute(tx);
   });
   let mut output = Output::new(&output_config);
   for result in rx {

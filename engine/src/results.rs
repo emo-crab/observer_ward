@@ -12,7 +12,7 @@ use std::collections::{BTreeMap, HashSet};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
-pub struct ResultEvent {
+pub struct FingerprintResult {
   // 当前请求所命中的全面规则
   matcher_results: Vec<MatcherResult>,
   #[serde(with = "http_serde::uri")]
@@ -33,7 +33,7 @@ pub struct MatcherResult {
   pub extractor: BTreeMap<String, HashSet<String>>,
 }
 
-impl ResultEvent {
+impl FingerprintResult {
   pub fn push(&mut self, template: &String, info: &Info, ops: OperatorResult) {
     self.matcher_results.push(MatcherResult {
       template: template.to_string(),

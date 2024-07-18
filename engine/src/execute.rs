@@ -1,7 +1,7 @@
 use crate::info::Info;
 use crate::operators::{OperatorResult, Operators};
 use crate::request::Requests;
-use crate::results::ResultEvent;
+use crate::results::FingerprintResult;
 use crate::template::Template;
 
 #[derive(Debug, Clone)]
@@ -23,7 +23,7 @@ impl ClusteredOperator {
       operators: t.requests.operators(),
     }
   }
-  pub fn matcher(&self, results: &mut ResultEvent) {
+  pub fn matcher(&self, results: &mut FingerprintResult) {
     let response = results.response().unwrap_or_default();
     for operator in self.operators.iter() {
       let mut result = OperatorResult::default();
@@ -38,13 +38,20 @@ impl ClusteredOperator {
   }
 }
 
-#[derive(Debug, Clone)]
-pub enum ClusterType {
-  Safe(ClusterExecute),
-  Danger(ClusterExecute),
-  Favicon(ClusterExecute),
+#[derive(Debug, Default, Clone)]
+pub struct ClusterType {
+  pub web_index: Vec<ClusterExecute>,
+  pub web_favicon: Vec<ClusterExecute>,
+  pub web_danger: Vec<ClusterExecute>,
 }
-
+impl ClusterType {
+  pub fn is_empty(&self) -> bool {
+    self.web_index.is_empty() && self.web_danger.is_empty() && self.web_favicon.is_empty()
+  }
+  pub fn len(&self) -> usize {
+    self.web_index.len() + self.web_danger.len() + self.web_favicon.len()
+  }
+}
 #[derive(Debug, Clone)]
 pub struct ClusterExecute {
   pub requests: Requests,

@@ -1,7 +1,7 @@
 use crate::cli::ObserverWardConfig;
 use crate::helper::Helper;
 use crate::output::Output;
-use crate::{cluster_templates, scan, ClusterExecuteRunner};
+use crate::{cluster_templates, MatchedResult, ObserverWard};
 use actix_web::{get, middleware, post, rt, web, App, HttpResponse, HttpServer, Responder};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
 use console::{style, Emoji};
@@ -10,6 +10,7 @@ use daemonize::Daemonize;
 use engine::execute::ClusterType;
 use engine::slinger::openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslFiletype, SslMethod};
 use log::{error, info};
+use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::sync::mpsc::channel;
 use std::sync::RwLock;
@@ -29,7 +30,7 @@ async fn what_web_api(
   token: web::Data<TokenAuth>,
   auth: BearerAuth,
   config: web::Json<ObserverWardConfig>,
-  cl: web::Data<RwLock<Vec<ClusterType>>>,
+  cl: web::Data<RwLock<ClusterType>>,
 ) -> impl Responder {
   if !validator(token, auth) {
     return HttpResponse::Unauthorized().finish();
@@ -40,7 +41,7 @@ async fn what_web_api(
     let (tx, rx) = channel();
     let cl = cl.clone();
     thread::spawn(move || {
-      scan(&config, cl, tx);
+      ObserverWard::new(&config, cl).execute(tx);
     });
     if webhook {
       // 异步识别任务，通过webhook返回结果
@@ -51,7 +52,7 @@ async fn what_web_api(
       });
       HttpResponse::Ok().finish()
     } else {
-      let results: Vec<ClusterExecuteRunner> = rx.iter().collect();
+      let results: Vec<BTreeMap<String, MatchedResult>> = rx.iter().collect();
       HttpResponse::Ok().json(results)
     }
   } else {
@@ -64,7 +65,7 @@ async fn set_config_api(
   token: web::Data<TokenAuth>,
   auth: BearerAuth,
   config: web::Json<ObserverWardConfig>,
-  cl: web::Data<RwLock<Vec<ClusterType>>>,
+  cl: web::Data<RwLock<ClusterType>>,
 ) -> impl Responder {
   if !validator(token, auth) {
     return HttpResponse::Unauthorized().finish();

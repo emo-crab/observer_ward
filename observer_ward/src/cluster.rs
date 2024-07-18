@@ -1,14 +1,15 @@
 use console::Emoji;
 use engine::execute::{ClusterExecute, ClusterType, ClusteredOperator};
+use engine::request::Requests;
 use engine::template::Template;
 use log::debug;
 use std::collections::HashSet;
 
 // 根据优化生成请求和匹配组合
-pub fn cluster_templates(templates_list: &[Template]) -> Vec<ClusterType> {
+pub fn cluster_templates(templates_list: &[Template]) -> ClusterType {
   let mut compile_templates_list = Vec::new();
   let mut favicon_cops = Vec::new();
-  let mut executes = Vec::new();
+  let mut executes = ClusterType::default();
   for mut template in templates_list.iter().cloned() {
     // 编译正则和一些预处理
     match template.compile() {
@@ -44,23 +45,30 @@ pub fn cluster_templates(templates_list: &[Template]) -> Vec<ClusterType> {
     }
     // 如果请求是首页请求就加进去首页分类，否则加入危险分类
     if requests.is_safe() {
-      executes.push(ClusterType::Safe(ClusterExecute {
+      executes.web_index.push(ClusterExecute {
         requests,
         operators: cops,
-      }));
+      });
     } else {
-      executes.push(ClusterType::Danger(ClusterExecute {
+      executes.web_danger.push(ClusterExecute {
         requests,
         operators: cops,
-      }));
+      });
     }
   }
   // 确保favicon在最后，不用排序
   if !favicon_cops.is_empty() {
-    executes.push(ClusterType::Favicon(ClusterExecute {
+    executes.web_favicon.push(ClusterExecute {
       requests: Default::default(),
       operators: favicon_cops,
-    }));
+    });
+  }
+  // 如果只有图标hash，没有请求就补充一个Web首页请求
+  if executes.web_index.is_empty() && !executes.web_favicon.is_empty() {
+    executes.web_index.push(ClusterExecute {
+      requests: Requests::default_web_index(),
+      operators: vec![],
+    })
   }
   executes
 }

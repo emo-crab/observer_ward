@@ -1,4 +1,4 @@
-use crate::cli::{Mode, ObserverWardConfig};
+use crate::cli::ObserverWardConfig;
 use crate::error::new_io_error;
 use crate::nuclei::{gen_nuclei_tags, NucleiRunner};
 use console::{style, Emoji};
@@ -7,11 +7,10 @@ use engine::common::http::HttpRecord;
 use engine::execute::{ClusterExecute, ClusterType};
 use engine::matchers::FaviconMap;
 use engine::request::RequestGenerator;
-use engine::results::{NucleiResult, ResultEvent};
+use engine::results::{FingerprintResult, NucleiResult};
 use engine::slinger::http::header::HeaderValue;
 use engine::slinger::http::uri::Uri;
 use engine::slinger::http::StatusCode;
-use engine::slinger::openssl::x509::X509;
 use engine::slinger::redirect::{only_same_host, Policy};
 use engine::slinger::{http_serde, Request, Response};
 use engine::template::Template;
@@ -24,10 +23,12 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
+use std::sync::Arc;
 use std::time::Duration;
 use threadpool::ThreadPool;
 
 pub mod api;
+mod cert;
 pub mod cli;
 mod cluster;
 pub mod error;
@@ -36,114 +37,8 @@ pub mod input;
 mod nuclei;
 pub mod output;
 
+use cert::X509Certificate;
 pub use cluster::cluster_templates;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub struct X509Certificate {
-  text: String,
-  pem: Vec<u8>,
-  public_key: Option<Vec<u8>>,
-  subject_name: BTreeMap<String, String>,
-  issuer_name: BTreeMap<String, String>,
-  subject_alt_names: Option<Vec<GeneralName>>,
-  issuer_alt_names: Option<Vec<GeneralName>>,
-  subject_name_hash: u32,
-  signature: Vec<u8>,
-  signature_algorithm: String,
-  ocsp_responders: Vec<String>,
-  serial_number: Option<String>,
-  not_after: String,
-  not_before: String,
-  version: i32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-pub struct GeneralName {
-  email: Option<String>,
-  dns_name: Option<String>,
-  uri: Option<String>,
-  ipaddress: Option<Vec<u8>>,
-}
-
-impl X509Certificate {
-  fn new(value: &X509) -> X509Certificate {
-    X509Certificate {
-      public_key: value
-        .public_key()
-        .ok()
-        .map(|x| x.public_key_to_pem().unwrap_or_default()),
-      text: String::from_utf8_lossy(&value.to_text().unwrap_or_default()).to_string(),
-      pem: value.to_pem().unwrap_or_default(),
-      not_after: value.not_after().to_string(),
-      not_before: value.not_before().to_string(),
-      version: value.version(),
-      subject_name_hash: value.subject_name_hash(),
-      serial_number: value.serial_number().to_bn().ok().map(|x| x.to_string()),
-      ocsp_responders: value
-        .ocsp_responders()
-        .map_or(Vec::new(), |x| x.iter().map(|o| o.to_string()).collect()),
-      signature_algorithm: value.signature_algorithm().object().to_string(),
-      signature: value.signature().as_slice().to_vec(),
-      subject_alt_names: value.subject_alt_names().map(|x| {
-        x.into_iter()
-          .map(|g| GeneralName {
-            dns_name: g.dnsname().map(|d| d.to_string()),
-            email: g.email().map(|e| e.to_string()),
-            uri: g.uri().map(|u| u.to_string()),
-            ipaddress: g.ipaddress().map(|i| i.to_vec()),
-          })
-          .collect()
-      }),
-      issuer_alt_names: value.issuer_alt_names().map(|x| {
-        x.into_iter()
-          .map(|g| GeneralName {
-            dns_name: g.dnsname().map(|d| d.to_string()),
-            email: g.email().map(|e| e.to_string()),
-            uri: g.uri().map(|u| u.to_string()),
-            ipaddress: g.ipaddress().map(|i| i.to_vec()),
-          })
-          .collect()
-      }),
-      subject_name: value
-        .subject_name()
-        .entries()
-        .map(|e| {
-          (
-            kebab_case(&e.object().to_string()),
-            String::from_utf8_lossy(e.data().as_slice()).to_string(),
-          )
-        })
-        .collect(),
-      issuer_name: value
-        .issuer_name()
-        .entries()
-        .map(|e| {
-          (
-            kebab_case(&e.object().to_string()),
-            String::from_utf8_lossy(e.data().as_slice()).to_string(),
-          )
-        })
-        .collect(),
-    }
-  }
-}
-
-fn kebab_case(name: &str) -> String {
-  let mut new_name = String::new();
-  let chars = name.chars().collect::<Vec<_>>();
-  let l = chars.len();
-  for (index, c) in chars.into_iter().enumerate() {
-    if c.is_uppercase() && (index != 0 || index != l - 1) {
-      new_name.push('_');
-      c.to_lowercase().for_each(|nc| new_name.push(nc));
-    } else {
-      new_name.push(c);
-    }
-  }
-  new_name
-}
 
 // 子路径下面的匹配结果
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -160,9 +55,9 @@ pub struct MatchedResult {
   #[serde(skip_serializing_if = "Option::is_none")]
   certificate: Option<X509Certificate>,
   // 指纹信息
-  fingerprints: Vec<ResultEvent>,
+  fingerprints: Vec<FingerprintResult>,
   // 漏洞信息
-  nuclei_result: BTreeMap<String, Vec<NucleiResult>>,
+  nuclei: BTreeMap<String, Vec<NucleiResult>>,
 }
 
 impl MatchedResult {
@@ -172,14 +67,14 @@ impl MatchedResult {
   pub fn status(&self) -> &Option<StatusCode> {
     &self.status
   }
-  pub fn fingerprint(&self) -> &Vec<ResultEvent> {
+  pub fn fingerprint(&self) -> &Vec<FingerprintResult> {
     &self.fingerprints
   }
   pub fn nuclei_result(&self) -> &BTreeMap<String, Vec<NucleiResult>> {
-    &self.nuclei_result
+    &self.nuclei
   }
 
-  fn update_matched(&mut self, result: &ResultEvent) {
+  fn update_matched(&mut self, result: &FingerprintResult) {
     let response = result.response().unwrap_or_default();
     let title = response.text().ok().and_then(|text| extract_title(&text));
     let status_code = response.status_code();
@@ -237,29 +132,25 @@ impl MatchedResult {
   }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ClusterExecuteRunner {
   // 单个目标
-  #[serde(with = "http_serde::uri")]
   target: Uri,
   // 子路径匹配结果
   matched_result: BTreeMap<String, MatchedResult>,
 }
 
 impl ClusterExecuteRunner {
-  pub fn target(&self) -> &Uri {
-    &self.target
-  }
   pub fn result(&self) -> &BTreeMap<String, MatchedResult> {
     &self.matched_result
   }
-  pub fn new(uri: Uri) -> Self {
+  pub fn new(uri: &Uri) -> Self {
     Self {
-      target: uri,
+      target: uri.clone(),
       matched_result: BTreeMap::new(),
     }
   }
-  fn update_result(&mut self, result: ResultEvent, key: Option<String>) {
+  fn update_result(&mut self, result: FingerprintResult, key: Option<String>) {
     let key = if let Some(key) = key {
       key
     } else {
@@ -280,78 +171,6 @@ impl ClusterExecuteRunner {
       m.update_matched(&result);
       self.matched_result.insert(key, m);
     }
-  }
-  pub fn run(&mut self, iterator: Vec<ClusterType>, config: ObserverWardConfig) {
-    let mut http_record = HttpRecord::new(self.target.clone(), config.http_client_builder());
-    let mut favicon_cluster = Vec::new();
-    let mode = config.mode.clone().unwrap_or_default();
-    for (index, cluster_type) in iterator.iter().enumerate() {
-      match cluster_type {
-        ClusterType::Safe(clusters) => {
-          if matches!(mode, Mode::DANGER) {
-            continue;
-          }
-          if let Err(_err) = self.execute(&config, clusters, &mut http_record) {
-            // 首页访问失败
-            if index == 0 {
-              break;
-            }
-          }
-        }
-        ClusterType::Danger(clusters) => {
-          if matches!(mode, Mode::SAFE) {
-            continue;
-          }
-          if let Err(_err) = self.execute(&config, clusters, &mut http_record) {
-            // 第一次访问失败
-            if index == 0 {
-              break;
-            }
-          }
-        }
-        ClusterType::Favicon(clusters) => {
-          favicon_cluster.push(clusters);
-        }
-      }
-    }
-    if let Some(resp) = http_record.fav_response() {
-      let mut result = ResultEvent::new(&resp);
-      for clusters in favicon_cluster {
-        // 匹配favicon的，要等index的全部跑完
-        if http_record.has_favicon() {
-          debug!(
-            "{}: {:#?}",
-            Emoji("⭐️", "favicon"),
-            http_record.favicon_hash()
-          );
-          clusters.operators.iter().for_each(|operator| {
-            operator.matcher(&mut result);
-          });
-        }
-      }
-      // 如果有图标或者结果什么都没有，保存一个首页请求
-      if !result.matcher_result().is_empty()
-        || self.matched_result.is_empty()
-        || !self.matched_result.contains_key(&self.target.to_string())
-        || self
-          .matched_result
-          .get(&self.target.to_string())
-          .map_or(false, |x| x.title.is_empty())
-      {
-        self.update_result(result, None);
-      }
-    }
-    self.use_nuclei(&config);
-    self.matched_result.values_mut().for_each(|mr| {
-      if config.oc {
-        mr.certificate = None;
-      }
-      mr.fingerprints.iter_mut().for_each(|x| {
-        if config.or {
-          x.omit_raw()
-        }
-      })
-    });
   }
   fn use_nuclei(&mut self, config: &ObserverWardConfig) {
     let template_dir = if let Some(path) = &config.plugin {
@@ -375,12 +194,10 @@ impl ClusterExecuteRunner {
           skip_target.insert(args.name.clone(), vec![base_url.clone()]);
         }
         let nuclei_results = args.run(config);
-        if let Some(nrs) = matched_result.nuclei_result.get_mut(key) {
+        if let Some(nrs) = matched_result.nuclei.get_mut(key) {
           nrs.extend(nuclei_results.clone());
         } else {
-          matched_result
-            .nuclei_result
-            .insert(key.clone(), nuclei_results);
+          matched_result.nuclei.insert(key.clone(), nuclei_results);
         }
       }
     }
@@ -414,7 +231,7 @@ impl ClusterExecuteRunner {
         // 提取icon
         http_record.find_favicon_tag(&mut response);
         let mut flag = false;
-        let mut result = ResultEvent::new(&response);
+        let mut result = FingerprintResult::new(&response);
         operators
           .iter()
           .for_each(|operator| operator.matcher(&mut result));
@@ -471,7 +288,7 @@ impl ClusterExecuteRunner {
         let mut response: Response = Response::builder().body(full).unwrap_or_default().into();
         response.extensions_mut().insert(request.clone());
         debug!("{}{:#?}", Emoji("📥", ""), response);
-        let mut result = ResultEvent::new(&response);
+        let mut result = FingerprintResult::new(&response);
         operators
           .iter()
           .for_each(|operator| operator.matcher(&mut result));
@@ -538,25 +355,97 @@ pub fn parse_yaml(yaml_path: &PathBuf) -> Result<Template> {
     })
 }
 
-pub fn scan(config: &ObserverWardConfig, cl: Vec<ClusterType>, tx: Sender<ClusterExecuteRunner>) {
-  let input = config.input();
-  info!(
-    "{}target loaded: {}",
-    Emoji("🎯", ""),
-    style(input.len()).blue()
-  );
-  let pool = ThreadPool::new(config.thread);
-  for target in input.into_iter() {
-    let config = config.clone();
-    let cl = cl.clone();
-    let tx = tx.clone();
-    pool.execute(move || {
-      debug!("{}: {}", Emoji("🚦", "start"), target);
-      let mut runner = ClusterExecuteRunner::new(target);
-      runner.run(cl.clone(), config.clone());
-      debug!("{}: {}", Emoji("🔚", "end"), runner.target());
-      tx.send(runner).unwrap_or_default();
-    });
+pub struct ObserverWard {
+  config: ObserverWardConfig,
+  cluster_type: ClusterType,
+}
+
+impl ObserverWard {
+  pub fn new(config: &ObserverWardConfig, cluster_type: ClusterType) -> Arc<Self> {
+    Arc::new(Self {
+      config: config.clone(),
+      cluster_type,
+    })
   }
-  pool.join();
+  pub fn execute(self: Arc<Self>, tx: Sender<BTreeMap<String, MatchedResult>>) {
+    let input = self.config.input();
+    info!(
+      "{}target loaded: {}",
+      Emoji("🎯", ""),
+      style(input.len()).blue()
+    );
+    let pool = ThreadPool::new(self.config.thread);
+    for target in input.into_iter() {
+      let tx = tx.clone();
+      // 使用计数减少内存克隆
+      let self_arc = Arc::clone(&self);
+      pool.execute(move || {
+        tx.send(self_arc.run(target)).unwrap_or_default();
+      });
+    }
+    pool.join();
+  }
+  pub fn run(&self, target: Uri) -> BTreeMap<String, MatchedResult> {
+    debug!("{}: {}", Emoji("🚦", "start"), target);
+    let mut runner = ClusterExecuteRunner::new(&target);
+    let mut http_record = HttpRecord::new(runner.target.clone(), self.config.http_client_builder());
+    for (index, clusters) in self.cluster_type.web_index.iter().enumerate() {
+      if let Err(_err) = runner.execute(&self.config, clusters, &mut http_record) {
+        // 首页访问失败
+        if index == 0 {
+          break;
+        }
+      }
+    }
+    for (index, clusters) in self.cluster_type.web_danger.iter().enumerate() {
+      if let Err(_err) = runner.execute(&self.config, clusters, &mut http_record) {
+        // 第一次访问失败
+        if index == 0 {
+          break;
+        }
+      }
+    }
+    if let Some(resp) = http_record.fav_response() {
+      let mut result = FingerprintResult::new(&resp);
+      for clusters in self.cluster_type.web_favicon.iter() {
+        // 匹配favicon的，要等index的全部跑完
+        if http_record.has_favicon() {
+          debug!(
+            "{}: {:#?}",
+            Emoji("⭐️", "favicon"),
+            http_record.favicon_hash()
+          );
+          clusters.operators.iter().for_each(|operator| {
+            operator.matcher(&mut result);
+          });
+        }
+      }
+      // 如果有图标或者结果什么都没有，保存一个首页请求
+      if !result.matcher_result().is_empty()
+        || runner.matched_result.is_empty()
+        || !runner
+          .matched_result
+          .contains_key(&runner.target.to_string())
+        || runner
+          .matched_result
+          .get(&runner.target.to_string())
+          .map_or(false, |x| x.title.is_empty())
+      {
+        runner.update_result(result, None);
+      }
+    }
+    runner.use_nuclei(&self.config);
+    runner.matched_result.values_mut().for_each(|mr| {
+      if self.config.oc {
+        mr.certificate = None;
+      }
+      mr.fingerprints.iter_mut().for_each(|x| {
+        if self.config.or {
+          x.omit_raw()
+        }
+      })
+    });
+    debug!("{}: {}", Emoji("🔚", "end"), target);
+    runner.matched_result
+  }
 }
