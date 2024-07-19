@@ -38,25 +38,6 @@ pub mod string_vec_serde {
     d.deserialize_any(StringToVec(PhantomData))
   }
 }
-
-pub mod part_serde {
-  use crate::matchers::Part;
-  use serde::{Deserialize, Deserializer, Serializer};
-  use std::str::FromStr;
-
-  pub fn serialize<S: Serializer>(v: &Part, s: S) -> Result<S::Ok, S::Error> {
-    serde::Serialize::serialize(&v, s)
-  }
-
-  pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Part, D::Error> {
-    let s = String::deserialize(d)?;
-    match Part::from_str(&s) {
-      Ok(p) => Ok(p),
-      Err(err) => Err(serde::de::Error::custom(err)),
-    }
-  }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(untagged)]
 pub enum Value {

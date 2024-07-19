@@ -68,6 +68,13 @@ impl FingerprintResult {
   pub fn matcher_result(&self) -> &Vec<MatcherResult> {
     &self.matcher_results
   }
+  pub fn name(&self) -> HashSet<String> {
+    self
+      .matcher_results
+      .iter()
+      .map(|x| x.template.clone())
+      .collect()
+  }
   pub fn matcher_result_mut(&mut self) -> &mut Vec<MatcherResult> {
     &mut self.matcher_results
   }

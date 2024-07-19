@@ -1,4 +1,5 @@
 use console::{style, Emoji};
+use engine::template::cluster::cluster_templates;
 use log::{error, info};
 use observer_ward::api::api_server;
 #[cfg(not(target_os = "windows"))]
@@ -6,7 +7,7 @@ use observer_ward::api::background;
 use observer_ward::cli::ObserverWardConfig;
 use observer_ward::helper::Helper;
 use observer_ward::output::Output;
-use observer_ward::{cluster_templates, ObserverWard};
+use observer_ward::ObserverWard;
 use std::sync::mpsc::channel;
 use std::thread;
 
@@ -51,7 +52,7 @@ fn main() {
   info!(
     "{}optimized probes: {}",
     Emoji("🚀", ""),
-    style(cl.len()).blue()
+    style(cl.count()).blue()
   );
   let (tx, rx) = channel();
   let output_config = config.clone();

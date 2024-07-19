@@ -34,8 +34,8 @@ impl From<&String> for Token {
 struct Bracket {
   open_tag: String,
   close_tag: String,
-  start: usize,
-  end: usize,
+  start: u8,
+  end: u8,
   token: Token,
   string: String,
 }
@@ -64,12 +64,12 @@ impl Marker {
     }
   }
   fn match_block(&self, parenthesis_open: &str, parenthesis_close: &str) -> Option<Bracket> {
-    let mut open_start: Vec<(usize, &str)> = self.template.match_indices(parenthesis_open).collect();
-    let close_end: Vec<(usize, &str)> = self.template.match_indices(parenthesis_close).collect();
+    let mut open_start: Vec<(u8, &str)> = self.template.match_indices(parenthesis_open).collect();
+    let close_end: Vec<(u8, &str)> = self.template.match_indices(parenthesis_close).collect();
     open_start.extend(close_end);
     open_start.sort_by(|(a_i, _a_s), (b_i, _b_s)| a_i.partial_cmp(&b_i)?);
     let mut sorted_bracket = VecDeque::from(open_start.clone());
-    let mut brackets: VecDeque<(usize, String)> = VecDeque::new();
+    let mut brackets: VecDeque<(u8, String)> = VecDeque::new();
     while let Some((i, s)) = sorted_bracket.pop_front() {
       if s == parenthesis_open {
         brackets.push_back((i, s.to_string()));

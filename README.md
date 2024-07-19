@@ -136,7 +136,7 @@ brew install observer_ward
 
 ```bash,no-run
 ➜ ./observer_ward --help                                                                      
-Usage: observer_ward [-l <list>] [-t <target...>] [-p <probe-path>] [--probe-dir <probe-dir>] [--ua <ua>] [--mode <mode>] [--timeout <timeout>] [--thread <thread>] [--proxy <proxy>] [--or] [--plugin <plugin>] [-o <output>] [--format <format>] [--no-color] [--nuclei-args <nuclei-args>] [--silent] [--debug] [--config-dir <config-dir>] [--update-self] [-u] [--update-plugin]
+Usage: observer_ward [-l <list>] [-t <target...>] [-p <probe-path>] [--probe-dir <probe-dir...>] [--ua <ua>] [--mode <mode>] [--timeout <timeout>] [--thread <thread>] [--proxy <proxy>] [--ir] [--ic] [--plugin <plugin>] [-o <output>] [--format <format>] [--no-color] [--nuclei-args <nuclei-args...>] [--silent] [--debug] [--config-dir <config-dir>] [--update-self] [-u] [--update-plugin] [--daemon] [--token <token>] [--webhook <webhook>] [--webhook-auth <webhook-auth>] [--api-server <api-server>]
 
 observer_ward
 
@@ -146,12 +146,13 @@ Options:
   -p, --probe-path  customized fingerprint json file path
   --probe-dir       customized fingerprint yaml file dir
   --ua              customized ua
-  --mode            mode probes option[index,danger,all] defaule: all
+  --mode            mode probes option[tcp,http,all] default: all
   --timeout         set request timeout.
   --thread          number of concurrent threads.
   --proxy           proxy to use for requests
                     (ex:[http(s)|socks5(h)]://host:port)
-  --or              omit request/response pairs in output
+  --ir              include request/response pairs in output
+  --ic              include certificate pairs in output
   --plugin          customized template dir
   -o, --output      export to the file
   --format          output format option[json,csv,txt] default: txt
@@ -164,6 +165,13 @@ Options:
   -u, --update-fingerprint
                     update fingerprint
   --update-plugin   update plugin
+  --daemon          api background service
+  --token           api Bearer authentication
+  --webhook         send results to webhook server
+                    (ex:https://host:port/webhook)
+  --webhook-auth    the auth will be set to the webhook request header
+                    AUTHORIZATION
+  --api-server      start a web API service (ex:127.0.0.1:8080)
   --help            display usage information
 ```
 
@@ -178,8 +186,8 @@ Options:
 | --timeout               | 请求和连接超时，单位为秒                                                                         |
 | --thread                | 同时识别的线程数，默认为cpu的核数                                                                |
 | --proxy                 | 设置代理服务器，支持http和socks5，例如：`https://username:password@your-proxy.com:port`          |
-| --oc                    | 在json结果中忽略证书数据                                                                         |
-| --or                    | 在json结果中忽略请求和响应，保存请求响应可能比较消耗内存                                         |
+| --ir                    | 在json结果中保存请求和响应，保存请求响应可能比较消耗内存                                         |
+| --ic                    | 在json结果中保存证书数据                                                                         |
 | --plugin                | 指定nuclei插件路径，会开启nuclei验证漏洞，如果路径为`default`默认调用配置文件夹下的`plugins`目录 |
 | -o,--output             | 将结果保存到文件，如果文件后缀名是下面格式支持的可以省略`--format`参数                           |
 | --format                | 输出格式：支持`json`，`csv`和`txt`，在保存文件的时候会根据文件后缀自动识别                       |
@@ -191,11 +199,19 @@ Options:
 | --update-self           | 更新程序自身版本，也就是该项目的`defaultv4`发布标签                                              |
 | -u,--update-fingerprint | 更新指纹到配置文件夹，会覆盖`web_fingerprint_v4.json`文件                                        |
 | --update-plugin         | 更新社区nuclei插件到配置文件夹，会自动解压zip并且覆盖`plugins`目录                               |
+| --daemon                | api服务后台运行，window不支持                                                                    |
+| --token                 | api服务认证token                                                                                 |
+| --webhook               | 要将识别结果通过webhook发送到指定url                                                             |
+| --webhook-auth          | webhook的`AUTHORIZATION`认证                                                                     |
+| --api-server            | api监听地址的端口                                                                                |
 | --help                  | 打印帮助信息                                                                                     |
 
 ### 更新指纹库
 
-- 从github下载指纹库，默认只更新web指纹，如果需要加载服务指纹需要自行下载[service_fingerprint_v4.json](https://github.com/0x727/FingerprintHub/blob/main/service_fingerprint_v4.json)到配置文件夹。
+- 从github下载指纹库，默认只更新web指纹，如果需要加载服务指纹需要自行下载[service_fingerprint_v4.json](https://github.com/0x727/FingerprintHub/blob/main/service_fingerprint_v4.json)
+  到配置文件夹。
+
+- 默认不更新服务指纹
 
 ```bash,no-run
 ➜ ./observer_ward -u
@@ -337,22 +353,22 @@ Options:
 - 如果是保存到文件输出格式会根据文件后缀自动切换，也可以使用`--format`参数指定输出格式，支持: `txt`,`json`,`csv`
 
 ```bash,no-run
-➜  ~ ./observer_ward -t https://www.example.com/ -o output.json --or --oc
+➜  ~ ./observer_ward -t https://httpbin.org/  -o output.json
 [INFO ] 📇probes loaded: 6183
 [INFO ] 🚀optimized probes: 8
 [INFO ] 🎯target loaded: 1
 ➜  ~ cat output.json 
-{"https://www.example.com/":{"title":["Example Domain"],"status":200,"favicon":{},"fingerprints":[{"matcher-results":[{"template":"0example","info":{"name":"0example","author":"cn-kali-team","tags":"detect,tech,0example","severity":"info","metadata":{"product":"0example","vendor":"00_unknown","verified":true}},"matcher-name":["<title>example domain</title>"],"extractor":{}}],"matched-at":"https://www.example.com/"}],"nuclei":{}}}
+{"https://httpbin.org/":{"title":["httpbin.org"],"status":200,"favicon":{"https://httpbin.org/static/favicon.ico":{"md5":"3aa2067193b2ed83f24c30bd238a717c","mmh3":"-1296740046"}},"name":["swagger"],"fingerprints":[{"matcher-results":[{"template":"swagger","info":{"name":"swagger","author":"cn-kali-team","tags":"detect,tech,swagger","severity":"info","metadata":{"product":"swagger","vendor":"00_unknown","verified":true}},"matcher-name":["swagger-ui.css"],"extractor":{}}],"matched-at":"https://httpbin.org/"}],"nuclei":{}}}
 ```
 
 - 再保存文件的同时也会在终端打印进度信息，如果要想只打印纯结果数据可以使用`--silent`开启静默模式，例如：我只想打印`json`
   格式的数据并输出到jq
 
 ```bash,no-run
-➜  ~ ./observer_ward_amd64 -t http://172.17.0.2 --format json --or --oc --silent |jq
+➜  ~ ./observer_ward_amd64 -t http://172.17.0.2 --format json --ir --ic --silent |jq
 ```
 
-- 其中的`--or`和`--oc`分别为忽略结果的请求响应和证书信息
+- 其中的`--ir`和`--ic`分别为保存结果的请求响应和证书信息
 
 - 使用`--webhook`指定要将结果发送到的服务器url，如果webhook服务器有认证也可以使用`--webhook-auth`添加值到`Authorization`
   请求头
@@ -402,7 +418,7 @@ Press CTRL+C to quit
 - 使用`--update-plugin`更新nuclei插件到配置文件夹的`plugins`目录
 - 当然你也可以手动将[plugins.zip](https://github.com/0x727/FingerprintHub/releases/download/defaultv4/plugins.zip)
   下载到配置文件夹并解压
-- 注意：每次更新会将原来的插件文件夹删除掉再解压，如果你有自己的插件需要单独存放在别的文件夹
+- 注意：每次更新会将原来插件文件夹删除掉再解压，如果你有自己的插件需要单独存放在别的文件夹
 
 ### 集成nuclei验证漏洞
 
@@ -437,19 +453,20 @@ Press CTRL+C to quit
       --url http://127.0.0.1:8000/v1/observer_ward \
       --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
       --header 'Content-Type: application/json' \
-      --data '{"target":["https://httpbin.org/"],"or":true,"oc":true}'
+      --data '{"target":["https://httpbin.org/"]}'
 [INFO ] 🗳:[result...]
 ```
 
 - 使用curl请求api，同时设置`Authorization`参数
 
-````bash,no-run
+```bash,no-run
 ➜  ~ curl --request POST \                                                                                                     
   --url http://127.0.0.1:8000/v1/observer_ward \
   --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
   --header 'Content-Type: application/json' \
-  --data '{"target":["https://httpbin.org/"],"or":true,"oc":true}'
-[{"https://httpbin.org/":{"title":["httpbin.org"],"status":200,"favicon":{"https://httpbin.org/static/favicon.ico":{"md5":"3aa2067193b2ed83f24c30bd238a717c","mmh3":"-1296740046"}},"fingerprints":[{"matcher-results":[{"template":"swagger","info":{"name":"swagger","author":"cn-kali-team","tags":"detect,tech,swagger","severity":"info","metadata":{"product":"swagger","vendor":"00_unknown","verified":true}},"matcher-name":["swagger-ui.css"],"extractor":{}}],"matched-at":"https://httpbin.org/"}],"nuclei":{}}}]```
+  --data '{"target":["https://httpbin.org/"]}'
+{"https://httpbin.org/":{"title":["httpbin.org"],"status":200,"favicon":{"https://httpbin.org/static/favicon.ico":{"md5":"3aa2067193b2ed83f24c30bd238a717c","mmh3":"-1296740046"}},"name":["swagger"],"fingerprints":[{"matcher-results":[{"template":"swagger","info":{"name":"swagger","author":"cn-kali-team","tags":"detect,tech,swagger","severity":"info","metadata":{"product":"swagger","vendor":"00_unknown","verified":true}},"matcher-name":["swagger-ui.css"],"extractor":{}}],"matched-at":"https://httpbin.org/"}],"nuclei":{}}}
+```
 
 - 通过api获取当前config，这些字段都是可以通过每次的POST请求创建识别任务中配置
 
@@ -458,8 +475,8 @@ Press CTRL+C to quit
   --url http://127.0.0.1:8000/v1/config \
   --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
   --header 'Content-Type: application/json'
-{"target":[],"ua":"Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0","timeout":10,"thread":4,"or":false,"oc":false,"update-fingerprint":false,"update-plugin":false,"webhook":null,"webhook-auth":null}
-````
+{"target":[],"ua":"Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0","timeout":10,"thread":4,"ir":false,"ic":false,"update-fingerprint":false,"update-plugin":false,"webhook":null,"webhook-auth":null}
+```
 
 - 设置`update-plugin`和`update-fingerprint`为`true`更新指纹库和nuclei的插件库
 
@@ -469,7 +486,7 @@ Press CTRL+C to quit
   --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
   --header 'Content-Type: application/json' \
   --data '{"target":[],"update-plugin":true,"update-fingerprint":true}'
-{"target":[],"ua":"Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0","timeout":10,"thread":4,"or":false,"oc":false,"update-fingerprint":true,"update-plugin":true,"webhook":null,"webhook-auth":null
+{"target":[],"ua":"Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0","timeout":10,"thread":4,"ir":false,"ic":false,"update-fingerprint":true,"update-plugin":true,"webhook":null,"webhook-auth":null
 ```
 
 - 如果同时开启了`--webhook`或者提交的任务配置中的`webhook`不为空，请求api后会在后台运行任务，结果将通过webhook发送到指定服务器
