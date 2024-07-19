@@ -1,7 +1,7 @@
 use crate::error::{new_regex_error, Result};
 use crate::info::Version;
 use crate::matchers::Part;
-use crate::serde_format::{is_default, part_serde};
+use crate::serde_format::is_default;
 use jsonpath_rust::JsonPathInst;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
@@ -12,7 +12,7 @@ use std::str::FromStr;
 pub struct Extractor {
   #[serde(default, skip_serializing_if = "is_default")]
   pub name: Option<String>,
-  #[serde(with = "part_serde", default, skip_serializing_if = "is_default")]
+  #[serde(default, skip_serializing_if = "is_default")]
   pub part: Part,
   #[serde(flatten)]
   pub extractor_type: ExtractorType,
@@ -122,7 +122,7 @@ pub struct ERegex {
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 pub struct KVal {
-  pub group: Option<i32>,
+  pub group: Option<u8>,
   pub kval: HashSet<String>,
 }
 
@@ -130,7 +130,7 @@ pub struct KVal {
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 pub struct JsonPath {
-  pub group: Option<i32>,
+  pub group: Option<u8>,
   pub json: HashSet<String>,
 }
 

@@ -1,7 +1,11 @@
+mod port;
+
 use crate::common::PayloadAttack;
 use crate::operators::Operators;
 use crate::serde_format::is_default;
+pub use port::PortRange;
 use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct TCPRequest {
@@ -13,6 +17,8 @@ pub struct TCPRequest {
   pub inputs: Vec<Input>,
   #[serde(default, skip_serializing_if = "is_default")]
   pub host: Vec<String>,
+  #[serde(default, skip_serializing_if = "is_default")]
+  pub port: Option<PortRange>,
   // Operators for the current request go here.
   #[serde(flatten)]
   pub operators: Operators,
@@ -20,22 +26,13 @@ pub struct TCPRequest {
   #[serde(flatten, skip_serializing_if = "is_default")]
   pub payload_attack: Option<PayloadAttack>,
   #[serde(default, skip_serializing_if = "is_default")]
-  pub threads: Option<i32>,
-  #[serde(default, skip_serializing_if = "is_default")]
-  pub port: Option<Port>,
+  pub threads: Option<u8>,
   #[serde(default, skip_serializing_if = "is_default")]
   pub exclude_ports: Option<String>,
   #[serde(default, skip_serializing_if = "is_default")]
-  pub read_size: Option<usize>,
+  pub read_size: Option<u16>,
   #[serde(default, skip_serializing_if = "is_default")]
   pub read_all: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(untagged)]
-pub enum Port {
-  Port(u16),
-  Ports(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

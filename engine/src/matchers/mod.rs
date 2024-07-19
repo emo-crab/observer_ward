@@ -1,6 +1,6 @@
 use crate::error::{new_regex_error, Error, Result};
-use crate::serde_format::{is_default, part_serde};
-use serde::{Deserialize, Serialize};
+use crate::serde_format::is_default;
+use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 use slinger::Response;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -13,7 +13,7 @@ pub struct Matcher {
   pub matcher_type: MatcherType,
   #[serde(default, skip_serializing_if = "is_default")]
   pub name: Option<String>,
-  #[serde(with = "part_serde", default, skip_serializing_if = "is_default")]
+  #[serde(default, skip_serializing_if = "is_default")]
   pub part: Part,
   #[serde(default, skip_serializing_if = "is_default")]
   pub encoding: Option<String>,
@@ -244,8 +244,7 @@ pub enum Condition {
   And,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum Part {
   #[default]
   Body,
@@ -308,5 +307,27 @@ impl Display for Part {
       Self::Name(name) => name.to_string(),
     };
     f.write_str(&s)
+  }
+}
+
+impl<'de> de::Deserialize<'de> for Part {
+  fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    let s = String::deserialize(deserializer)?;
+    match Part::from_str(&s) {
+      Ok(p) => Ok(p),
+      Err(err) => Err(de::Error::custom(err)),
+    }
+  }
+}
+
+impl ser::Serialize for Part {
+  fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+  where
+    S: Serializer,
+  {
+    serde::Serialize::serialize(&self.to_string().to_lowercase(), serializer)
   }
 }

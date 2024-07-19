@@ -1,3 +1,4 @@
+pub mod cert;
 mod generator;
 pub mod html;
 pub mod http;

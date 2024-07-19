@@ -8,7 +8,7 @@ use crate::operators::Operators;
 use crate::request::code::CodeRequest;
 use crate::request::headless::HeadlessRequest;
 pub use crate::request::http::{HTTPRequest, Http, HttpRaw, Raw, RequestGenerator};
-pub use crate::request::tcp::{Input, Port, TCPRequest};
+pub use crate::request::tcp::{Input, PortRange, TCPRequest};
 use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 
@@ -100,13 +100,25 @@ impl Requests {
     }
     false
   }
-  pub fn is_safe(&self) -> bool {
+  pub fn is_web_default(&self) -> bool {
     if self.http.len() == 1 {
       if let HttpRaw::Path(path) = &self.http[0].http_raw {
         if path.path.len() == 1 {
           return path.path[0] == "{{BaseURL}}/";
         }
       };
+    }
+    false
+  }
+  pub fn is_web(&self) -> Option<&HTTPRequest> {
+    self.http.first()
+  }
+  pub fn is_tcp(&self) -> Option<&TCPRequest> {
+    self.tcp.first()
+  }
+  pub fn is_tcp_default(&self) -> bool {
+    if self.tcp.len() == 1 {
+      return self.tcp[0].name == Some("null".to_string());
     }
     false
   }

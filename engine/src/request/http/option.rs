@@ -15,7 +15,7 @@ pub struct HttpOption {
   //   - name: Send a request 5 times
   //     value: "5"
   #[serde(default, skip_serializing_if = "is_default")]
-  pub race_count: Option<i32>,
+  pub race_count: Option<u8>,
   // description: |
   //   MaxRedirects is the maximum number of redirects that should be followed.
   // examples:
@@ -32,14 +32,14 @@ pub struct HttpOption {
   //   - name: Send requests using 10 concurrent threads
   //     value: 10
   #[serde(default, skip_serializing_if = "is_default")]
-  pub threads: Option<i32>,
+  pub threads: Option<u8>,
   // description: |
   //   MaxSize is the maximum size of http response body to read in bytes.
   // examples:
   //   - name: Read max 2048 bytes of the response
   //     value: 2048
   #[serde(default, skip_serializing_if = "is_default")]
-  pub max_size: Option<i32>,
+  pub max_size: Option<u16>,
   #[serde(default, skip_serializing_if = "is_default")]
   pub cookie_reuse: bool,
   #[serde(default, skip_serializing_if = "is_default")]
