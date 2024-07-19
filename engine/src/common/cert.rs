@@ -1,5 +1,5 @@
-use engine::slinger::openssl::x509::X509;
 use serde::{Deserialize, Serialize};
+use slinger::openssl::x509::X509;
 use std::collections::BTreeMap;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]

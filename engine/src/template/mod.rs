@@ -6,6 +6,8 @@ use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+pub mod cluster;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
