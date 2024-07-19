@@ -88,7 +88,7 @@ async fn set_config_api(
     info!(
       "{}optimized probes: {}",
       Emoji("🚀", ""),
-      style(new_cl.len()).blue()
+      style(new_cl.count()).blue()
     );
     *cl = new_cl;
   }
@@ -121,7 +121,7 @@ pub fn api_server(
   info!(
     "{}optimized probes: {}",
     Emoji("🚀", ""),
-    style(cl.len()).blue()
+    style(cl.count()).blue()
   );
   let cluster_templates = web::Data::new(RwLock::new(cl));
   let web_config = web::Data::new(config.clone());
@@ -159,7 +159,7 @@ fn print_help(s: &str, t: &str) {
   --url {} \
   --header 'Authorization: Bearer {}' \
   --header 'Content-Type: application/json' \
-  --data '{{"target":["https://httpbin.org/"],"or":true,"oc":true}}'"#,
+  --data '{{"target":["https://httpbin.org/"]}}'"#,
     s, t
   );
   let result = r#"[result...]"#;

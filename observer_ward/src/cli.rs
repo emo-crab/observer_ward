@@ -18,6 +18,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::str::FromStr;
 use std::time::Duration;
+
 #[derive(Debug, Clone, Default)]
 pub enum OutputFormat {
   #[default]
@@ -44,12 +45,12 @@ impl FromStr for OutputFormat {
   }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum Mode {
   #[default]
   ALL,
-  SAFE,
-  DANGER,
+  HTTP,
+  TCP,
 }
 
 impl FromStr for Mode {
@@ -57,8 +58,8 @@ impl FromStr for Mode {
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     let f = match s {
       "all" => Mode::ALL,
-      "safe" => Mode::SAFE,
-      "danger" => Mode::DANGER,
+      "http" => Mode::HTTP,
+      "tcp" => Mode::TCP,
       _ => {
         return Err(std::io::Error::new(
           std::io::ErrorKind::InvalidInput,
@@ -93,7 +94,7 @@ pub struct ObserverWardConfig {
   #[argh(option, default = "default_ua()")]
   #[serde(default = "default_ua")]
   pub ua: String,
-  /// mode probes option[safe,danger,all] defaule: all
+  /// mode probes option[tcp,http,all] default: all
   #[argh(option)]
   #[serde(skip)]
   pub mode: Option<Mode>,
@@ -109,14 +110,14 @@ pub struct ObserverWardConfig {
   #[argh(option, from_str_fn(proxy))]
   #[serde(skip)]
   pub proxy: Option<Proxy>,
-  /// omit request/response pairs in output
+  /// include request/response pairs in output
   #[argh(switch)]
   #[serde(default)]
-  pub or: bool,
-  /// omit certificate pairs in output
+  pub ir: bool,
+  /// include certificate pairs in output
   #[argh(switch)]
   #[serde(default)]
-  pub oc: bool,
+  pub ic: bool,
   /// customized template dir
   #[argh(option)]
   #[serde(skip)]
@@ -221,6 +222,7 @@ fn default_thread() -> usize {
 fn uri(value: &str) -> Result<Uri, String> {
   Uri::from_str(value).map_err(|x| x.to_string())
 }
+
 fn proxy(value: &str) -> Result<Proxy, String> {
   Proxy::parse(value).map_err(|x| x.to_string())
 }

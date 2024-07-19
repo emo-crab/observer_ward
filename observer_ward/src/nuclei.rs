@@ -83,7 +83,7 @@ impl NucleiRunner {
         command.args([arg, value]);
       };
     }
-    if config.or {
+    if !config.ir {
       command.args(["-or"]);
     }
     if let Some(proxy) = &config.proxy {
