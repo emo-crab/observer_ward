@@ -2,6 +2,7 @@ use crate::cli::ObserverWardConfig;
 use crate::error::new_io_error;
 use crate::nuclei::{gen_nuclei_tags, NucleiRunner};
 use console::{style, Emoji};
+use engine::common::cert::X509Certificate;
 use engine::common::html::extract_title;
 use engine::common::http::HttpRecord;
 use engine::execute::{ClusterExecute, ClusterType};
@@ -28,23 +29,20 @@ use std::time::Duration;
 use threadpool::ThreadPool;
 
 pub mod api;
-mod cert;
 pub mod cli;
-mod cluster;
 pub mod error;
 pub mod helper;
 pub mod input;
 mod nuclei;
 pub mod output;
 
-use cert::X509Certificate;
-pub use cluster::cluster_templates;
+use engine::template::cluster::cluster_templates;
 
 // 子路径下面的匹配结果
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct MatchedResult {
-  // 标题集合
+  // 标题集合,相同路径但是不同请求，请求头和
   title: HashSet<String>,
   #[serde(with = "http_serde::option::status_code")]
   // 最新状态码
@@ -54,6 +52,8 @@ pub struct MatchedResult {
   favicon: BTreeMap<String, FaviconMap>,
   #[serde(skip_serializing_if = "Option::is_none")]
   certificate: Option<X509Certificate>,
+  // 简化指纹列表
+  name: HashSet<String>,
   // 指纹信息
   fingerprints: Vec<FingerprintResult>,
   // 漏洞信息
@@ -101,6 +101,7 @@ impl MatchedResult {
           }
         });
       }
+      self.name.extend(result.name());
       self.fingerprints.push(result);
     }
   }
@@ -246,8 +247,9 @@ impl ClusterExecuteRunner {
     }
     Ok(())
   }
-  fn tcp(&mut self, config: &ObserverWardConfig, cluster: &ClusterExecute) -> Result<()> {
+  fn tcp(&mut self, config: &ObserverWardConfig, cluster: &ClusterExecute) -> Result<bool> {
     // 服务指纹识别，实验功能 #TODO
+    let mut flag = false;
     for tcp in cluster.requests.tcp.iter() {
       let conn_builder = config.tcp_client_builder();
       let mut socket = conn_builder.build()?.connect_with_uri(&self.target)?;
@@ -293,31 +295,12 @@ impl ClusterExecuteRunner {
           .iter()
           .for_each(|operator| operator.matcher(&mut result));
         if !result.matcher_result().is_empty() {
+          flag = true;
           self.update_result(result, Some(request.uri().to_string()));
         }
       }
     }
-    Ok(())
-  }
-  fn execute(
-    &mut self,
-    config: &ObserverWardConfig,
-    cluster: &ClusterExecute,
-    http_record: &mut HttpRecord,
-  ) -> Result<()> {
-    match self.target.scheme_str() {
-      // 只跑web指纹
-      Some("http") | Some("https") => {
-        self.http(config, cluster, http_record)?;
-      }
-      // 只跑服务指纹
-      None | Some("tcp") | Some("tls") => {
-        self.tcp(config, cluster)?;
-      }
-      // 跳过
-      _ => {}
-    }
-    Ok(())
+    Ok(flag)
   }
 }
 
@@ -385,20 +368,18 @@ impl ObserverWard {
     }
     pool.join();
   }
-  pub fn run(&self, target: Uri) -> BTreeMap<String, MatchedResult> {
-    debug!("{}: {}", Emoji("🚦", "start"), target);
-    let mut runner = ClusterExecuteRunner::new(&target);
+  fn http(&self, runner: &mut ClusterExecuteRunner) {
     let mut http_record = HttpRecord::new(runner.target.clone(), self.config.http_client_builder());
-    for (index, clusters) in self.cluster_type.web_index.iter().enumerate() {
-      if let Err(_err) = runner.execute(&self.config, clusters, &mut http_record) {
+    for (index, clusters) in self.cluster_type.web_default.iter().enumerate() {
+      if let Err(_err) = runner.http(&self.config, clusters, &mut http_record) {
         // 首页访问失败
         if index == 0 {
           break;
         }
       }
     }
-    for (index, clusters) in self.cluster_type.web_danger.iter().enumerate() {
-      if let Err(_err) = runner.execute(&self.config, clusters, &mut http_record) {
+    for (index, clusters) in self.cluster_type.web_other.iter().enumerate() {
+      if let Err(_err) = runner.http(&self.config, clusters, &mut http_record) {
         // 第一次访问失败
         if index == 0 {
           break;
@@ -434,13 +415,63 @@ impl ObserverWard {
         runner.update_result(result, None);
       }
     }
+  }
+  fn tcp(&self, runner: &mut ClusterExecuteRunner) {
+    let (mut include, mut exclude) = (Vec::new(), Vec::new());
+    let port = if let Some(port) = runner.target.port_u16() {
+      port
+    } else {
+      return;
+    };
+    for (name, port_range) in self.cluster_type.port_range.iter() {
+      if port_range.contains(port) {
+        if let Some(clusters) = self.cluster_type.tcp_other.get(name) {
+          include.push(clusters);
+        }
+      } else if let Some(clusters) = self.cluster_type.tcp_other.get(name) {
+        exclude.push(clusters);
+      }
+    }
+    include.sort_by(|x, y| x.rarity.cmp(&y.rarity));
+    exclude.sort_by(|x, y| x.rarity.cmp(&y.rarity));
+    for clusters in include {
+      if let Ok(flag) = runner.tcp(&self.config, clusters) {
+        if flag {
+          break;
+        }
+      }
+    }
+    for clusters in exclude {
+      runner.tcp(&self.config, clusters).unwrap_or_default();
+    }
+  }
+  pub fn run(&self, target: Uri) -> BTreeMap<String, MatchedResult> {
+    debug!("{}: {}", Emoji("🚦", "start"), target);
+    let mut runner = ClusterExecuteRunner::new(&target);
+    match target.scheme_str() {
+      // 只跑web指纹
+      Some("http") | Some("https") => {
+        self.http(&mut runner);
+      }
+      // 只跑服务指纹
+      None | Some("tcp") | Some("tls") => {
+        if let Some(tcp) = &self.cluster_type.tcp_default {
+          if let Err(_err) = runner.tcp(&self.config, tcp) {
+            return runner.matched_result;
+          }
+        }
+        self.tcp(&mut runner);
+      }
+      // 跳过
+      _ => {}
+    }
     runner.use_nuclei(&self.config);
     runner.matched_result.values_mut().for_each(|mr| {
-      if self.config.oc {
+      if !self.config.ic {
         mr.certificate = None;
       }
       mr.fingerprints.iter_mut().for_each(|x| {
-        if self.config.or {
+        if !self.config.ir {
           x.omit_raw()
         }
       })

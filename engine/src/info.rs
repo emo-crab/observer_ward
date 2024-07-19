@@ -103,6 +103,15 @@ impl Info {
       None
     }
   }
+  pub fn get_rarity(&self) -> Option<u8> {
+    self.metadata.get("rarity").and_then(|x| {
+      if let Value::Num(n) = x {
+        Some(*n as u8)
+      } else {
+        None
+      }
+    })
+  }
 }
 
 // nmap的服务版本信息

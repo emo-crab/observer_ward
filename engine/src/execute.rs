@@ -1,8 +1,9 @@
 use crate::info::Info;
 use crate::operators::{OperatorResult, Operators};
-use crate::request::Requests;
+use crate::request::{PortRange, Requests};
 use crate::results::FingerprintResult;
 use crate::template::Template;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
 pub struct ClusteredOperator {
@@ -38,22 +39,30 @@ impl ClusteredOperator {
   }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ClusterType {
-  pub web_index: Vec<ClusterExecute>,
+  pub web_default: Vec<ClusterExecute>,
   pub web_favicon: Vec<ClusterExecute>,
-  pub web_danger: Vec<ClusterExecute>,
+  pub web_other: Vec<ClusterExecute>,
+  pub tcp_default: Option<ClusterExecute>,
+  pub tcp_other: BTreeMap<String, ClusterExecute>,
+  pub port_range: BTreeMap<String, PortRange>,
 }
+
 impl ClusterType {
-  pub fn is_empty(&self) -> bool {
-    self.web_index.is_empty() && self.web_danger.is_empty() && self.web_favicon.is_empty()
-  }
-  pub fn len(&self) -> usize {
-    self.web_index.len() + self.web_danger.len() + self.web_favicon.len()
+  pub fn count(&self) -> usize {
+    let mut count =
+      self.web_default.len() + self.web_other.len() + self.web_favicon.len() + self.tcp_other.len();
+    if self.tcp_default.is_some() {
+      count += 1;
+    }
+    count
   }
 }
+
 #[derive(Debug, Clone)]
 pub struct ClusterExecute {
   pub requests: Requests,
+  pub rarity: u8,
   pub operators: Vec<ClusteredOperator>,
 }
