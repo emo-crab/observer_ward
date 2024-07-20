@@ -204,6 +204,7 @@ impl ClusterExecuteRunner {
     }
   }
 }
+
 // 处理http的探针
 impl ClusterExecuteRunner {
   fn http(
@@ -215,7 +216,6 @@ impl ClusterExecuteRunner {
     // 可能会有多个http，一般只有一个，多个会有flow控制
     for http in cluster.requests.http.iter() {
       let mut client_builder = http.http_option.builder_client();
-      client_builder = client_builder.timeout(Duration::from_secs(config.timeout));
       client_builder = client_builder.redirect(Policy::Custom(only_same_host));
       if let Ok(ua) = HeaderValue::from_str(&config.ua) {
         client_builder = client_builder.user_agent(ua);
@@ -250,6 +250,7 @@ impl ClusterExecuteRunner {
     Ok(())
   }
 }
+
 // 处理tcp的探针
 impl ClusterExecuteRunner {
   // 单个tcp
@@ -320,6 +321,7 @@ impl ClusterExecuteRunner {
     Ok(flag)
   }
 }
+
 // yaml字符串转字节
 fn input_to_byte(payload: &str) -> Vec<u8> {
   let mut buf = Vec::new();

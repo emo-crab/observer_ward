@@ -1,6 +1,14 @@
 # Change Log
 
 <!-- next-header -->
+## [2024.7.20] - 2024.7.20
+
+### Fixes
+
+- 修复部分没有端口的探针
+- tcp添加超时计时器
+- 更新依赖
+- 替换输出换行符
 
 ## [Unreleased] - ReleaseDate
 

@@ -284,7 +284,7 @@ impl ObserverWardConfig {
   pub fn http_client_builder(&self) -> ClientBuilder {
     let mut client_builder = ClientBuilder::new();
     client_builder = client_builder.redirect(Policy::Custom(only_same_host));
-    client_builder = client_builder.timeout(Duration::from_secs(self.timeout));
+    client_builder = client_builder.timeout(Some(Duration::from_secs(self.timeout)));
     if let Ok(ua) = HeaderValue::from_str(&self.ua) {
       client_builder = client_builder.user_agent(ua);
     }
