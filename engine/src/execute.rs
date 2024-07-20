@@ -46,7 +46,7 @@ pub struct ClusterType {
   pub web_other: Vec<ClusterExecute>,
   pub tcp_default: Option<ClusterExecute>,
   pub tcp_other: BTreeMap<String, ClusterExecute>,
-  pub port_range: BTreeMap<String, PortRange>,
+  pub port_range: BTreeMap<String, Option<PortRange>>,
 }
 
 impl ClusterType {

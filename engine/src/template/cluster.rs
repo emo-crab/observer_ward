@@ -59,11 +59,9 @@ pub fn cluster_templates(templates_list: &[Template]) -> ClusterType {
         executes
           .tcp_other
           .insert(tcp.name.clone().unwrap_or_default(), cluster_execute);
-        if let Some(port) = &tcp.port {
-          executes
-            .port_range
-            .insert(tcp.name.clone().unwrap_or_default(), port.clone());
-        }
+        executes
+          .port_range
+          .insert(tcp.name.clone().unwrap_or_default(), tcp.port.clone());
       }
     }
   }
