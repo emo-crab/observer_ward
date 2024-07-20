@@ -25,7 +25,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use threadpool::ThreadPool;
 
 pub mod api;
@@ -203,7 +203,9 @@ impl ClusterExecuteRunner {
       }
     }
   }
-
+}
+// 处理http的探针
+impl ClusterExecuteRunner {
   fn http(
     &mut self,
     config: &ObserverWardConfig,
@@ -222,7 +224,6 @@ impl ClusterExecuteRunner {
         client_builder = client_builder.proxy(proxy.clone());
       }
       let client = client_builder.build().unwrap_or_default();
-      let operators = cluster.operators.clone();
       let generator = RequestGenerator::new(http, self.target.clone());
       // 请求全部路径
       for request in generator {
@@ -233,7 +234,8 @@ impl ClusterExecuteRunner {
         http_record.find_favicon_tag(&mut response);
         let mut flag = false;
         let mut result = FingerprintResult::new(&response);
-        operators
+        cluster
+          .operators
           .iter()
           .for_each(|operator| operator.matcher(&mut result));
         if !result.matcher_result().is_empty() {
@@ -247,6 +249,10 @@ impl ClusterExecuteRunner {
     }
     Ok(())
   }
+}
+// 处理tcp的探针
+impl ClusterExecuteRunner {
+  // 单个tcp
   fn tcp(&mut self, config: &ObserverWardConfig, cluster: &ClusterExecute) -> Result<bool> {
     // 服务指纹识别，实验功能 #TODO
     let mut flag = false;
@@ -254,7 +260,6 @@ impl ClusterExecuteRunner {
       let conn_builder = config.tcp_client_builder();
       let mut socket = conn_builder.build()?.connect_with_uri(&self.target)?;
       socket.set_nonblocking(true).unwrap_or_default();
-      let operators = cluster.operators.clone();
       for input in tcp.inputs.iter() {
         let data = input_to_byte(&input.data.clone().unwrap_or_default());
         let request = Request::raw(self.target.clone(), data.clone(), true);
@@ -264,18 +269,25 @@ impl ClusterExecuteRunner {
         let mut full = Vec::new();
         let mut buffer = vec![0; 12]; // 定义一个缓冲区
         let mut total_bytes_read = 0;
+        let mut start = Instant::now();
+        // http超时对于tcp来说还是太长了
+        let timeout = Duration::from_secs(config.timeout / 2);
         loop {
           match socket.read(&mut buffer) {
             Ok(0) => break, // 如果读取到的数据长度为0，表示对端关闭连接
             Ok(n) => {
               full.extend_from_slice(&buffer[..n]);
               total_bytes_read += n;
+              // 当有读取到数据的时候重置计时器
+              start = Instant::now();
             }
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
               // 如果没有数据可读，但超时尚未到达，可以在这里等待或重试
-              if total_bytes_read > 0 {
+              // 当已经有数据了或者触发超时就跳出循环，防止防火墙一直把会话挂着不释放
+              if total_bytes_read > 0 || start.elapsed() > timeout {
                 break;
               }
+              std::thread::sleep(Duration::from_micros(100));
             }
             Err(_e) => {
               // 处理其他错误
@@ -290,8 +302,13 @@ impl ClusterExecuteRunner {
         let mut response: Response = Response::builder().body(full).unwrap_or_default().into();
         response.extensions_mut().insert(request.clone());
         debug!("{}{:#?}", Emoji("📥", ""), response);
+        // TCP的如果没有响应都不用匹配规则了
+        if response.body().is_none() {
+          continue;
+        }
         let mut result = FingerprintResult::new(&response);
-        operators
+        cluster
+          .operators
           .iter()
           .for_each(|operator| operator.matcher(&mut result));
         if !result.matcher_result().is_empty() {
@@ -303,7 +320,6 @@ impl ClusterExecuteRunner {
     Ok(flag)
   }
 }
-
 // yaml字符串转字节
 fn input_to_byte(payload: &str) -> Vec<u8> {
   let mut buf = Vec::new();
@@ -369,6 +385,7 @@ impl ObserverWard {
     pool.join();
   }
   fn http(&self, runner: &mut ClusterExecuteRunner) {
+    // TODO： 可以考虑加个多线程
     let mut http_record = HttpRecord::new(runner.target.clone(), self.config.http_client_builder());
     for (index, clusters) in self.cluster_type.web_default.iter().enumerate() {
       if let Err(_err) = runner.http(&self.config, clusters, &mut http_record) {
@@ -416,6 +433,7 @@ impl ObserverWard {
       }
     }
   }
+  // 根据端口优先选择探针
   fn tcp(&self, runner: &mut ClusterExecuteRunner) {
     let (mut include, mut exclude) = (Vec::new(), Vec::new());
     let port = if let Some(port) = runner.target.port_u16() {
@@ -424,16 +442,25 @@ impl ObserverWard {
       return;
     };
     for (name, port_range) in self.cluster_type.port_range.iter() {
-      if port_range.contains(port) {
-        if let Some(clusters) = self.cluster_type.tcp_other.get(name) {
+      let clusters = if let Some(clusters) = self.cluster_type.tcp_other.get(name) {
+        clusters
+      } else {
+        continue;
+      };
+      if let Some(pr) = port_range {
+        if pr.contains(port) {
           include.push(clusters);
+        } else {
+          exclude.push(clusters);
         }
-      } else if let Some(clusters) = self.cluster_type.tcp_other.get(name) {
+      } else {
         exclude.push(clusters);
       }
     }
     include.sort_by(|x, y| x.rarity.cmp(&y.rarity));
     exclude.sort_by(|x, y| x.rarity.cmp(&y.rarity));
+    // 先跑有匹配到端口的，如果有匹配到就不跑其他的冷门指纹
+    // TODO： 可以考虑加个多线程
     for clusters in include {
       if let Ok(flag) = runner.tcp(&self.config, clusters) {
         if flag {
