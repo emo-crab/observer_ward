@@ -216,6 +216,7 @@ impl ClusterExecuteRunner {
     // 可能会有多个http，一般只有一个，多个会有flow控制
     for http in cluster.requests.http.iter() {
       let mut client_builder = http.http_option.builder_client();
+      client_builder = client_builder.timeout(Some(Duration::from_secs(config.timeout)));
       client_builder = client_builder.redirect(Policy::Custom(only_same_host));
       if let Ok(ua) = HeaderValue::from_str(&config.ua) {
         client_builder = client_builder.user_agent(ua);
