@@ -1,6 +1,20 @@
 # Change Log
 
 <!-- next-header -->
+## [2024.7.22] - 2024.7.22
+
+### Fixes
+
+- 如果没有协议默认尝试https和http
+
+## [2024.7.20] - 2024.7.20
+
+### Fixes
+
+- 修复部分没有端口的探针
+- tcp添加超时计时器
+- 更新依赖
+- 替换输出换行符
 
 ## [Unreleased] - ReleaseDate
 

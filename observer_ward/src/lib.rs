@@ -10,7 +10,7 @@ use engine::matchers::FaviconMap;
 use engine::request::RequestGenerator;
 use engine::results::{FingerprintResult, NucleiResult};
 use engine::slinger::http::header::HeaderValue;
-use engine::slinger::http::uri::Uri;
+use engine::slinger::http::uri::{PathAndQuery, Uri};
 use engine::slinger::http::StatusCode;
 use engine::slinger::redirect::{only_same_host, Policy};
 use engine::slinger::{http_serde, Request, Response};
@@ -204,6 +204,7 @@ impl ClusterExecuteRunner {
     }
   }
 }
+
 // 处理http的探针
 impl ClusterExecuteRunner {
   fn http(
@@ -250,6 +251,7 @@ impl ClusterExecuteRunner {
     Ok(())
   }
 }
+
 // 处理tcp的探针
 impl ClusterExecuteRunner {
   // 单个tcp
@@ -320,6 +322,7 @@ impl ClusterExecuteRunner {
     Ok(flag)
   }
 }
+
 // yaml字符串转字节
 fn input_to_byte(payload: &str) -> Vec<u8> {
   let mut buf = Vec::new();
@@ -332,7 +335,23 @@ fn input_to_byte(payload: &str) -> Vec<u8> {
   }
   buf
 }
-
+fn set_uri_scheme(scheme: &str, target: &Uri) -> Result<Uri> {
+  Uri::builder()
+    .scheme(scheme)
+    .authority(
+      target
+        .authority()
+        .map_or(target.host().unwrap_or_default(), |a| a.as_str()),
+    )
+    .path_and_query(
+      target
+        .path_and_query()
+        .unwrap_or(&PathAndQuery::from_static("/"))
+        .as_str(),
+    )
+    .build()
+    .map_err(|e| new_io_error(&e.to_string()))
+}
 pub fn parse_yaml(yaml_path: &PathBuf) -> Result<Template> {
   let name = yaml_path
     .file_name()
@@ -476,12 +495,25 @@ impl ObserverWard {
     debug!("{}: {}", Emoji("🚦", "start"), target);
     let mut runner = ClusterExecuteRunner::new(&target);
     match target.scheme_str() {
+      None => {
+        // 如果没有协议尝试https和http
+        let schemes = vec!["https", "http"];
+        for scheme in schemes {
+          if let Ok(http_target) = set_uri_scheme(scheme, &target) {
+            runner.target = http_target;
+            self.http(&mut runner);
+            if !runner.matched_result.is_empty() {
+              break;
+            }
+          }
+        }
+      }
       // 只跑web指纹
       Some("http") | Some("https") => {
         self.http(&mut runner);
       }
       // 只跑服务指纹
-      None | Some("tcp") | Some("tls") => {
+      Some("tcp") | Some("tls") => {
         if let Some(tcp) = &self.cluster_type.tcp_default {
           if let Err(_err) = runner.tcp(&self.config, tcp) {
             return runner.matched_result;

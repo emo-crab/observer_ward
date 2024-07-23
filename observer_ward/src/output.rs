@@ -16,7 +16,7 @@ pub struct Output {
 fn set_to_string(set: &HashSet<String>) -> String {
   set
     .iter()
-    .map(|x| x.trim().to_string())
+    .map(|x| x.trim().to_string().replace("\r\n", " ").replace('\t', ""))
     .collect::<HashSet<_>>()
     .iter()
     .cloned()
