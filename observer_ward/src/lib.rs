@@ -92,7 +92,7 @@ impl MatchedResult {
       self.favicon.extend(fav.clone());
     }
     if !result.matcher_result().is_empty() {
-      debug!("{}{:?}", Emoji("✅", ""), result.matcher_result());
+      debug!("{}{:#?}", Emoji("✅", ""), result.matcher_result());
       let mut result = result.clone();
       // 当标题为空时在提取器中template名称相同的键值为标题
       if self.title.is_empty() {
@@ -257,7 +257,7 @@ impl ClusterExecuteRunner {
 impl ClusterExecuteRunner {
   // 单个tcp
   fn tcp(&mut self, config: &ObserverWardConfig, cluster: &ClusterExecute) -> Result<bool> {
-    // 服务指纹识别，实验功能 #TODO
+    // 服务指纹识别，实验功能
     let mut flag = false;
     for tcp in cluster.requests.tcp.iter() {
       let conn_builder = config.tcp_client_builder();

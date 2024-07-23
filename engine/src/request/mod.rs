@@ -103,7 +103,7 @@ impl Requests {
   pub fn is_web_default(&self) -> bool {
     if self.http.len() == 1 {
       if let HttpRaw::Path(path) = &self.http[0].http_raw {
-        if path.path.len() == 1 {
+        if path.path.len() == 1 && path.method.is_safe() {
           return path.path[0] == "{{BaseURL}}/";
         }
       };
