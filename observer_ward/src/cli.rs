@@ -216,7 +216,7 @@ fn default_config() -> PathBuf {
 }
 
 fn default_thread() -> usize {
-  std::thread::available_parallelism().map_or(12, |x| x.get())
+  std::thread::available_parallelism().map_or(12, |x| x.get() * 4)
 }
 
 fn uri(value: &str) -> Result<Uri, String> {
