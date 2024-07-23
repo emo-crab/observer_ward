@@ -92,6 +92,7 @@ impl MatchedResult {
       self.favicon.extend(fav.clone());
     }
     if !result.matcher_result().is_empty() {
+      debug!("{}{:?}", Emoji("✅", ""), result.matcher_result());
       let mut result = result.clone();
       // 当标题为空时在提取器中template名称相同的键值为标题
       if self.title.is_empty() {

@@ -87,7 +87,7 @@ impl Output {
             .flat_map(|f| {
               f.matcher_result()
                 .iter()
-                .map(|x| x.template.clone())
+                .map(|x| x.info.name.clone())
                 .collect::<Vec<String>>()
             })
             .collect();
@@ -162,7 +162,7 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &BTreeMap<String, Mat
       let apps: HashSet<String> = fp
         .matcher_result()
         .iter()
-        .map(|x| x.template.clone())
+        .map(|x| x.info.name.clone())
         .collect();
       write!(writer, " [{}] ", style(set_to_string(&apps)).green()).unwrap_or_default();
       write!(writer, " <{}>", set_to_string(mr.title())).unwrap_or_default();

@@ -1,6 +1,6 @@
 use console::{style, Emoji};
 use engine::template::cluster::cluster_templates;
-use log::{error, info};
+use log::{error, info, warn};
 use observer_ward::api::api_server;
 #[cfg(not(target_os = "windows"))]
 use observer_ward::api::background;
@@ -42,7 +42,15 @@ fn main() {
   }
   let helper = Helper::new(&config);
   helper.run();
-  let templates = config.templates();
+  let mut templates = config.templates();
+  if templates.is_empty() {
+    warn!(
+      "{}unable to find fingerprint, automatically update fingerprint",
+      Emoji("⚠️", "")
+    );
+    helper.update_fingerprint();
+    templates = config.templates();
+  }
   info!(
     "{}probes loaded: {}",
     Emoji("📇", ""),

@@ -15,15 +15,20 @@ impl<'a> Helper<'a> {
   }
   pub fn update_fingerprint(&self) {
     let fingerprint_path = self.config.config_dir.join("web_fingerprint_v4.json");
-    if let Err(err) = self.download_file_from_github(
-      "https://0x727.github.io/FingerprintHub/web_fingerprint_v4.json",
-      fingerprint_path
-        .to_str()
-        .unwrap_or("web_fingerprint_v4.json"),
-    ) {
-      error!("{}update fingerprint err: {}", Emoji("💢", ""), err);
-      return;
-    };
+    let urls = vec!["https://0x727.github.io/FingerprintHub/web_fingerprint_v4.json"];
+    for url in urls {
+      if let Err(err) = self.download_file_from_github(
+        url,
+        fingerprint_path
+          .to_str()
+          .unwrap_or("web_fingerprint_v4.json"),
+      ) {
+        error!("{}update fingerprint err: {}", Emoji("💢", ""), err);
+        continue;
+      } else {
+        break;
+      };
+    }
     if let Ok(f) = std::fs::File::open(&fingerprint_path) {
       match serde_json::from_reader::<File, Vec<Template>>(f) {
         Ok(ts) => {
