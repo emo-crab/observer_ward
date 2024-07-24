@@ -17,7 +17,7 @@ fancy-regex = { version = "0.13.0", default-features = false, features = [
 jsonpath-rust = "0.6.1"
 serde_json = "1"
 #git = "https://github.com/emo-crab/slinger",
-slinger = { version = "0.1.7", features = [
+slinger = { version = "0.1.8", features = [
   "serde",
   "cookie",
   "tls",

@@ -1,8 +1,13 @@
 [package]
 name = "observer_ward"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 build = "src/build.rs"
+repository = "https://github.com/emo-crab/observer_ward"
+description = "Web application and service fingerprint identification tool"
+authors = ["Kali-Team <root@kali-team.cn>"]
+license = "GPL-3.0-only"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -32,6 +37,20 @@ openssl = { version = "0.10", features = ["vendored"] }
 winres = "0.1"
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 daemonize = "0.5.0"
+
+[package.metadata.deb]
+maintainer = "Kali-Team <root@kali-team.cn>"
+copyright = "2024, Kali-Team <root@kali-team.cn>"
+extended-description = """Web application and service fingerprint identification tool"""
+depends = "$auto"
+section = "rust"
+priority = "optional"
+assets = [["target/release/observer_ward", "usr/bin/", "755"]]
+[package.metadata.generate-rpm]
+assets = [
+  { source = "target/release/observer_ward", dest = "/usr/bin/observer_ward", mode = "0755" },
+]
+
 [[bin]]
 name = "observer_ward"
 path = "src/main.rs"

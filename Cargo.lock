@@ -1070,7 +1070,7 @@ dependencies = [
 
 [[package]]
 name = "observer_ward"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix-web",
  "actix-web-httpauth",
@@ -1562,9 +1562,9 @@ dependencies = [
 
 [[package]]
 name = "slinger"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c7645f9deba4fe96d5f76bb40f63b7c90d352f03735060100682a99845bde37"
+checksum = "3f2f7d51ad085595d384210c269b24b3f243aeb7f16295595fc723a39d65a470"
 dependencies = [
  "base64",
  "bytes",

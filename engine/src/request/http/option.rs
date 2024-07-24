@@ -75,6 +75,7 @@ impl HttpOption {
     slinger::ClientBuilder::new()
       .cookie_store(self.cookie_reuse)
       .redirect(redirect)
+      .min_tls_version(Some(slinger::native_tls::Protocol::Tlsv10))
       .user_agent(HeaderValue::from_static(
         "Mozilla/5.0 (X11; Linux x86_64; rv:123.0) Gecko/20100101 Firefox/123.0",
       ))
