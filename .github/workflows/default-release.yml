@@ -123,14 +123,14 @@ jobs:
       - name: Install Cargo deb (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          cargo deb --target ${{ matrix.target }} --output target/${{ matrix.target }}/debian/observer-ward${{ matrix.target }}.deb
+          cargo deb --target ${{ matrix.target }} --output target/${{ matrix.target }}/debian/observer-ward_${{ matrix.target }}.deb
       - name: Upload deb to release
         if: matrix.os == 'ubuntu-latest'
         uses: svenstaro/upload-release-action@v1-release
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: target/${{ matrix.target }}/debian/observer-ward${{ matrix.target }}.deb
-          asset_name: ${{ matrix.file }}
+          file: target/${{ matrix.target }}/debian/observer-ward_${{ matrix.target }}.deb
+          asset_name: observer-ward_${{ matrix.target }}.deb
           tag: defaultv4
           overwrite: true
       - name: Upload binary to release
