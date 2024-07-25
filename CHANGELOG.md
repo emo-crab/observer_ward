@@ -1,6 +1,14 @@
 # Change Log
 
 <!-- next-header -->
+
+## [2024.7.25] - 2024.7.25
+
+### Fixes
+
+- 添加openssl配置到配置文件夹，在启动前设置`OPENSSL_CONF`配置文件路径
+- 添加http请求缓存
+
 ## [2024.7.23] - 2024.7.23
 
 ### Fixes
