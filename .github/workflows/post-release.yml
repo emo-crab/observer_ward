@@ -188,8 +188,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: target/${{ matrix.target }}/debian/observer-ward_${{ needs.create-release.outputs.release_version }}_${{ matrix.target }}.deb
           asset_name: observer-ward_${{ needs.create-release.outputs.release_version }}_${{ matrix.target }}.deb
-          tag: defaultv4
-          overwrite: true
+          tag: ${{ env.RELEASE_VERSION }}
   homebrew:
     runs-on: ubuntu-latest
     needs:
