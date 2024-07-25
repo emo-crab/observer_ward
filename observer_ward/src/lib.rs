@@ -19,8 +19,11 @@ use error::Result;
 use log::{debug, info};
 use rustc_lexer::unescape;
 use serde::{Deserialize, Serialize};
+use std::collections::btree_map::Entry;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
+use std::hash::Hasher;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
@@ -140,6 +143,7 @@ pub struct ClusterExecuteRunner {
   target: Uri,
   // 子路径匹配结果
   matched_result: BTreeMap<String, MatchedResult>,
+  cache: BTreeMap<u64, Response>,
 }
 
 impl ClusterExecuteRunner {
@@ -150,6 +154,7 @@ impl ClusterExecuteRunner {
     Self {
       target: uri.clone(),
       matched_result: BTreeMap::new(),
+      cache: Default::default(),
     }
   }
   fn update_result(&mut self, result: FingerprintResult, key: Option<String>) {
@@ -230,12 +235,15 @@ impl ClusterExecuteRunner {
       // 请求全部路径
       for request in generator {
         debug!("{}{:#?}", Emoji("📤", ""), request);
-        let mut response = client.execute(request.clone())?;
+        let response = match self.cache.entry(self.get_request_hash(&request)) {
+          Entry::Vacant(v) => v.insert(client.execute(request.clone())?),
+          Entry::Occupied(o) => o.into_mut(),
+        };
         debug!("{}{:#?}", Emoji("📥", ""), response);
         // 提取icon
-        http_record.find_favicon_tag(&mut response);
+        http_record.find_favicon_tag(response);
         let mut flag = false;
-        let mut result = FingerprintResult::new(&response);
+        let mut result = FingerprintResult::new(response);
         cluster
           .operators
           .iter()
@@ -251,6 +259,14 @@ impl ClusterExecuteRunner {
     }
     Ok(())
   }
+  fn get_request_hash(&self, request: &Request) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    hasher.write(request.method().to_string().as_bytes());
+    hasher.write(request.uri().to_string().as_bytes());
+    hasher.write(format!("{:?}", request.headers()).as_bytes());
+    hasher.write(request.body().unwrap_or(&engine::slinger::Body::default()));
+    hasher.finish()
+  }
 }
 
 // 处理tcp的探针
@@ -264,7 +280,7 @@ impl ClusterExecuteRunner {
       let mut socket = conn_builder.build()?.connect_with_uri(&self.target)?;
       socket.set_nonblocking(true).unwrap_or_default();
       for input in tcp.inputs.iter() {
-        let data = input_to_byte(&input.data.clone().unwrap_or_default());
+        let data = self.input_to_byte(&input.data.clone().unwrap_or_default());
         let request = Request::raw(self.target.clone(), data.clone(), true);
         debug!("{}{:#?}", Emoji("📤", ""), request);
         socket.write_all(&data).unwrap_or_default();
@@ -322,20 +338,20 @@ impl ClusterExecuteRunner {
     }
     Ok(flag)
   }
+  // yaml字符串转字节
+  fn input_to_byte(&self, payload: &str) -> Vec<u8> {
+    let mut buf = Vec::new();
+    if !payload.is_empty() {
+      unescape::unescape_byte_str(payload, &mut |_x, y| {
+        if let Ok(c) = y {
+          buf.push(c)
+        }
+      });
+    }
+    buf
+  }
 }
 
-// yaml字符串转字节
-fn input_to_byte(payload: &str) -> Vec<u8> {
-  let mut buf = Vec::new();
-  if !payload.is_empty() {
-    unescape::unescape_byte_str(payload, &mut |_x, y| {
-      if let Ok(c) = y {
-        buf.push(c)
-      }
-    });
-  }
-  buf
-}
 fn set_uri_scheme(scheme: &str, target: &Uri) -> Result<Uri> {
   Uri::builder()
     .scheme(scheme)
@@ -408,10 +424,11 @@ impl ObserverWard {
     // TODO： 可以考虑加个多线程
     let mut http_record = HttpRecord::new(runner.target.clone(), self.config.http_client_builder());
     for (index, clusters) in self.cluster_type.web_default.iter().enumerate() {
-      if let Err(_err) = runner.http(&self.config, clusters, &mut http_record) {
+      if let Err(err) = runner.http(&self.config, clusters, &mut http_record) {
+        debug!("{}:{}", Emoji("💢", ""), err);
         // 首页访问失败
         if index == 0 {
-          break;
+          return;
         }
       }
     }
@@ -433,9 +450,11 @@ impl ObserverWard {
             Emoji("⭐️", "favicon"),
             http_record.favicon_hash()
           );
+          let now = Instant::now();
           clusters.operators.iter().for_each(|operator| {
             operator.matcher(&mut result);
           });
+          debug!("{}", now.elapsed().as_secs());
         }
       }
       // 如果有图标或者结果什么都没有，保存一个首页请求
