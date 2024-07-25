@@ -1070,7 +1070,7 @@ dependencies = [
 
 [[package]]
 name = "observer_ward"
-version = "0.1.1"
+version = "0.1.0"
 dependencies = [
  "actix-web",
  "actix-web-httpauth",
