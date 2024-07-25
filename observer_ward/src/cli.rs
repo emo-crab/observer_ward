@@ -203,7 +203,7 @@ fn default_token() -> String {
   String::new()
 }
 
-fn default_config() -> PathBuf {
+pub fn default_config() -> PathBuf {
   if let Some(cp) = dirs::config_dir() {
     let observer_ward = cp.join("observer_ward");
     if !observer_ward.is_dir() || !observer_ward.exists() {
@@ -283,6 +283,8 @@ impl ObserverWardConfig {
   }
   pub fn http_client_builder(&self) -> ClientBuilder {
     let mut client_builder = ClientBuilder::new()
+      .danger_accept_invalid_certs(true)
+      .danger_accept_invalid_hostnames(true)
       .min_tls_version(Some(engine::slinger::native_tls::Protocol::Tlsv10))
       .redirect(Policy::Custom(only_same_host))
       .timeout(Some(Duration::from_secs(self.timeout)));

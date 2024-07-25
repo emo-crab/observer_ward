@@ -73,6 +73,8 @@ impl HttpOption {
       slinger::redirect::Policy::None
     };
     slinger::ClientBuilder::new()
+      .danger_accept_invalid_certs(true)
+      .danger_accept_invalid_hostnames(true)
       .cookie_store(self.cookie_reuse)
       .redirect(redirect)
       .min_tls_version(Some(slinger::native_tls::Protocol::Tlsv10))

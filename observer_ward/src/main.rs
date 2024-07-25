@@ -4,14 +4,24 @@ use log::{error, info, warn};
 use observer_ward::api::api_server;
 #[cfg(not(target_os = "windows"))]
 use observer_ward::api::background;
-use observer_ward::cli::ObserverWardConfig;
+use observer_ward::cli::{default_config, ObserverWardConfig};
 use observer_ward::helper::Helper;
 use observer_ward::output::Output;
 use observer_ward::ObserverWard;
+use std::io::Write;
 use std::sync::mpsc::channel;
 use std::thread;
-
 fn main() {
+  let openssl_cfg = default_config().join("openssl.cnf");
+  if !openssl_cfg.exists() {
+    if let Ok(mut f) = std::fs::File::create(&openssl_cfg) {
+      f.write_all(include_bytes!("openssl.cnf"))
+        .unwrap_or_default();
+    };
+  }
+  if openssl_cfg.is_file() {
+    std::env::set_var("OPENSSL_CONF", openssl_cfg);
+  }
   let config = ObserverWardConfig::default();
   if config.debug {
     std::env::set_var("RUST_LOG", "observer_ward=debug,actix_web=debug");
