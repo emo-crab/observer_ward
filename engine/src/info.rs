@@ -1,7 +1,8 @@
+use crate::matchers::{Favicon, MatcherType, Word};
 use crate::serde_format::{is_default, string_vec_serde, Value};
 use fancy_regex::Captures;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -111,6 +112,142 @@ impl Info {
         None
       }
     })
+  }
+}
+// 空间搜索引擎查询语法CyberspaceSearchEngineQuery
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct CSE {
+  #[serde(
+    deserialize_with = "string_vec_serde::deserialize",
+    skip_serializing_if = "Vec::is_empty",
+    default
+  )]
+  pub zoomeye_query: Vec<String>,
+  #[serde(
+    deserialize_with = "string_vec_serde::deserialize",
+    skip_serializing_if = "Vec::is_empty",
+    default
+  )]
+  pub hunter_query: Vec<String>,
+  #[serde(
+    deserialize_with = "string_vec_serde::deserialize",
+    skip_serializing_if = "Vec::is_empty",
+    default
+  )]
+  pub shodan_query: Vec<String>,
+  #[serde(
+    deserialize_with = "string_vec_serde::deserialize",
+    skip_serializing_if = "Vec::is_empty",
+    default
+  )]
+  pub fofa_query: Vec<String>,
+  #[serde(
+    deserialize_with = "string_vec_serde::deserialize",
+    skip_serializing_if = "Vec::is_empty",
+    default
+  )]
+  pub google_query: Vec<String>,
+}
+
+impl CSE {
+  fn or_and_split(&self, query: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+
+    let mut current_part = String::new();
+    let mut in_double_and = false;
+    let mut in_double_or = false;
+
+    for c in query.chars() {
+      match c {
+        '&' => {
+          if in_double_and {
+            parts.push(current_part);
+            current_part = String::new();
+            in_double_and = false;
+          } else {
+            in_double_and = true;
+          }
+        }
+        '|' => {
+          if in_double_or {
+            parts.push(current_part);
+            current_part = String::new();
+            in_double_or = false;
+          } else {
+            in_double_or = true;
+          }
+        }
+        _ => {
+          if in_double_and || in_double_or {
+            continue;
+          }
+          current_part.push(c);
+        }
+      }
+    }
+    if !current_part.is_empty() {
+      parts.push(current_part);
+    }
+    parts
+  }
+}
+impl Into<Vec<MatcherType>> for CSE {
+  fn into(self) -> Vec<MatcherType> {
+    let mut mt = Vec::new();
+    let mut keyword = HashSet::new();
+    let mut hash = HashSet::new();
+    let trim = &['"', '\''];
+    for query in &self.shodan_query {
+      if let Some((k, v)) = query.split_once(":") {
+        let v = v.to_lowercase().trim_matches(trim).to_string();
+        match k {
+          "title" | "http.title" | "http.html" | "html" => {
+            keyword.insert(v);
+          }
+          "http.favicon.hash" => {
+            hash.insert(v);
+          }
+          _ => {}
+        }
+      } else {
+        // 都归关键词
+        keyword.insert(query.to_lowercase().trim_matches(trim).to_string());
+      }
+    }
+    for query in &self.fofa_query {
+      let query = query.trim_matches(trim);
+      if let Some((k, v)) = query.split_once("=") {
+        for vv in self.or_and_split(&v) {
+          let vv = vv.to_lowercase().trim_matches(trim).to_string();
+          match k {
+            "title" | "body" => {
+              keyword.insert(vv);
+            }
+            "icon_hash" => {
+              hash.insert(vv);
+            }
+            _ => {}
+          }
+        }
+      } else {
+        // 都归关键词
+        for vv in self.or_and_split(&query) {
+          keyword.insert(vv.to_lowercase().trim_matches(trim).to_string());
+        }
+      }
+    }
+    if !keyword.is_empty() {
+      mt.push(MatcherType::Word(Word {
+        words: keyword.iter().map(|x| x.to_string()).collect(),
+      }));
+    }
+    if !hash.is_empty() {
+      mt.push(MatcherType::Favicon(Favicon {
+        hash: hash.iter().map(|x| x.to_string()).collect(),
+      }));
+    }
+    mt
   }
 }
 
