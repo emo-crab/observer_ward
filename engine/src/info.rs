@@ -1,9 +1,9 @@
-use crate::matchers::{Favicon, MatcherType, Word};
+use crate::matchers::{Favicon, MRegex, MatcherType, Word};
 use crate::serde_format::{is_default, string_vec_serde, Value};
 use fancy_regex::Captures;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
-
+const UNKNOWN_00: &str = "00_unknown";
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
@@ -85,14 +85,14 @@ impl Info {
           .replacen('/', "-", 10)
           .trim_start_matches('_')
           .trim_end_matches('_')
-          .to_string(),
+          .to_lowercase(),
         vendor: vendor
           .to_string()
           .replacen('\\', "", 10)
           .replacen('/', "-", 10)
           .trim_start_matches('_')
           .trim_end_matches('_')
-          .to_string(),
+          .to_lowercase(),
         framework: self.metadata.get("framework").map(|x| x.to_string()),
         verified: if let Some(Value::Bool(verified)) = self.metadata.get("verified") {
           *verified
@@ -112,6 +112,129 @@ impl Info {
         None
       }
     })
+  }
+  pub fn get_cse(&self) -> Option<CSE> {
+    let mut flag = false;
+    let cse = CSE {
+      zoomeye_query: self
+        .metadata
+        .get("zoomeye-query")
+        .map(|x| {
+          flag = true;
+          x.to_vec()
+        })
+        .unwrap_or_default(),
+      fofa_query: self
+        .metadata
+        .get("fofa-query")
+        .map(|x| {
+          flag = true;
+          x.to_vec()
+        })
+        .unwrap_or_default(),
+      hunter_query: self
+        .metadata
+        .get("hunter-query")
+        .map(|x| {
+          flag = true;
+          x.to_vec()
+        })
+        .unwrap_or_default(),
+      shodan_query: self
+        .metadata
+        .get("shodan-query")
+        .map(|x| {
+          flag = true;
+          x.to_vec()
+        })
+        .unwrap_or_default(),
+      google_query: self
+        .metadata
+        .get("google-query")
+        .map(|x| {
+          flag = true;
+          x.to_vec()
+        })
+        .unwrap_or_default(),
+    };
+    if flag {
+      return Some(cse);
+    }
+    None
+  }
+}
+
+impl Info {
+  pub fn set_vpf(&mut self, vpf: VPF) {
+    self.metadata.insert(
+      "verified".to_string(),
+      Value::Bool(vpf.product.as_str() != UNKNOWN_00),
+    );
+    self
+      .metadata
+      .insert("vendor".to_string(), Value::String(vpf.vendor));
+    self
+      .metadata
+      .insert("product".to_string(), Value::String(vpf.product));
+    if let Some(framework) = vpf.framework {
+      self
+        .metadata
+        .insert("framework".to_string(), Value::String(framework));
+    } else {
+      self.metadata.remove("framework");
+    }
+  }
+  pub fn set_cse(&mut self, cse: CSE) {
+    self.metadata.insert(
+      "zoomeye-query".to_string(),
+      Value::List(
+        cse
+          .zoomeye_query
+          .iter()
+          .map(|x| Value::String(x.to_string()))
+          .collect(),
+      ),
+    );
+    self.metadata.insert(
+      "fofa-query".to_string(),
+      Value::List(
+        cse
+          .fofa_query
+          .iter()
+          .map(|x| Value::String(x.to_string()))
+          .collect(),
+      ),
+    );
+    self.metadata.insert(
+      "hunter-query".to_string(),
+      Value::List(
+        cse
+          .hunter_query
+          .iter()
+          .map(|x| Value::String(x.to_string()))
+          .collect(),
+      ),
+    );
+    self.metadata.insert(
+      "shodan-query".to_string(),
+      Value::List(
+        cse
+          .shodan_query
+          .iter()
+          .map(|x| Value::String(x.to_string()))
+          .collect(),
+      ),
+    );
+    self.metadata.insert(
+      "google-query".to_string(),
+      Value::List(
+        cse
+          .google_query
+          .iter()
+          .map(|x| Value::String(x.to_string()))
+          .collect(),
+      ),
+    );
   }
 }
 // 空间搜索引擎查询语法CyberspaceSearchEngineQuery
@@ -196,13 +319,17 @@ impl Into<Vec<MatcherType>> for CSE {
   fn into(self) -> Vec<MatcherType> {
     let mut mt = Vec::new();
     let mut keyword = HashSet::new();
+    let mut title = HashSet::new();
     let mut hash = HashSet::new();
     let trim = &['"', '\''];
     for query in &self.shodan_query {
       if let Some((k, v)) = query.split_once(":") {
         let v = v.to_lowercase().trim_matches(trim).to_string();
         match k {
-          "title" | "http.title" | "http.html" | "html" => {
+          "title" | "http.title" => {
+            title.insert(format!("<\\btitle\\b.*?>{}<\\/\\btitle\\b>", v));
+          }
+          "http.html" | "html" => {
             keyword.insert(v);
           }
           "http.favicon.hash" => {
@@ -221,7 +348,10 @@ impl Into<Vec<MatcherType>> for CSE {
         for vv in self.or_and_split(&v) {
           let vv = vv.to_lowercase().trim_matches(trim).to_string();
           match k {
-            "title" | "body" => {
+            "title" => {
+              title.insert(format!("<\\btitle\\b.*?>{}<\\/\\btitle\\b>", vv));
+            }
+            "body" => {
               keyword.insert(vv);
             }
             "icon_hash" => {
@@ -238,14 +368,22 @@ impl Into<Vec<MatcherType>> for CSE {
       }
     }
     if !keyword.is_empty() {
-      mt.push(MatcherType::Word(Word {
-        words: keyword.iter().map(|x| x.to_string()).collect(),
-      }));
+      let mut k: Vec<String> = keyword.iter().map(|x| x.to_string()).collect();
+      k.sort();
+      mt.push(MatcherType::Word(Word { words: k }));
     }
     if !hash.is_empty() {
-      mt.push(MatcherType::Favicon(Favicon {
-        hash: hash.iter().map(|x| x.to_string()).collect(),
-      }));
+      let mut h: Vec<String> = hash.iter().map(|x| x.to_string()).collect();
+      h.sort();
+      mt.push(MatcherType::Favicon(Favicon { hash: h }));
+    }
+    if !title.is_empty() {
+      let mut r: Vec<String> = title.iter().map(|x| x.to_string()).collect();
+      r.sort();
+      mt.push(MatcherType::Regex(MRegex {
+        regex: r,
+        group: None,
+      }))
     }
     mt
   }
