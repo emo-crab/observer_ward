@@ -50,7 +50,7 @@ impl Default for HttpOption {
   fn default() -> Self {
     Self {
       host_redirects: false,
-      redirects: true,
+      redirects: false,
       race_count: None,
       max_redirects: None,
       threads: None,
