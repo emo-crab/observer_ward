@@ -2,7 +2,7 @@ use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 use slinger::http::header::HeaderValue;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct HttpOption {
   #[serde(default, skip_serializing_if = "is_default")]
@@ -44,21 +44,6 @@ pub struct HttpOption {
   pub cookie_reuse: bool,
   #[serde(default, skip_serializing_if = "is_default")]
   pub read_all: bool,
-}
-
-impl Default for HttpOption {
-  fn default() -> Self {
-    Self {
-      host_redirects: false,
-      redirects: false,
-      race_count: None,
-      max_redirects: None,
-      threads: None,
-      max_size: None,
-      cookie_reuse: false,
-      read_all: false,
-    }
-  }
 }
 
 impl HttpOption {

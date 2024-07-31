@@ -1,4 +1,4 @@
-use crate::matchers::{Favicon, MRegex, MatcherType, Word};
+use crate::matchers::{Favicon, MRegex, Matcher, MatcherType, Word};
 use crate::serde_format::{is_default, string_vec_serde, Value};
 use fancy_regex::Captures;
 use serde::{Deserialize, Serialize};
@@ -185,56 +185,66 @@ impl Info {
     }
   }
   pub fn set_cse(&mut self, cse: CSE) {
-    self.metadata.insert(
-      "zoomeye-query".to_string(),
-      Value::List(
-        cse
-          .zoomeye_query
-          .iter()
-          .map(|x| Value::String(x.to_string()))
-          .collect(),
-      ),
-    );
-    self.metadata.insert(
-      "fofa-query".to_string(),
-      Value::List(
-        cse
-          .fofa_query
-          .iter()
-          .map(|x| Value::String(x.to_string()))
-          .collect(),
-      ),
-    );
-    self.metadata.insert(
-      "hunter-query".to_string(),
-      Value::List(
-        cse
-          .hunter_query
-          .iter()
-          .map(|x| Value::String(x.to_string()))
-          .collect(),
-      ),
-    );
-    self.metadata.insert(
-      "shodan-query".to_string(),
-      Value::List(
-        cse
-          .shodan_query
-          .iter()
-          .map(|x| Value::String(x.to_string()))
-          .collect(),
-      ),
-    );
-    self.metadata.insert(
-      "google-query".to_string(),
-      Value::List(
-        cse
-          .google_query
-          .iter()
-          .map(|x| Value::String(x.to_string()))
-          .collect(),
-      ),
-    );
+    if !cse.zoomeye_query.is_empty() {
+      self.metadata.insert(
+        "zoomeye-query".to_string(),
+        Value::List(
+          cse
+            .zoomeye_query
+            .iter()
+            .map(|x| Value::String(x.to_string()))
+            .collect(),
+        ),
+      );
+    }
+    if !cse.fofa_query.is_empty() {
+      self.metadata.insert(
+        "fofa-query".to_string(),
+        Value::List(
+          cse
+            .fofa_query
+            .iter()
+            .map(|x| Value::String(x.to_string()))
+            .collect(),
+        ),
+      );
+    }
+    if !cse.hunter_query.is_empty() {
+      self.metadata.insert(
+        "hunter-query".to_string(),
+        Value::List(
+          cse
+            .hunter_query
+            .iter()
+            .map(|x| Value::String(x.to_string()))
+            .collect(),
+        ),
+      );
+    }
+    if !cse.shodan_query.is_empty() {
+      self.metadata.insert(
+        "shodan-query".to_string(),
+        Value::List(
+          cse
+            .shodan_query
+            .iter()
+            .map(|x| Value::String(x.to_string()))
+            .collect(),
+        ),
+      );
+    }
+    if !cse.google_query.is_empty() {
+      self.metadata.insert(
+        "google-query".to_string(),
+        Value::List(
+          cse
+            .google_query
+            .iter()
+            .map(|x| Value::String(x.to_string()))
+            .collect(),
+        ),
+      );
+    }
   }
 }
 // 空间搜索引擎查询语法CyberspaceSearchEngineQuery
@@ -315,41 +325,55 @@ impl CSE {
     parts
   }
 }
-impl Into<Vec<MatcherType>> for CSE {
-  fn into(self) -> Vec<MatcherType> {
+impl From<CSE> for Vec<Matcher> {
+  fn from(val: CSE) -> Self {
     let mut mt = Vec::new();
     let mut keyword = HashSet::new();
     let mut title = HashSet::new();
     let mut hash = HashSet::new();
-    let trim = &['"', '\''];
-    for query in &self.shodan_query {
-      if let Some((k, v)) = query.split_once(":") {
-        let v = v.to_lowercase().trim_matches(trim).to_string();
-        match k {
-          "title" | "http.title" => {
-            title.insert(format!("<\\btitle\\b.*?>{}<\\/\\btitle\\b>", v));
+    let trim = &['"', '\'', '\\'];
+    for query in &val.shodan_query {
+      if let Some((k, v)) = query.split_once(':') {
+        let v = v
+          .to_lowercase()
+          .trim_matches(trim)
+          .replace("\\\"", "")
+          .to_string();
+        for vv in val.or_and_split(&v) {
+          match k {
+            "title" | "http.title" => {
+              title.insert(vv);
+            }
+            "http.html" | "html" => {
+              keyword.insert(vv);
+            }
+            "http.favicon.hash" => {
+              hash.extend(
+                vv.split(',')
+                  .map(|x| x.to_string())
+                  .collect::<Vec<String>>(),
+              );
+            }
+            _ => {}
           }
-          "http.html" | "html" => {
-            keyword.insert(v);
-          }
-          "http.favicon.hash" => {
-            hash.insert(v);
-          }
-          _ => {}
         }
       } else {
         // 都归关键词
         keyword.insert(query.to_lowercase().trim_matches(trim).to_string());
       }
     }
-    for query in &self.fofa_query {
+    for query in &val.fofa_query {
       let query = query.trim_matches(trim);
-      if let Some((k, v)) = query.split_once("=") {
-        for vv in self.or_and_split(&v) {
-          let vv = vv.to_lowercase().trim_matches(trim).to_string();
+      if let Some((k, v)) = query.split_once('=') {
+        for vv in val.or_and_split(v) {
+          let vv = vv
+            .to_lowercase()
+            .trim_matches(trim)
+            .replace("\\\"", "")
+            .to_string();
           match k {
             "title" => {
-              title.insert(format!("<\\btitle\\b.*?>{}<\\/\\btitle\\b>", vv));
+              title.insert(vv);
             }
             "body" => {
               keyword.insert(vv);
@@ -362,7 +386,7 @@ impl Into<Vec<MatcherType>> for CSE {
         }
       } else {
         // 都归关键词
-        for vv in self.or_and_split(&query) {
+        for vv in val.or_and_split(query) {
           keyword.insert(vv.to_lowercase().trim_matches(trim).to_string());
         }
       }
@@ -370,20 +394,38 @@ impl Into<Vec<MatcherType>> for CSE {
     if !keyword.is_empty() {
       let mut k: Vec<String> = keyword.iter().map(|x| x.to_string()).collect();
       k.sort();
-      mt.push(MatcherType::Word(Word { words: k }));
+      let m = Matcher {
+        matcher_type: MatcherType::Word(Word { words: k }),
+        ..Matcher::default()
+      };
+      mt.push(m);
     }
     if !hash.is_empty() {
       let mut h: Vec<String> = hash.iter().map(|x| x.to_string()).collect();
       h.sort();
-      mt.push(MatcherType::Favicon(Favicon { hash: h }));
+      let m = Matcher {
+        matcher_type: MatcherType::Favicon(Favicon { hash: h }),
+        ..Matcher::default()
+      };
+      mt.push(m);
     }
     if !title.is_empty() {
-      let mut r: Vec<String> = title.iter().map(|x| x.to_string()).collect();
+      let mut r: Vec<String> = title
+        .iter()
+        .filter(|x| !keyword.contains(*x))
+        .map(|x| format!("(?mi)<title[^>]*>{}.*?</title>", x))
+        .collect();
       r.sort();
-      mt.push(MatcherType::Regex(MRegex {
-        regex: r,
-        group: None,
-      }))
+      if !r.is_empty() {
+        let m = Matcher {
+          matcher_type: MatcherType::Regex(MRegex {
+            regex: r,
+            group: None,
+          }),
+          ..Matcher::default()
+        };
+        mt.push(m);
+      }
     }
     mt
   }
