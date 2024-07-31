@@ -448,7 +448,7 @@ Press CTRL+C to quit
 ➜  ~ ./observer_ward --api-server 127.0.0.1:8000 --token 22e038328151a7a06fd4ebfa63a10228
 [INFO ] 📇probes loaded: 6183
 [INFO ] 🚀optimized probes: 8
-[INFO ] 🌐API service has been started:http://127.0.0.1:8000/v1/observer_ward
+[INFO ] 🌐API service has been started: http://127.0.0.1:8000/v1/observer_ward
 [INFO ] 📔:curl --request POST \
       --url http://127.0.0.1:8000/v1/observer_ward \
       --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
@@ -494,10 +494,10 @@ Press CTRL+C to quit
 ➜  ~ ./observer_ward --api-server /tmp/observer_ward.socket
 [INFO ] 📇probes loaded: 6183
 [INFO ] 🚀optimized probes: 8
-[INFO ] 🌐API service has been started:http://127.0.0.1:8000/v1/observer_ward
+[INFO ] 🌐API service has been started: /tmp/observer_ward.socket
 [INFO ] 📔:curl --request POST \
-      --url http://127.0.0.1:8000/v1/observer_ward \
-      --unix-socket /tmp/observer_ward.socket --url http://localhost/v1/observer_ward \
+      --unix-socket /tmp/observer_ward.socket \
+      --url http://localhost/v1/observer_ward \
       --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
       --json '{"target":["https://httpbin.org/"]}'
 [INFO ] 🗳:[result...]

@@ -144,43 +144,61 @@ pub fn api_server(
       .service(get_config_api)
       .service(set_config_api)
   });
-  let (http_server, s) = match listening_address {
+  let (http_server, url) = match &listening_address {
     #[cfg(unix)]
     UnixSocketAddr::Unix(u) => (
       http_server.bind_uds(u)?,
-      format!(
-        "--unix-socket {} --url http://localhost/v1/observer_ward",
-        listening_address
-      ),
+      "http://localhost/v1/observer_ward".to_string(),
     ),
     UnixSocketAddr::SocketAddr(sa) => {
       if let Ok(ssl_config) = ssl {
         (
           http_server.bind_openssl(sa, ssl_config)?,
-          format!("--url https://{}/v1/observer_ward", listening_address),
+          format!("https://{}/v1/observer_ward", listening_address),
         )
       } else {
         (
           http_server.bind(sa)?,
-          format!("--url http://{}/v1/observer_ward", listening_address),
+          format!("http://{}/v1/observer_ward", listening_address),
         )
       }
     }
   };
-  print_help(&s, token);
+  print_help(&url, token, listening_address);
   rt::System::new().block_on(http_server.workers(config.thread).run())
 }
 
-fn print_help(s: &str, t: Option<String>) {
-  info!("{}API service has been started:{}", Emoji("🌐", ""), s);
-  let api_doc = format!(
-    r#"curl --request POST \
-  {} \
-  --header 'Authorization: Bearer {}'\
-  --json '{{"target":["https://httpbin.org/"]}}'"#,
-    s,
-    t.unwrap_or_default()
-  );
+fn print_help(url: &str, t: Option<String>, listening_address: &UnixSocketAddr) {
+  let api_doc = match listening_address {
+    UnixSocketAddr::Unix(p) => {
+      info!(
+        "{}API service has been started: {}",
+        Emoji("🌐", ""),
+        p.to_string_lossy()
+      );
+      format!(
+        r#"curl --request POST \
+--unix-socket {} \
+--url {} \
+--header 'Authorization: Bearer {}' \
+--json '{{"target":["https://httpbin.org/"]}}'"#,
+        listening_address,
+        url,
+        t.unwrap_or_default()
+      )
+    }
+    UnixSocketAddr::SocketAddr(_) => {
+      info!("{}API service has been started: {}", Emoji("🌐", ""), url);
+      format!(
+        r#"curl --request POST \
+--url {} \
+--header 'Authorization: Bearer {}' \
+--json '{{"target":["https://httpbin.org/"]}}'"#,
+        url,
+        t.unwrap_or_default()
+      )
+    }
+  };
   let result = r#"[result...]"#;
   info!("{}:{}", Emoji("📔", ""), style(api_doc).green());
   info!("{}:{}", Emoji("🗳", ""), style(result).green());
