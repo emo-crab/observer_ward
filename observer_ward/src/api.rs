@@ -170,6 +170,7 @@ pub fn api_server(
 
 fn print_help(url: &str, t: Option<String>, listening_address: &UnixSocketAddr) {
   let api_doc = match listening_address {
+    #[cfg(unix)]
     UnixSocketAddr::Unix(p) => {
       info!(
         "{}API service has been started: {}",
