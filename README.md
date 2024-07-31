@@ -452,8 +452,7 @@ Press CTRL+C to quit
 [INFO ] 📔:curl --request POST \
       --url http://127.0.0.1:8000/v1/observer_ward \
       --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
-      --header 'Content-Type: application/json' \
-      --data '{"target":["https://httpbin.org/"]}'
+      --json '{"target":["https://httpbin.org/"]}'
 [INFO ] 🗳:[result...]
 ```
 
@@ -463,8 +462,7 @@ Press CTRL+C to quit
 ➜  ~ curl --request POST \                                                                                                     
   --url http://127.0.0.1:8000/v1/observer_ward \
   --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
-  --header 'Content-Type: application/json' \
-  --data '{"target":["https://httpbin.org/"]}'
+  --json '{"target":["https://httpbin.org/"]}'
 {"https://httpbin.org/":{"title":["httpbin.org"],"status":200,"favicon":{"https://httpbin.org/static/favicon.ico":{"md5":"3aa2067193b2ed83f24c30bd238a717c","mmh3":"-1296740046"}},"name":["swagger"],"fingerprints":[{"matcher-results":[{"template":"swagger","info":{"name":"swagger","author":"cn-kali-team","tags":"detect,tech,swagger","severity":"info","metadata":{"product":"swagger","vendor":"00_unknown","verified":true}},"matcher-name":["swagger-ui.css"],"extractor":{}}],"matched-at":"https://httpbin.org/"}],"nuclei":{}}}
 ```
 
@@ -484,12 +482,26 @@ Press CTRL+C to quit
 ➜  ~ curl --request POST \
   --url http://127.0.0.1:8000/v1/config \
   --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
-  --header 'Content-Type: application/json' \
-  --data '{"target":[],"update-plugin":true,"update-fingerprint":true}'
+  --json '{"target":[],"update-plugin":true,"update-fingerprint":true}'
 {"target":[],"ua":"Mozilla/5.0 (X11; Linux x86_64; rv:94.0) Gecko/20100101 Firefox/94.0","timeout":10,"thread":4,"ir":false,"ic":false,"update-fingerprint":true,"update-plugin":true,"webhook":null,"webhook-auth":null
 ```
 
 - 如果同时开启了`--webhook`或者提交的任务配置中的`webhook`不为空，请求api后会在后台运行任务，结果将通过webhook发送到指定服务器
+
+- 如果不想监听本地端口也可以指定`--api-server`参数为unix-socket文件路径，使用socket over http
+
+```bash,no-run
+➜  ~ ./observer_ward --api-server /tmp/observer_ward.socket
+[INFO ] 📇probes loaded: 6183
+[INFO ] 🚀optimized probes: 8
+[INFO ] 🌐API service has been started:http://127.0.0.1:8000/v1/observer_ward
+[INFO ] 📔:curl --request POST \
+      --url http://127.0.0.1:8000/v1/observer_ward \
+      --unix-socket /tmp/observer_ward.socket --url http://localhost/v1/observer_ward \
+      --header 'Authorization: Bearer 22e038328151a7a06fd4ebfa63a10228' \
+      --json '{"target":["https://httpbin.org/"]}'
+[INFO ] 🗳:[result...]
+```
 
 <!-- CONTRIBUTING -->
 

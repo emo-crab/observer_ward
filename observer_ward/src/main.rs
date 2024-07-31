@@ -40,7 +40,7 @@ fn main() {
     // .format_level(false)
     .format_timestamp(None)
     .init();
-  if let Some(address) = config.api_server {
+  if let Some(address) = &config.api_server {
     #[cfg(not(target_os = "windows"))]
     if config.daemon {
       background();

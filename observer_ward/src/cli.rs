@@ -12,6 +12,7 @@ use engine::template::Template;
 use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use std::env::current_dir;
+use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -70,7 +71,40 @@ impl FromStr for Mode {
     Ok(f)
   }
 }
+#[derive(Debug, Clone, PartialEq)]
+pub enum UnixSocketAddr {
+  #[cfg(unix)]
+  Unix(PathBuf),
+  SocketAddr(SocketAddr),
+}
 
+impl Display for UnixSocketAddr {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      #[cfg(unix)]
+      UnixSocketAddr::Unix(p) => f.write_str(&p.to_string_lossy()),
+      UnixSocketAddr::SocketAddr(s) => f.write_str(&s.to_string()),
+    }
+  }
+}
+impl FromStr for UnixSocketAddr {
+  type Err = std::io::Error;
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    if let Ok(socket_addr) = SocketAddr::from_str(s) {
+      Ok(Self::SocketAddr(socket_addr))
+    } else {
+      #[cfg(unix)]
+      return PathBuf::from_str(s)
+        .map(Self::Unix)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e));
+      #[cfg(not(unix))]
+      return Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "only unix support unix-socket",
+      ));
+    }
+  }
+}
 #[derive(Debug, Serialize, Deserialize, Clone, FromArgs)]
 #[argh(description = "observer_ward version")]
 #[serde(rename_all = "kebab-case")]
@@ -168,9 +202,9 @@ pub struct ObserverWardConfig {
   #[serde(skip)]
   pub daemon: bool,
   /// api Bearer authentication
-  #[argh(option, default = "default_token()")]
+  #[argh(option)]
   #[serde(skip)]
-  pub token: String,
+  pub token: Option<String>,
   /// send results to webhook server (ex:https://host:port/webhook)
   #[argh(option, from_str_fn(uri))]
   #[serde(default, with = "http_serde::option::uri")]
@@ -182,10 +216,10 @@ pub struct ObserverWardConfig {
   /// start a web API service (ex:127.0.0.1:8080)
   #[argh(option)]
   #[serde(skip)]
-  pub api_server: Option<SocketAddr>,
+  pub api_server: Option<UnixSocketAddr>,
 }
 
-fn default_token() -> String {
+fn default_token() -> Option<String> {
   let hasher = openssl::hash::Hasher::new(openssl::hash::MessageDigest::md5());
   if let Ok(mut h) = hasher {
     let mut test_bytes = vec![0u8; 32];
@@ -197,10 +231,10 @@ fn default_token() -> String {
         .map(|b| format!("{:02x}", b))
         .collect::<Vec<String>>()
         .join("");
-      return hex;
+      return Some(hex);
     }
   }
-  String::new()
+  None
 }
 
 pub fn default_config() -> PathBuf {
@@ -238,6 +272,11 @@ fn default_timeout() -> u64 {
 impl Default for ObserverWardConfig {
   fn default() -> Self {
     let mut default: ObserverWardConfig = argh::from_env();
+    if let Some(_api) = &default.api_server {
+      if default.token.is_none() {
+        default.token = default_token();
+      }
+    }
     // 补充默认输出格式
     if let Some(path) = &default.output {
       if let Some(ext) = path.extension() {

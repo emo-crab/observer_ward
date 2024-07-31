@@ -1,4 +1,4 @@
-use crate::cli::ObserverWardConfig;
+use crate::cli::{ObserverWardConfig, UnixSocketAddr};
 use crate::helper::Helper;
 use crate::output::Output;
 use crate::{cluster_templates, MatchedResult, ObserverWard};
@@ -11,18 +11,21 @@ use engine::execute::ClusterType;
 use engine::slinger::openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslFiletype, SslMethod};
 use log::{error, info};
 use std::collections::BTreeMap;
-use std::net::SocketAddr;
 use std::sync::mpsc::channel;
 use std::sync::RwLock;
 use std::thread;
 
 #[derive(Clone, Debug)]
 struct TokenAuth {
-  token: String,
+  token: Option<String>,
 }
 
 fn validator(token_auth: web::Data<TokenAuth>, credentials: BearerAuth) -> bool {
-  return token_auth.token.is_empty() || token_auth.token == credentials.token();
+  if let Some(token) = &token_auth.token {
+    token == credentials.token()
+  } else {
+    true
+  }
 }
 
 #[post("/v1/observer_ward")]
@@ -108,7 +111,7 @@ async fn get_config_api(
 }
 
 pub fn api_server(
-  listening_address: SocketAddr,
+  listening_address: &UnixSocketAddr,
   config: ObserverWardConfig,
 ) -> std::io::Result<()> {
   let templates = config.templates();
@@ -128,7 +131,6 @@ pub fn api_server(
   let token_auth = web::Data::new(TokenAuth {
     token: config.token.clone(),
   });
-  let mut s = format!("http://{}/v1/observer_ward", listening_address);
   let token = config.token.clone();
   let ssl = get_ssl_config(&config);
   let http_server = HttpServer::new(move || {
@@ -142,25 +144,42 @@ pub fn api_server(
       .service(get_config_api)
       .service(set_config_api)
   });
-  let http_server = if let Ok(ssl_config) = ssl {
-    s = s.replace("http://", "https://");
-    http_server.bind_openssl(listening_address, ssl_config)?
-  } else {
-    http_server.bind(listening_address)?
+  let (http_server, s) = match listening_address {
+    #[cfg(unix)]
+    UnixSocketAddr::Unix(u) => (
+      http_server.bind_uds(u)?,
+      format!(
+        "--unix-socket {} --url http://localhost/v1/observer_ward",
+        listening_address
+      ),
+    ),
+    UnixSocketAddr::SocketAddr(sa) => {
+      if let Ok(ssl_config) = ssl {
+        (
+          http_server.bind_openssl(sa, ssl_config)?,
+          format!("--url https://{}/v1/observer_ward", listening_address),
+        )
+      } else {
+        (
+          http_server.bind(sa)?,
+          format!("--url http://{}/v1/observer_ward", listening_address),
+        )
+      }
+    }
   };
-  print_help(&s, &token);
-  rt::System::new().block_on(http_server.workers(32).run())
+  print_help(&s, token);
+  rt::System::new().block_on(http_server.workers(config.thread).run())
 }
 
-fn print_help(s: &str, t: &str) {
+fn print_help(s: &str, t: Option<String>) {
   info!("{}API service has been started:{}", Emoji("🌐", ""), s);
   let api_doc = format!(
     r#"curl --request POST \
-  --url {} \
-  --header 'Authorization: Bearer {}' \
-  --header 'Content-Type: application/json' \
-  --data '{{"target":["https://httpbin.org/"]}}'"#,
-    s, t
+  {} \
+  --header 'Authorization: Bearer {}'\
+  --json '{{"target":["https://httpbin.org/"]}}'"#,
+    s,
+    t.unwrap_or_default()
   );
   let result = r#"[result...]"#;
   info!("{}:{}", Emoji("📔", ""), style(api_doc).green());
