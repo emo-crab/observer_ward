@@ -2,7 +2,7 @@ use crate::error::{new_regex_error, Result};
 use crate::info::Version;
 use crate::matchers::Part;
 use crate::serde_format::is_default;
-use jsonpath_rust::JsonPathInst;
+use jsonpath_rust::JsonPath;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 use std::str::FromStr;
@@ -47,7 +47,7 @@ impl Extractor {
   }
   pub fn extrat_json(
     &self,
-    json_path: &JsonPath,
+    json_path: &JsonPathQuery,
     corpus: String,
   ) -> (HashSet<String>, BTreeMap<String, String>) {
     let mut extract_result = HashSet::new();
@@ -57,8 +57,8 @@ impl Extractor {
       return (extract_result, BTreeMap::new());
     };
     for path in json_path.json.iter() {
-      if let Ok(p) = JsonPathInst::from_str(path) {
-        if let serde_json::Value::Array(array) = jsonpath_rust::find(&p, &json) {
+      if let Ok(p) = JsonPath::from_str(path) {
+        if let serde_json::Value::Array(array) = p.find(&json) {
           for v in array {
             extract_result.insert(v.to_string());
           }
@@ -104,7 +104,7 @@ pub enum ExtractorType {
   // name:xpath
   XPath(XPath),
   // name:json
-  JSON(JsonPath),
+  JSON(JsonPathQuery),
   // name:dsl
   DSL(DSL),
 }
@@ -129,7 +129,7 @@ pub struct KVal {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
-pub struct JsonPath {
+pub struct JsonPathQuery {
   pub group: Option<u8>,
   pub json: HashSet<String>,
 }
