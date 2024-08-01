@@ -157,13 +157,18 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &BTreeMap<String, Mat
       }
     });
     // 打印指纹
+    let mut all_app: HashSet<String> = HashSet::new();
     for fp in mr.fingerprint() {
-      write!(writer, "{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
       let apps: HashSet<String> = fp
         .matcher_result()
         .iter()
         .map(|x| x.info.name.clone())
         .collect();
+      // 当前app是全集的子集,跳过打印
+      if apps.is_superset(&all_app) && !all_app.is_empty() {
+        continue;
+      }
+      write!(writer, "{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
       write!(writer, " [{}] ", style(set_to_string(&apps)).green()).unwrap_or_default();
       write!(writer, " <{}>", set_to_string(mr.title())).unwrap_or_default();
       if let Some(csc) = &osc {
@@ -184,8 +189,8 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &BTreeMap<String, Mat
         writeln!(writer).unwrap_or_default();
       }
       // 指纹对应的nuclei结果
-      for app in apps {
-        if let Some(n) = nr.get(&app) {
+      for app in apps.iter() {
+        if let Some(n) = nr.get(app) {
           if n.is_empty() {
             continue;
           }
@@ -218,6 +223,7 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &BTreeMap<String, Mat
           }
         }
       }
+      all_app.extend(apps);
     }
     if mr.fingerprint().is_empty() {
       write!(writer, "{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
