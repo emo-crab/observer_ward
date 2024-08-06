@@ -14,7 +14,6 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub struct HttpRecord {
-  base: Uri,
   response: Response,
   skip: HashSet<String>,
   favicon: BTreeMap<String, FaviconMap>,
@@ -22,9 +21,8 @@ pub struct HttpRecord {
 }
 
 impl HttpRecord {
-  pub fn new(base: Uri, client_builder: ClientBuilder) -> Self {
+  pub fn new(client_builder: ClientBuilder) -> Self {
     Self {
-      base,
       response: Default::default(),
       skip: Default::default(),
       favicon: Default::default(),
@@ -59,7 +57,7 @@ impl HttpRecord {
       self.response = response.clone();
     }
     // 补充默认路径
-    let icon_sets = get_favicon_link(&response.text().unwrap_or_default(), &self.base);
+    let icon_sets = get_favicon_link(&response);
     for link in icon_sets {
       if self.skip.contains(&link) {
         continue;
@@ -128,9 +126,11 @@ fn is_image(headers: &HeaderMap, body: &Body) -> bool {
   }
 }
 
-fn get_favicon_link(text: &str, base_url: &Uri) -> HashSet<String> {
+fn get_favicon_link(response: &Response) -> HashSet<String> {
+  let base_url = response.uri();
+  let text = response.text().unwrap_or_default();
   let mut icon_links = HashSet::new();
-  let dom = if let Ok(dom) = tl::parse(text, tl::ParserOptions::default()) {
+  let dom = if let Ok(dom) = tl::parse(&text, tl::ParserOptions::default()) {
     dom
   } else {
     return HashSet::new();

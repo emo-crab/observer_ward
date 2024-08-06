@@ -422,7 +422,7 @@ impl ObserverWard {
   }
   fn http(&self, runner: &mut ClusterExecuteRunner) {
     // TODO： 可以考虑加个多线程
-    let mut http_record = HttpRecord::new(runner.target.clone(), self.config.http_client_builder());
+    let mut http_record = HttpRecord::new(self.config.http_client_builder());
     for (index, clusters) in self.cluster_type.web_default.iter().enumerate() {
       if let Err(err) = runner.http(&self.config, clusters, &mut http_record) {
         debug!("{}:{}", Emoji("💢", ""), err);

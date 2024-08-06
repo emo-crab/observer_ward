@@ -1,6 +1,14 @@
 # Change Log
 
 <!-- next-header -->
+
+## [2024.8.6] - 2024.8.6
+
+### Fixes
+
+- 修复了favicon的url拼接的baseURL为当前响应URL
+- 避免打印重复的目标和指纹
+
 ## [2024.7.31] - 2024.7.31
 
 ### Fixes
