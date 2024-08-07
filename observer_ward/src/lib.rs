@@ -454,7 +454,11 @@ impl ObserverWard {
           clusters.operators.iter().for_each(|operator| {
             operator.matcher(&mut result);
           });
-          debug!("{}", now.elapsed().as_secs());
+          debug!(
+            "{}: {} secs",
+            Emoji("⏳️", "time"),
+            now.elapsed().as_secs_f32()
+          );
         }
       }
       // 如果有图标或者结果什么都没有，保存一个首页请求

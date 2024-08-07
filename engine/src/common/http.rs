@@ -117,12 +117,12 @@ fn is_image(headers: &HeaderMap, body: &Body) -> bool {
   let encode_error = String::from_utf8(body.to_vec()).is_err();
   if encode_error {
     let text = String::from_utf8_lossy(body).to_lowercase();
-    let is_html = vec!["html", "head", "script", "div", "title", "xml", "svg"]
+    let is_html = vec!["html", "head", "script", "div", "title", "xml"]
       .into_iter()
       .any(|c| text.contains(c));
     ct || !is_html
   } else {
-    false
+    ct
   }
 }
 

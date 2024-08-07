@@ -1,6 +1,11 @@
 # Change Log
 
 <!-- next-header -->
+## [2024.8.7] - 2024.8.7
+
+### Fixes
+
+- 修复了favicon无法获取svg的hash
 
 ## [2024.8.6] - 2024.8.6
 
