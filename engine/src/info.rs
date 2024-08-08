@@ -168,7 +168,7 @@ impl Info {
   pub fn set_vpf(&mut self, vpf: VPF) {
     self.metadata.insert(
       "verified".to_string(),
-      Value::Bool(vpf.product.as_str() != UNKNOWN_00),
+      Value::Bool(vpf.vendor.as_str() != UNKNOWN_00),
     );
     self
       .metadata
