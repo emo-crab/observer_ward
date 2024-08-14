@@ -71,6 +71,7 @@ impl FromStr for Mode {
     Ok(f)
   }
 }
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum UnixSocketAddr {
   #[cfg(unix)]
@@ -87,6 +88,7 @@ impl Display for UnixSocketAddr {
     }
   }
 }
+
 impl FromStr for UnixSocketAddr {
   type Err = std::io::Error;
   fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -105,6 +107,7 @@ impl FromStr for UnixSocketAddr {
     }
   }
 }
+
 #[derive(Debug, Serialize, Deserialize, Clone, FromArgs)]
 #[argh(description = "observer_ward version")]
 #[serde(rename_all = "kebab-case")]
@@ -346,7 +349,12 @@ impl ObserverWardConfig {
         match parse_yaml(&path) {
           Ok(t) => templates.push(t),
           Err(err) => {
-            warn!("{}load template err: {}", Emoji("⚠️", ""), err);
+            warn!(
+              "{}load template {} err: {}",
+              Emoji("⚠️", ""),
+              path.to_string_lossy(),
+              err
+            );
           }
         }
       }
@@ -392,7 +400,12 @@ impl ObserverWardConfig {
               templates.push(t);
             }
             Err(err) => {
-              error!("{}{}", Emoji("💢", ""), err);
+              error!(
+                "{}load template {} err {}",
+                Emoji("💢", ""),
+                fp.to_string_lossy(),
+                err
+              );
             }
           },
           _ => {}
@@ -408,13 +421,18 @@ impl ObserverWardConfig {
             self.config_dir.join(path)
           }
         });
-        if let Ok(f) = std::fs::File::open(fingerprint_path) {
+        if let Ok(f) = std::fs::File::open(&fingerprint_path) {
           match serde_json::from_reader::<File, Vec<_>>(f) {
             Ok(t) => {
               templates.extend(t);
             }
             Err(err) => {
-              error!("{}{}", Emoji("💢", ""), err);
+              error!(
+                "{}load template {} err {}",
+                Emoji("💢", ""),
+                fingerprint_path.to_string_lossy(),
+                err
+              );
             }
           }
         }
