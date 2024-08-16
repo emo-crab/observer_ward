@@ -57,7 +57,7 @@ impl HttpRecord {
       self.response = response.clone();
     }
     // 补充默认路径
-    let icon_sets = get_favicon_link(&response);
+    let icon_sets = get_favicon_link(response);
     for link in icon_sets {
       if self.skip.contains(&link) {
         continue;

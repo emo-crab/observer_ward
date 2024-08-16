@@ -28,6 +28,18 @@ pub mod string_vec_serde {
         let name: Vec<String> = value.split_terminator(',').map(String::from).collect();
         Ok(name)
       }
+      fn visit_none<E>(self) -> Result<Self::Value, E>
+      where
+        E: de::Error,
+      {
+        Ok(Vec::new())
+      }
+      fn visit_unit<E>(self) -> Result<Self::Value, E>
+      where
+        E: de::Error,
+      {
+        self.visit_none()
+      }
       fn visit_seq<S>(self, visitor: S) -> Result<Self::Value, S::Error>
       where
         S: de::SeqAccess<'de>,
@@ -38,6 +50,7 @@ pub mod string_vec_serde {
     d.deserialize_any(StringToVec(PhantomData))
   }
 }
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(untagged)]
 pub enum Value {

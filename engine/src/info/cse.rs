@@ -134,7 +134,7 @@ impl From<CSE> for Vec<Matcher> {
               keyword.insert(vv);
             }
             "icon_hash" => {
-              hash.extend(vv.split(",").map(|x| x.to_string()));
+              hash.extend(vv.split(',').map(|x| x.to_string()));
             }
             _ => {}
           }

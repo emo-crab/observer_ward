@@ -94,8 +94,12 @@ impl<'a> Helper<'a> {
     let mut download_name = "observer_ward_amd64";
     if cfg!(target_os = "windows") {
       download_name = "observer_ward.exe";
-    } else if cfg!(target_os = "linux") {
+    } else if cfg!(target_os = "linux") && cfg!(target_arch = "x86_64") {
       download_name = "observer_ward_amd64";
+    } else if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64") {
+      download_name = "observer_ward_aarch64";
+    } else if cfg!(target_os = "linux") && cfg!(target_arch = "arm") {
+      download_name = "observer_ward_armv7";
     } else if cfg!(target_os = "macos") && cfg!(target_arch = "x86_64") {
       download_name = "observer_ward_darwin";
     } else if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
