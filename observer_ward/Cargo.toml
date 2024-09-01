@@ -27,7 +27,7 @@ console = "0.15.8"
 rustc_lexer = "0.1.0"
 zip = { version = "2.1.6", default-features = false, features = ["deflate"] }
 actix-web-httpauth = "0.8.1"
-actix-web = { version = "4.6.0", default-features = false, features = [
+actix-web = { version = "4.9.0", default-features = false, features = [
   "macros",
   "compress-gzip",
   "openssl",
