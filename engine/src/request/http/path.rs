@@ -66,11 +66,10 @@ impl Http {
       for (key, value) in self.headers.clone().into_iter() {
         builder = builder.header(key, &value);
       }
-      if let Some(body) = &self.body {
-        if let Ok(request) = builder.body(slinger::Body::from(input_to_byte(body))) {
-          requests.push_back(Request::from(request));
-        };
-      }
+      let body = slinger::Body::from(input_to_byte(&self.body.clone().unwrap_or_default()));
+      if let Ok(request) = builder.body(body) {
+        requests.push_back(Request::from(request));
+      };
     }
     requests
   }
