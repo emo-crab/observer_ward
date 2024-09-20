@@ -17,7 +17,6 @@ use engine::slinger::{http_serde, Request, Response};
 use engine::template::Template;
 use error::Result;
 use log::{debug, info};
-use rustc_lexer::unescape;
 use serde::{Deserialize, Serialize};
 use std::collections::btree_map::Entry;
 use std::collections::hash_map::DefaultHasher;
@@ -280,7 +279,7 @@ impl ClusterExecuteRunner {
       let mut socket = conn_builder.build()?.connect_with_uri(&self.target)?;
       socket.set_nonblocking(true).unwrap_or_default();
       for input in tcp.inputs.iter() {
-        let data = self.input_to_byte(&input.data.clone().unwrap_or_default());
+        let data = input.data();
         let request = Request::raw(self.target.clone(), data.clone(), true);
         debug!("{}{:#?}", Emoji("📤", ""), request);
         socket.write_all(&data).unwrap_or_default();
@@ -337,18 +336,6 @@ impl ClusterExecuteRunner {
       }
     }
     Ok(flag)
-  }
-  // yaml字符串转字节
-  fn input_to_byte(&self, payload: &str) -> Vec<u8> {
-    let mut buf = Vec::new();
-    if !payload.is_empty() {
-      unescape::unescape_byte_str(payload, &mut |_x, y| {
-        if let Ok(c) = y {
-          buf.push(c)
-        }
-      });
-    }
-    buf
   }
 }
 
@@ -433,7 +420,8 @@ impl ObserverWard {
       }
     }
     for (index, clusters) in self.cluster_type.web_other.iter().enumerate() {
-      if let Err(_err) = runner.http(&self.config, clusters, &mut http_record) {
+      if let Err(err) = runner.http(&self.config, clusters, &mut http_record) {
+        debug!("{}:{}", Emoji("💢", ""), err);
         // 第一次访问失败
         if index == 0 {
           break;

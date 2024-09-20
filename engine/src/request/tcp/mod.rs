@@ -2,6 +2,7 @@ mod port;
 
 use crate::common::PayloadAttack;
 use crate::operators::Operators;
+use crate::request::input_to_byte;
 use crate::serde_format::is_default;
 pub use port::PortRange;
 use serde::{Deserialize, Serialize};
@@ -42,4 +43,10 @@ pub struct Input {
   pub data: Option<String>,
   #[serde(default, skip_serializing_if = "is_default")]
   pub read: Option<usize>,
+}
+
+impl Input {
+  pub fn data(&self) -> Vec<u8> {
+    input_to_byte(self.data.clone().unwrap_or_default().as_str())
+  }
 }

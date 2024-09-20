@@ -10,6 +10,7 @@ use crate::request::headless::HeadlessRequest;
 pub use crate::request::http::{HTTPRequest, Http, HttpRaw, Raw, RequestGenerator};
 pub use crate::request::tcp::{Input, PortRange, TCPRequest};
 use crate::serde_format::is_default;
+use rustc_lexer::unescape;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -163,4 +164,16 @@ impl Requests {
       code: vec![],
     }
   }
+}
+// yaml字符串转字节
+fn input_to_byte(payload: &str) -> Vec<u8> {
+  let mut buf = Vec::new();
+  if !payload.is_empty() {
+    unescape::unescape_byte_str(payload, &mut |_x, y| {
+      if let Ok(c) = y {
+        buf.push(c)
+      }
+    });
+  }
+  buf
 }

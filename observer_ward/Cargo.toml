@@ -24,7 +24,6 @@ env_logger = { version = "0.11.5", default-features = false, features = [
 ] }
 log = "0.4.22"
 console = "0.15.8"
-rustc_lexer = "0.1.0"
 zip = { version = "2.2.0", default-features = false, features = ["deflate"] }
 actix-web-httpauth = "0.8.1"
 actix-web = { version = "4.9.0", default-features = false, features = [
