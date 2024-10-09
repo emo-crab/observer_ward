@@ -100,7 +100,7 @@ impl NucleiRunner {
 }
 
 // 生成nuclei的标签过滤表达式
-pub fn gen_nuclei_tags(product: &str, tags: &[String]) -> String {
+pub fn gen_nuclei_tags(product: &str, tags: &[String]) -> Vec<String> {
   let mut or_condition = Vec::new();
   let finger_tags = ["detect", "tech"];
   let tags: Vec<String> = tags
@@ -112,15 +112,8 @@ pub fn gen_nuclei_tags(product: &str, tags: &[String]) -> String {
     or_condition.push(format!("contains(tags,'{}')", product));
   }
   // 只留单个的tags，防止误报
-  if tags.len() == 1 {
-    or_condition.push(format!("contains(tags,'{}')", tags[0]));
-  } else {
-    let mut and_condition = Vec::new();
-    for tag in tags {
-      and_condition.push(format!("contains(tags,'{}')", tag));
-    }
-    or_condition.push(format!("({})", and_condition.join("&&")));
+  for tag in tags {
+    or_condition.push(format!("contains(tags,'{}')", tag));
   }
-
-  or_condition.join("||")
+  or_condition
 }

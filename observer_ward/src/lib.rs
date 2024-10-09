@@ -125,7 +125,7 @@ impl MatchedResult {
             } else {
               args
                 .condition
-                .push(gen_nuclei_tags(&vpf.product, &matcher_result.info.tags));
+                .extend(gen_nuclei_tags(&vpf.product, &matcher_result.info.tags));
             }
             nuclei_map.insert(matcher_result.template.clone(), args);
           }
