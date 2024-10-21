@@ -1,3 +1,5 @@
+use super::html::extract_redirect;
+use super::uri::join;
 use crate::error::Error;
 use crate::matchers::FaviconMap;
 use base64::engine::general_purpose::STANDARD;
@@ -6,12 +8,9 @@ use md5::{Digest, Md5};
 use mime::Mime;
 use slinger::http::header;
 use slinger::http::header::HeaderMap;
-use slinger::http::uri::Uri;
 use slinger::{Body, ClientBuilder, Response};
 use std::collections::{BTreeMap, HashSet};
-use std::path::PathBuf;
 use std::str::FromStr;
-
 #[derive(Debug, Clone)]
 pub struct HttpRecord {
   response: Response,
@@ -84,6 +83,25 @@ impl HttpRecord {
   }
   pub fn has_favicon(&self) -> bool {
     !self.favicon.is_empty()
+  }
+}
+
+pub fn js_redirect(attempt: slinger::redirect::Attempt) -> slinger::redirect::Action {
+  match attempt.default_redirect() {
+    Some(next) => attempt.follow(next),
+    None => {
+      let body = attempt.response().text().unwrap_or_default();
+      match extract_redirect(&body, attempt.response().uri()) {
+        Some(next) => {
+          if attempt.previous().len() > 10 || next.to_string() == attempt.url().to_string() {
+            attempt.stop(next)
+          } else {
+            attempt.follow(next)
+          }
+        }
+        None => attempt.none(),
+      }
+    }
   }
 }
 
@@ -160,16 +178,6 @@ fn get_favicon_link(response: &Response) -> HashSet<String> {
     }
   }
   icon_links
-}
-
-fn join(cur_uri: &Uri, val: &str) -> Option<Uri> {
-  let path = PathBuf::from(cur_uri.path()).join(val);
-  Uri::builder()
-    .scheme(cur_uri.scheme_str().unwrap_or_default())
-    .authority(cur_uri.authority()?.as_str())
-    .path_and_query(path.to_string_lossy().as_ref())
-    .build()
-    .ok()
 }
 
 pub fn murmur3_32(buf: &[u8], seed: u32) -> i32 {

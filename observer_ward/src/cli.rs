@@ -6,7 +6,7 @@ use engine::find_yaml_file;
 use engine::slinger::http::header::HeaderValue;
 use engine::slinger::http::Uri;
 use engine::slinger::http_serde;
-use engine::slinger::redirect::{only_same_host, Policy};
+use engine::slinger::redirect::Policy;
 use engine::slinger::{openssl, ClientBuilder, ConnectorBuilder, Proxy};
 use engine::template::Template;
 use log::{error, warn};
@@ -328,7 +328,7 @@ impl ObserverWardConfig {
       .danger_accept_invalid_certs(true)
       .danger_accept_invalid_hostnames(true)
       .min_tls_version(Some(engine::slinger::native_tls::Protocol::Tlsv10))
-      .redirect(Policy::Custom(only_same_host))
+      .redirect(Policy::Custom(engine::common::http::js_redirect))
       .timeout(Some(Duration::from_secs(self.timeout)));
     if let Ok(ua) = HeaderValue::from_str(&self.ua) {
       client_builder = client_builder.user_agent(ua);

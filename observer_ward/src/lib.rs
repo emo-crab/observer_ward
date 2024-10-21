@@ -12,7 +12,7 @@ use engine::results::{FingerprintResult, NucleiResult};
 use engine::slinger::http::header::HeaderValue;
 use engine::slinger::http::uri::{PathAndQuery, Uri};
 use engine::slinger::http::StatusCode;
-use engine::slinger::redirect::{only_same_host, Policy};
+use engine::slinger::redirect::Policy;
 use engine::slinger::{http_serde, Request, Response};
 use engine::template::Template;
 use error::Result;
@@ -222,7 +222,7 @@ impl ClusterExecuteRunner {
     for http in cluster.requests.http.iter() {
       let mut client_builder = http.http_option.builder_client();
       client_builder = client_builder.timeout(Some(Duration::from_secs(config.timeout)));
-      client_builder = client_builder.redirect(Policy::Custom(only_same_host));
+      client_builder = client_builder.redirect(Policy::Custom(engine::common::http::js_redirect));
       if let Ok(ua) = HeaderValue::from_str(&config.ua) {
         client_builder = client_builder.user_agent(ua);
       }

@@ -50,7 +50,7 @@ impl HttpOption {
   pub fn builder_client(&self) -> slinger::ClientBuilder {
     let redirect = if self.redirects {
       if self.host_redirects {
-        slinger::redirect::Policy::Custom(slinger::redirect::only_same_host)
+        slinger::redirect::Policy::Custom(crate::common::http::js_redirect)
       } else {
         slinger::redirect::Policy::Limit(self.max_redirects.unwrap_or(10))
       }
