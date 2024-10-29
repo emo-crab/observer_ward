@@ -44,8 +44,8 @@ static RE: OnceLock<Vec<Regex>> = OnceLock::new();
 pub fn extract_redirect(text: &str, cur_uri: &slinger::http::Uri) -> Option<slinger::http::Uri> {
   let re = RE.get_or_init(|| {
     let js_reg = [
-      r#"(?im)location\.(open|replace|href)=['"]\s*?(?P<name>.*?)['"]"#,
-      r#"(?im)location\.(open|replace|href)\((?P<name>.*?)\)"#,
+      r#"(?im)location(?:\.(:?open|replace|href))\s=\s['"]\s*?(?P<name>.*?)['"]"#,
+      r#"(?im)location\.(?:open|replace|href|assign)\((?P<name>.*?)\)"#,
     ];
     let re_list: Vec<Regex> = js_reg
       .iter()
