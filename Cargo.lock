@@ -1564,9 +1564,9 @@ dependencies = [
 
 [[package]]
 name = "slinger"
-version = "0.1.12"
+version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "851618f49903311ff3a1b7106ee1608cb44e053bb00ef803d1e265d44f6a79c4"
+checksum = "190ddafd611495308be51db1d45a84b04f40725f22cfc6f2b3387cf4a4cc2dc5"
 dependencies = [
  "base64",
  "bytes",

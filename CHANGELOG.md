@@ -1,6 +1,12 @@
 # Change Log
 
 <!-- next-header -->
+## [2024.11.5] - 2024.11.5
+
+### Fixes
+
+- fix keepalive
+- fix http version line read
 
 ## [2024.10.9] - 2024.10.9
 
