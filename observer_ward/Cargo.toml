@@ -23,7 +23,7 @@ env_logger = { version = "0.11.6", default-features = false, features = [
   "auto-color",
 ] }
 log = "0.4.22"
-console = "0.15.8"
+console = "0.15.10"
 zip = { version = "2.2.0", default-features = false, features = ["deflate"] }
 actix-web-httpauth = "0.8.1"
 actix-web = { version = "4.9.0", default-features = false, features = [
