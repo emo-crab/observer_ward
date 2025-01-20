@@ -12,7 +12,7 @@ license = "GPL-3.0-only"
 
 [dependencies]
 engine = { path = "../engine" }
-argh = "0.1.12"
+argh = "0.1.13"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 serde_json = "1"
