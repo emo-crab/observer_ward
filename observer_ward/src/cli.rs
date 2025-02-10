@@ -49,8 +49,8 @@ impl FromStr for OutputFormat {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub enum Mode {
   #[default]
-  ALL,
   HTTP,
+  ALL,
   TCP,
 }
 

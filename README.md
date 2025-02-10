@@ -175,36 +175,36 @@ Options:
   --help            display usage information
 ```
 
-| 参数名                  | 作用和描述                                                                                       |
-| ----------------------- | ------------------------------------------------------------------------------------------------ |
-| -l,--list               | 从文件中读取目标列表，一行一个目标                                                               |
-| -t,--target             | 单个或者多个目标                                                                                 |
-| -p,--probe              | json探针路径(如果和`--probe-dir`一起使用，该参数为转换json后的输出文件路径)                      |
-| --probe-dir             | yaml探针目录(如果和`--probe`一起使用，会读取该目录下的全部yaml文件转换为一个json文件)            |
-| --ua                    | 设置请求头                                                                                       |
-| --mode                  | 模式：safe和danger，safe只请求首页,dranger会请求特殊路径，容易被waf拦截                          |
-| --timeout               | 请求和连接超时，单位为秒                                                                         |
-| --thread                | 同时识别的线程数，默认为cpu的核数                                                                |
-| --proxy                 | 设置代理服务器，支持http和socks5，例如：`https://username:password@your-proxy.com:port`          |
-| --ir                    | 在json结果中保存请求和响应，保存请求响应可能比较消耗内存                                         |
-| --ic                    | 在json结果中保存证书数据                                                                         |
-| --plugin                | 指定nuclei插件路径，会开启nuclei验证漏洞，如果路径为`default`默认调用配置文件夹下的`plugins`目录 |
-| -o,--output             | 将结果保存到文件，如果文件后缀名是下面格式支持的可以省略`--format`参数                           |
-| --format                | 输出格式：支持`json`，`csv`和`txt`，在保存文件的时候会根据文件后缀自动识别                       |
-| --no-color              | 禁用颜色输出                                                                                     |
-| --nuclei-args           | nuclei的额外参数，会按照空格分割追加到调用nuclei参数，例如：`-es info`,排除info插件              |
-| --silent                | 静默模式，不打印任何信息，常用在命令行管道作为输入源                                             |
-| --debug                 | 开启调试模式，会输出更多信息，包括请求和响应，提取到的图标哈希，nuclei调用命令行等信息           |
-| --config-dir            | 指定配置文件夹，默认在用户配置文件夹下的`observer_ward`目录                                      |
-| --update-self           | 更新程序自身版本，也就是该项目的`defaultv4`发布标签                                              |
-| -u,--update-fingerprint | 更新指纹到配置文件夹，会覆盖`web_fingerprint_v4.json`文件                                        |
+| 参数名                     | 作用和描述                                                                    |
+|-------------------------|--------------------------------------------------------------------------|
+| -l,--list               | 从文件中读取目标列表，一行一个目标                                                        |
+| -t,--target             | 单个或者多个目标                                                                 |
+| -p,--probe              | json探针路径(如果和`--probe-dir`一起使用，该参数为转换json后的输出文件路径)                        |
+| --probe-dir             | yaml探针目录(如果和`--probe`一起使用，会读取该目录下的全部yaml文件转换为一个json文件)                   |
+| --ua                    | 设置请求头                                                                    |
+| --mode                  | 识别模式：[tcp,http,all]，默认http，也就是当目标没有协议的时候会尝试添加web协议再去识别                   |
+| --timeout               | 请求和连接超时，单位为秒                                                             |
+| --thread                | 同时识别的线程数，默认为cpu的核数                                                       |
+| --proxy                 | 设置代理服务器，支持http和socks5，例如：`https://username:password@your-proxy.com:port` |
+| --ir                    | 在json结果中保存请求和响应，保存请求响应可能比较消耗内存                                           |
+| --ic                    | 在json结果中保存证书数据                                                           |
+| --plugin                | 指定nuclei插件路径，会开启nuclei验证漏洞，如果路径为`default`默认调用配置文件夹下的`plugins`目录          |
+| -o,--output             | 将结果保存到文件，如果文件后缀名是下面格式支持的可以省略`--format`参数                                 |
+| --format                | 输出格式：支持`json`，`csv`和`txt`，在保存文件的时候会根据文件后缀自动识别                            |
+| --no-color              | 禁用颜色输出                                                                   |
+| --nuclei-args           | nuclei的额外参数，会按照空格分割追加到调用nuclei参数，例如：`-es info`,排除info插件                  |
+| --silent                | 静默模式，不打印任何信息，常用在命令行管道作为输入源                                               |
+| --debug                 | 开启调试模式，会输出更多信息，包括请求和响应，提取到的图标哈希，nuclei调用命令行等信息                           |
+| --config-dir            | 指定配置文件夹，默认在用户配置文件夹下的`observer_ward`目录                                    |
+| --update-self           | 更新程序自身版本，也就是该项目的`defaultv4`发布标签                                          |
+| -u,--update-fingerprint | 更新指纹到配置文件夹，会覆盖`web_fingerprint_v4.json`文件                                |
 | --update-plugin         | 更新社区nuclei插件到配置文件夹，会自动解压zip并且覆盖`plugins`目录                               |
-| --daemon                | api服务后台运行，window不支持                                                                    |
-| --token                 | api服务认证token                                                                                 |
-| --webhook               | 要将识别结果通过webhook发送到指定url                                                             |
-| --webhook-auth          | webhook的`AUTHORIZATION`认证                                                                     |
-| --api-server            | api监听地址的端口                                                                                |
-| --help                  | 打印帮助信息                                                                                     |
+| --daemon                | api服务后台运行，window不支持                                                      |
+| --token                 | api服务认证token                                                             |
+| --webhook               | 要将识别结果通过webhook发送到指定url                                                  |
+| --webhook-auth          | webhook的`AUTHORIZATION`认证                                                |
+| --api-server            | api监听地址的端口                                                               |
+| --help                  | 打印帮助信息                                                                   |
 
 ### 更新指纹库
 

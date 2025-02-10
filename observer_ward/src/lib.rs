@@ -1,4 +1,4 @@
-use crate::cli::ObserverWardConfig;
+use crate::cli::{Mode, ObserverWardConfig};
 use crate::error::new_io_error;
 use crate::nuclei::{gen_nuclei_tags, NucleiRunner};
 use console::{style, Emoji};
@@ -509,15 +509,13 @@ impl ObserverWard {
     match target.scheme_str() {
       None => {
         // 如果没有协议尝试https和http
-        let schemes = vec!["https", "http"];
-        for scheme in schemes {
-          if let Ok(http_target) = set_uri_scheme(scheme, &target) {
-            runner.target = http_target;
-            self.http(&mut runner);
-            if !runner.matched_result.is_empty() {
-              break;
-            }
+        match self.config.clone().mode.unwrap_or_default() {
+          Mode::ALL => {
+            self.handle_tcp_mode(&mut runner, &target);
+            self.handle_http_mode(&mut runner, &target);
           }
+          Mode::TCP => self.handle_tcp_mode(&mut runner, &target),
+          Mode::HTTP => self.handle_http_mode(&mut runner, &target),
         }
       }
       // 只跑web指纹
@@ -549,5 +547,29 @@ impl ObserverWard {
     });
     debug!("{}: {}", Emoji("🔚", "end"), target);
     runner.matched_result
+  }
+  fn handle_http_mode(&self, runner: &mut ClusterExecuteRunner, target: &Uri) {
+    let schemes = vec!["https", "http"];
+    for scheme in schemes {
+      if let Ok(http_target) = set_uri_scheme(scheme, target) {
+        runner.target = http_target;
+        self.http(runner);
+        if !runner.matched_result.is_empty() {
+          break;
+        }
+      }
+    }
+  }
+
+  fn handle_tcp_mode(&self, runner: &mut ClusterExecuteRunner, target: &Uri) {
+    if let Ok(tcp_target) = set_uri_scheme("tcp", target) {
+      runner.target = tcp_target;
+      if let Some(tcp) = &self.cluster_type.tcp_default {
+        if let Err(_err) = runner.tcp(&self.config, tcp) {
+          return;
+        }
+      }
+      self.tcp(runner);
+    }
   }
 }
