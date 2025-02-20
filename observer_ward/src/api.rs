@@ -33,11 +33,18 @@ async fn what_web_api(
   token: web::Data<TokenAuth>,
   auth: BearerAuth,
   config: web::Json<ObserverWardConfig>,
+  cli_config: web::Data<ObserverWardConfig>,
   cl: web::Data<RwLock<ClusterType>>,
 ) -> impl Responder {
   if !validator(token, auth) {
     return HttpResponse::Unauthorized().finish();
   }
+  let mut config = config.clone();
+  config.plugin = cli_config.plugin.clone();
+  config.config_dir = cli_config.config_dir.clone();
+  config.mode = cli_config.mode.clone();
+  config.proxy = cli_config.proxy.clone();
+  config.nuclei_args = cli_config.nuclei_args.clone();
   let webhook = config.webhook.is_some();
   if let Ok(cl) = cl.read() {
     let output = Output::new(&config);
