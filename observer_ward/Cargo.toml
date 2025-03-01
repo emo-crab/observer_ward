@@ -22,7 +22,7 @@ thiserror = "2"
 env_logger = { version = "0.11.6", default-features = false, features = [
   "auto-color",
 ] }
-log = "0.4.25"
+log = "0.4.26"
 console = "0.15.10"
 zip = { version = "2.2.2", default-features = false, features = ["deflate"] }
 actix-web-httpauth = "0.8.1"
