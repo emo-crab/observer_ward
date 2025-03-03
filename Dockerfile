@@ -9,8 +9,20 @@ COPY observer_ward/Cargo.toml Cargo.toml
 COPY engine/ /engine
 RUN cargo fetch
 COPY observer_ward/src src
-RUN rustup target add aarch64-unknown-linux-musl
-RUN cargo build --release --target=aarch64-unknown-linux-musl
+# `ARG`/`ENV` pair is a workaround for `docker build` backward-compatibility.
+#
+# https://github.com/docker/buildx/issues/510
+ARG BUILDPLATFORM
+ENV BUILDPLATFORM=${BUILDPLATFORM:-linux/amd64}
+
+RUN case "$BUILDPLATFORM" in \
+        */amd64 ) PLATFORM=x86_64 ;; \
+        */arm64 | */arm64/* ) PLATFORM=aarch64 ;; \
+        * ) echo "Unexpected BUILDPLATFORM '$BUILDPLATFORM'" >&2; exit 1 ;; \
+    esac; \
+    \
+    rustup target add $PLATFORM-unknown-linux-musl; \
+    cargo build --release --target=$PLATFORM-unknown-linux-musl
 
 # Use any runner as you want
 # But beware that some images have old glibc which makes rust unhappy
@@ -18,7 +30,7 @@ FROM alpine:latest AS observer_ward
 ENV TZ=Asia/Shanghai
 RUN apk -U upgrade --no-cache \
     && apk add --no-cache bind-tools ca-certificates
-COPY --from=builder /app/target/aarch64-unknown-linux-musl/release/observer_ward /usr/local/bin/
+COPY --from=builder /app/target/*/release/observer_ward /usr/local/bin/
 ADD "https://0x727.github.io/FingerprintHub/web_fingerprint_v4.json" web_fingerprint_v4.json
 RUN observer_ward --update-plugin
 ENTRYPOINT [ "observer_ward" ]
