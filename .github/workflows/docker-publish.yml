@@ -26,37 +26,17 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64/v8
           target: observer_ward
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/observer_ward:latest
           cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/observer_ward:latest
-          cache-to: type=inline
-      - name: Build and push observer_ward arm64
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64
-          target: observer_ward_with_nuclei
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/observer_ward:nuclei
-          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/observer_ward:nuclei
           cache-to: type=inline
       - name: Build and push observer_ward amd64
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/arm64
-          target: observer_ward
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/observer_ward:latest
-          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/observer_ward:latest
-          cache-to: type=inline
-      - name: Build and push observer_ward arm64
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/arm64
+          platforms: linux/amd64,linux/arm64/v8
           target: observer_ward_with_nuclei
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/observer_ward:nuclei
