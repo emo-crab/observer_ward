@@ -3,7 +3,7 @@ FROM rust:latest AS builder
 WORKDIR /app
 #为了命中docker构建缓存，先拷贝这几个文件进去
 RUN apt-get update &&\
-    apt-get install -y --no-install-recommends gcc-multilib xz-utils liblz4-tool libc6-dev libssl-dev pkg-config musl-tools patchelf build-essential zlib1g-dev ca-certificates
+    apt-get install -y --no-install-recommends xz-utils liblz4-tool libc6-dev libssl-dev pkg-config musl-tools patchelf build-essential zlib1g-dev ca-certificates
 COPY .cargo .cargo
 COPY observer_ward/Cargo.toml Cargo.toml
 COPY engine/ /engine
