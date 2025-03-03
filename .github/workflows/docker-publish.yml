@@ -22,7 +22,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_TOKEN }}
-      - name: Build and push observer_ward
+      - name: Build and push observer_ward amd64
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -32,7 +32,7 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/observer_ward:latest
           cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/observer_ward:latest
           cache-to: type=inline
-      - name: Build and push observer_ward
+      - name: Build and push observer_ward arm64
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -42,7 +42,7 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/observer_ward:nuclei
           cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/observer_ward:nuclei
           cache-to: type=inline
-      - name: Build and push observer_ward
+      - name: Build and push observer_ward amd64
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -52,7 +52,7 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/observer_ward:latest
           cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/observer_ward:latest
           cache-to: type=inline
-      - name: Build and push observer_ward
+      - name: Build and push observer_ward arm64
         uses: docker/build-push-action@v5
         with:
           context: .
