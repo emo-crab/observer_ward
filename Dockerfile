@@ -9,8 +9,8 @@ COPY observer_ward/Cargo.toml Cargo.toml
 COPY engine/ /engine
 RUN cargo fetch
 COPY observer_ward/src src
-RUN rustup target add x86_64-unknown-linux-musl
-RUN cargo build --release --target=x86_64-unknown-linux-musl
+RUN rustup target add aarch64-unknown-linux-musl
+RUN cargo build --release --target=aarch64-unknown-linux-musl
 
 # Use any runner as you want
 # But beware that some images have old glibc which makes rust unhappy
@@ -18,7 +18,7 @@ FROM alpine:latest AS observer_ward
 ENV TZ=Asia/Shanghai
 RUN apk -U upgrade --no-cache \
     && apk add --no-cache bind-tools ca-certificates
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/observer_ward /usr/local/bin/
+COPY --from=builder /app/target/aarch64-unknown-linux-musl/release/observer_ward /usr/local/bin/
 ADD "https://0x727.github.io/FingerprintHub/web_fingerprint_v4.json" web_fingerprint_v4.json
 RUN observer_ward --update-plugin
 ENTRYPOINT [ "observer_ward" ]
