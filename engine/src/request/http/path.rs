@@ -42,7 +42,11 @@ pub struct Http {
 
 fn join(cur_uri: &slinger::http::uri::Uri, val: String) -> Option<slinger::http::uri::Uri> {
   let path = val.trim_start_matches("{{BaseURL}}");
-  let path = PathBuf::from(cur_uri.path()).join(path);
+  let path = if path.is_empty() || path == "/" {
+    PathBuf::from(cur_uri.path())
+  } else {
+    PathBuf::from(cur_uri.path()).join(path)
+  };
   slinger::http::uri::Uri::builder()
     .scheme(cur_uri.scheme_str().unwrap_or_default())
     .authority(cur_uri.authority()?.as_str())
