@@ -1,4 +1,4 @@
-FROM rust:latest AS builder
+FROM --platform=${BUILDPLATFORM:-linux/amd64} rust:latest AS builder
 
 WORKDIR /app
 #为了命中docker构建缓存，先拷贝这几个文件进去
@@ -26,7 +26,7 @@ RUN case "$BUILDPLATFORM" in \
 
 # Use any runner as you want
 # But beware that some images have old glibc which makes rust unhappy
-FROM alpine:latest AS observer_ward
+FROM --platform=${BUILDPLATFORM:-linux/amd64} alpine:latest AS observer_ward
 ENV TZ=Asia/Shanghai
 RUN apk -U upgrade --no-cache \
     && apk add --no-cache bind-tools ca-certificates
