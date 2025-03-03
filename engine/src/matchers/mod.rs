@@ -258,7 +258,7 @@ impl Part {
     let body = response.body().clone().unwrap_or_default();
     let body = match String::from_utf8(body.as_ref().to_vec()) {
       Ok(s) => s,
-      Err(_) => format!("{:?}", body),
+      Err(_) => format!("{}", body.escape_ascii()),
     };
     let mut header_string = String::new();
     for (k, v) in response.headers() {
