@@ -42,3 +42,23 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/observer_ward:nuclei
           cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/observer_ward:nuclei
           cache-to: type=inline
+      - name: Build and push observer_ward
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/arm64
+          target: observer_ward
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/observer_ward:latest
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/observer_ward:latest
+          cache-to: type=inline
+      - name: Build and push observer_ward
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/arm64
+          target: observer_ward_with_nuclei
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/observer_ward:nuclei
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/observer_ward:nuclei
+          cache-to: type=inline
