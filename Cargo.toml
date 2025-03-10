@@ -7,7 +7,7 @@ include = ["LICENSE", "Cargo.toml", "src/**/*.rs"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = ["engine", "observer_ward"]
+members = ["engine", "observer_ward", "python"]
 default-members = ["observer_ward"]
 resolver = "2"
 #https://github.com/johnthagen/min-sized-rust
