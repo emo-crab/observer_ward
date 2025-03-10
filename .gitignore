@@ -12,3 +12,5 @@ Cargo.lock
 .idea/
 plugins.zip
 fingerprint_v4.json
+
+.DS_Store

@@ -1,0 +1,96 @@
+[
+  {
+    "id":"wordpress",
+    "info":{
+      "name":"wordpress",
+      "author":"cn-kali-team",
+      "tags":"detect,tech,wordpress",
+      "severity":"info",
+      "metadata": {
+        "product":"wordpress",
+        "vendor":"wordpress",
+        "verified":true
+      }
+    },
+    "http":[
+      {
+        "method":"GET",
+        "path":["{{BaseURL}}/"],
+        "matchers":[
+          {
+            "type":"word",
+            "words":["/wp-content/themes/","/wp-content/uploads/","/wp-includes/","<link rel='stylesheet' id='wp-block-library-css","\\/wp-admin\\/admin-ajax.php\",\"","name=\"generator\" content=\"wordpress "],
+            "case-insensitive":true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id":"php",
+    "info":{
+      "name":"php",
+      "author":"cn-kali-team",
+      "tags":"detect,tech,php",
+      "severity":"info",
+      "metadata":{
+        "fofa-query":["title=\"php warning\" || \"fatal error\""],
+        "google-query":["intitle:\"php warning\" || \"fatal error\""],
+        "product":"php",
+        "shodan-query":["cpe:\"cpe:2.3:a:php:php\"","http.title:\"php warning\" || \"fatal error\"","php.ini","the requested resource <code class=\"url\">","x-powered-by:\"php\""],
+        "vendor":"php",
+        "verified":true
+      }
+    },
+    "http":[
+      {
+        "method":"GET",
+        "path":["{{BaseURL}}/"],
+        "matchers":[
+          {
+            "type":"word",
+            "words":["fatal error","php.ini","the requested resource <code class=\"url\">"]
+          },
+          {
+            "type":"regex",
+            "regex":["(?mi)<title[^>]*>\"fatal error.*?</title>","(?mi)<title[^>]*>php warning\".*?</title>","(?mi)<title[^>]*>php warning.*?</title>"]
+          },
+          {
+            "type":"word",
+            "words":["x-powered-by: php"],
+            "part":"header",
+            "case-insensitive":true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "nginx",
+    "info": {
+      "name": "nginx",
+      "author": "cn-kali-team",
+      "tags": "detect,tech,nginx",
+      "severity": "info",
+      "metadata": {
+        "product": "nginx",
+        "vendor": "nginx",
+        "verified": true
+      }
+    },
+    "http": [
+      {
+        "method": "GET",
+        "path": ["{{BaseURL}}/"],
+        "matchers": [
+          {
+            "type": "word",
+            "words": ["server: nginx"],
+            "part": "header",
+            "case-insensitive": true
+          }
+        ]
+      }
+    ]
+  }
+]
