@@ -13,14 +13,15 @@ pip install observer-ward
 ### 基本用法
 
 ```python
+import os
 from observer_ward import ObserverWard
 
-with open('examples/test_fingerprint.json', 'r') as f:
+with open('examples/test_fingerprints.json', 'r') as f:
     content = f.read()
 
 # 初始化ObserverWard对象
 # 不提供参数时，会尝试从默认位置加载指纹库
-observerWard = ObserverWard(content)
+observer_ward = ObserverWard(content)
 
 # 从HTML内容识别web技术
 html_content = """
@@ -46,7 +47,7 @@ headers = [
 ]
 
 # 执行指纹识别
-results = observerWard.execute(html_content, headers)
+results = observer_ward.execute(html_content, headers)
 
 # 打印匹配结果
 for result in results:
