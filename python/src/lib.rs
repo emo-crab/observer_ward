@@ -95,7 +95,7 @@ pub fn create_operators_from_json(json: &str) -> Vec<ClusteredOperator> {
 
     // 遍历每个模板，创建 ClusteredOperator 对象并收集到 operators 数组中
     let operators: Vec<ClusteredOperator> = templates.into_iter()
-        .map(|template| ClusteredOperator::new(template))
+        .map(ClusteredOperator::new)
         .collect();
 
     println!("已接收到 {} 个指纹模板", operators.len());

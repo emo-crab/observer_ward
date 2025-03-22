@@ -16,6 +16,9 @@ use engine::slinger::redirect::Policy;
 use engine::slinger::{http_serde, Request, Response};
 use engine::template::Template;
 use error::Result;
+use futures::channel::mpsc::UnboundedSender;
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::collections::btree_map::Entry;
@@ -23,12 +26,9 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
 use std::hash::Hasher;
-use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use threadpool::ThreadPool;
 
 pub mod api;
 pub mod cli;
@@ -46,6 +46,7 @@ use engine::template::cluster::cluster_templates;
 pub struct MatchedResult {
   // 标题集合,相同路径但是不同请求，请求头和
   title: HashSet<String>,
+  length: usize,
   #[serde(with = "http_serde::option::status_code")]
   // 最新状态码
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -78,18 +79,22 @@ impl MatchedResult {
 
   fn update_matched(&mut self, result: &FingerprintResult) {
     let response = result.response().unwrap_or_default();
-    let title = response.text().ok().and_then(|text| extract_title(&text));
+    let text = response.text().unwrap_or_default();
+    let title = extract_title(&text);
     let status_code = response.status_code();
     if self.status.is_none() {
       self.status = Some(status_code);
+    }
+    if self.length < text.len() {
+      self.length = text.len()
     }
     if let Some(t) = title {
       self.title.insert(t.clone());
       self.status = Some(status_code);
     }
-    if self.certificate.is_none() {
-      self.certificate = response.certificate().map(X509Certificate::new);
-    }
+    // if self.certificate.is_none() {
+    //   self.certificate = None;
+    // }
     if let Some(fav) = response.extensions().get::<BTreeMap<String, FaviconMap>>() {
       self.favicon.extend(fav.clone());
     }
@@ -212,7 +217,7 @@ impl ClusterExecuteRunner {
 
 // 处理http的探针
 impl ClusterExecuteRunner {
-  fn http(
+  async fn http(
     &mut self,
     config: &ObserverWardConfig,
     cluster: &ClusterExecute,
@@ -235,12 +240,12 @@ impl ClusterExecuteRunner {
       for request in generator {
         debug!("{}{:#?}", Emoji("📤", ""), request);
         let response = match self.cache.entry(self.get_request_hash(&request)) {
-          Entry::Vacant(v) => v.insert(client.execute(request.clone())?),
+          Entry::Vacant(v) => v.insert(client.execute(request.clone()).await?),
           Entry::Occupied(o) => o.into_mut(),
         };
         debug!("{}{:#?}", Emoji("📥", ""), response);
         // 提取icon
-        http_record.find_favicon_tag(response);
+        http_record.find_favicon_tag(response).await;
         let mut flag = false;
         let mut result = FingerprintResult::new(response);
         cluster
@@ -271,47 +276,34 @@ impl ClusterExecuteRunner {
 // 处理tcp的探针
 impl ClusterExecuteRunner {
   // 单个tcp
-  fn tcp(&mut self, config: &ObserverWardConfig, cluster: &ClusterExecute) -> Result<bool> {
+  async fn tcp(&mut self, config: &ObserverWardConfig, cluster: &ClusterExecute) -> Result<bool> {
     // 服务指纹识别，实验功能
     let mut flag = false;
     for tcp in cluster.requests.tcp.iter() {
       let conn_builder = config.tcp_client_builder();
-      let mut socket = conn_builder.build()?.connect_with_uri(&self.target)?;
-      socket.set_nonblocking(true).unwrap_or_default();
+      let timeout = Duration::from_secs(config.timeout / 2);
+      let mut socket = conn_builder
+        .read_timeout(Some(timeout))
+        .write_timeout(Some(timeout))
+        .build()?
+        .connect_with_uri(&self.target)
+        .await?;
       for input in tcp.inputs.iter() {
         let data = input.data();
         let request = Request::raw(self.target.clone(), data.clone(), true);
         debug!("{}{:#?}", Emoji("📤", ""), request);
-        socket.write_all(&data).unwrap_or_default();
-        socket.flush().unwrap_or_default();
+        socket.write_all(&data).await.unwrap_or_default();
+        socket.flush().await.unwrap_or_default();
         let mut full = Vec::new();
         let mut buffer = vec![0; 12]; // 定义一个缓冲区
         let mut total_bytes_read = 0;
-        let mut start = Instant::now();
         // http超时对于tcp来说还是太长了
-        let timeout = Duration::from_secs(config.timeout / 2);
-        loop {
-          match socket.read(&mut buffer) {
-            Ok(0) => break, // 如果读取到的数据长度为0，表示对端关闭连接
-            Ok(n) => {
-              full.extend_from_slice(&buffer[..n]);
-              total_bytes_read += n;
-              // 当有读取到数据的时候重置计时器
-              start = Instant::now();
-            }
-            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-              // 如果没有数据可读，但超时尚未到达，可以在这里等待或重试
-              // 当已经有数据了或者触发超时就跳出循环，防止防火墙一直把会话挂着不释放
-              if total_bytes_read > 0 || start.elapsed() > timeout {
-                break;
-              }
-              std::thread::sleep(Duration::from_micros(100));
-            }
-            Err(_e) => {
-              // 处理其他错误
-              break;
-            }
+        while let Ok(n) = socket.read(&mut buffer).await {
+          if n == 0 {
+            break;
           }
+          full.extend_from_slice(&buffer[..n]);
+          total_bytes_read += n;
           // 检查是否读取到了全部数据，如果是，则退出循环
           if total_bytes_read >= input.read.unwrap_or(2048) {
             break;
@@ -389,29 +381,34 @@ impl ObserverWard {
       cluster_type,
     })
   }
-  pub fn execute(self: Arc<Self>, tx: Sender<BTreeMap<String, MatchedResult>>) {
+  pub async fn execute(self: Arc<Self>, tx: UnboundedSender<BTreeMap<String, MatchedResult>>) {
     let input = self.config.input();
     info!(
       "{}target loaded: {}",
       Emoji("🎯", ""),
       style(input.len()).blue()
     );
-    let pool = ThreadPool::new(self.config.thread);
-    for target in input.into_iter() {
-      let tx = tx.clone();
-      // 使用计数减少内存克隆
-      let self_arc = Arc::clone(&self);
-      pool.execute(move || {
-        tx.send(self_arc.run(target)).unwrap_or_default();
-      });
+    let mut worker = FuturesUnordered::new();
+    let mut targets = input.into_iter();
+    for _ in 0..self.config.thread {
+      if let Some(u) = targets.next() {
+        worker.push(self.run(u));
+      } else {
+        break;
+      }
     }
-    pool.join();
+    while let Some(result) = worker.next().await {
+      if let Some(u) = targets.next() {
+        worker.push(self.run(u));
+      }
+      tx.unbounded_send(result).unwrap_or_default();
+    }
   }
-  fn http(&self, runner: &mut ClusterExecuteRunner) {
+  async fn http(&self, runner: &mut ClusterExecuteRunner) {
     // TODO： 可以考虑加个多线程
     let mut http_record = HttpRecord::new(self.config.http_client_builder());
     for (index, clusters) in self.cluster_type.web_default.iter().enumerate() {
-      if let Err(err) = runner.http(&self.config, clusters, &mut http_record) {
+      if let Err(err) = runner.http(&self.config, clusters, &mut http_record).await {
         debug!("{}:{}", Emoji("💢", ""), err);
         // 首页访问失败
         if index == 0 {
@@ -420,7 +417,7 @@ impl ObserverWard {
       }
     }
     for (index, clusters) in self.cluster_type.web_other.iter().enumerate() {
-      if let Err(err) = runner.http(&self.config, clusters, &mut http_record) {
+      if let Err(err) = runner.http(&self.config, clusters, &mut http_record).await {
         debug!("{}:{}", Emoji("💢", ""), err);
         // 第一次访问失败
         if index == 0 {
@@ -465,7 +462,7 @@ impl ObserverWard {
     }
   }
   // 根据端口优先选择探针
-  fn tcp(&self, runner: &mut ClusterExecuteRunner) {
+  async fn tcp(&self, runner: &mut ClusterExecuteRunner) {
     let (mut include, mut exclude) = (Vec::new(), Vec::new());
     let port = if let Some(port) = runner.target.port_u16() {
       port
@@ -493,17 +490,17 @@ impl ObserverWard {
     // 先跑有匹配到端口的，如果有匹配到就不跑其他的冷门指纹
     // TODO： 可以考虑加个多线程
     for clusters in include {
-      if let Ok(flag) = runner.tcp(&self.config, clusters) {
+      if let Ok(flag) = runner.tcp(&self.config, clusters).await {
         if flag {
           break;
         }
       }
     }
     for clusters in exclude {
-      runner.tcp(&self.config, clusters).unwrap_or_default();
+      runner.tcp(&self.config, clusters).await.unwrap_or_default();
     }
   }
-  pub fn run(&self, target: Uri) -> BTreeMap<String, MatchedResult> {
+  pub async fn run(&self, target: Uri) -> BTreeMap<String, MatchedResult> {
     debug!("{}: {}", Emoji("🚦", "start"), target);
     let mut runner = ClusterExecuteRunner::new(&target);
     match target.scheme_str() {
@@ -511,25 +508,25 @@ impl ObserverWard {
         // 如果没有协议尝试https和http
         match self.config.clone().mode.unwrap_or_default() {
           Mode::ALL => {
-            self.handle_tcp_mode(&mut runner, &target);
-            self.handle_http_mode(&mut runner, &target);
+            self.handle_tcp_mode(&mut runner, &target).await;
+            self.handle_http_mode(&mut runner, &target).await;
           }
-          Mode::TCP => self.handle_tcp_mode(&mut runner, &target),
-          Mode::HTTP => self.handle_http_mode(&mut runner, &target),
+          Mode::TCP => self.handle_tcp_mode(&mut runner, &target).await,
+          Mode::HTTP => self.handle_http_mode(&mut runner, &target).await,
         }
       }
       // 只跑web指纹
       Some("http") | Some("https") => {
-        self.http(&mut runner);
+        self.http(&mut runner).await;
       }
       // 只跑服务指纹
       Some("tcp") | Some("tls") => {
         if let Some(tcp) = &self.cluster_type.tcp_default {
-          if let Err(_err) = runner.tcp(&self.config, tcp) {
+          if let Err(_err) = runner.tcp(&self.config, tcp).await {
             return runner.matched_result;
           }
         }
-        self.tcp(&mut runner);
+        self.tcp(&mut runner).await;
       }
       // 跳过
       _ => {}
@@ -548,12 +545,12 @@ impl ObserverWard {
     debug!("{}: {}", Emoji("🔚", "end"), target);
     runner.matched_result
   }
-  fn handle_http_mode(&self, runner: &mut ClusterExecuteRunner, target: &Uri) {
+  async fn handle_http_mode(&self, runner: &mut ClusterExecuteRunner, target: &Uri) {
     let schemes = vec!["https", "http"];
     for scheme in schemes {
       if let Ok(http_target) = set_uri_scheme(scheme, target) {
         runner.target = http_target;
-        self.http(runner);
+        self.http(runner).await;
         if !runner.matched_result.is_empty() {
           break;
         }
@@ -561,15 +558,15 @@ impl ObserverWard {
     }
   }
 
-  fn handle_tcp_mode(&self, runner: &mut ClusterExecuteRunner, target: &Uri) {
+  async fn handle_tcp_mode(&self, runner: &mut ClusterExecuteRunner, target: &Uri) {
     if let Ok(tcp_target) = set_uri_scheme("tcp", target) {
       runner.target = tcp_target;
       if let Some(tcp) = &self.cluster_type.tcp_default {
-        if let Err(_err) = runner.tcp(&self.config, tcp) {
+        if let Err(_err) = runner.tcp(&self.config, tcp).await {
           return;
         }
       }
-      self.tcp(runner);
+      self.tcp(runner).await;
     }
   }
 }

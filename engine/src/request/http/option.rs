@@ -62,7 +62,7 @@ impl HttpOption {
       .danger_accept_invalid_hostnames(true)
       .cookie_store(self.cookie_reuse)
       .redirect(redirect)
-      .min_tls_version(Some(slinger::native_tls::Protocol::Tlsv10))
+      .min_tls_version(Some(slinger::tls::Version::TLS_1_0))
       .user_agent(HeaderValue::from_static(
         "Mozilla/5.0 (X11; Linux x86_64; rv:123.0) Gecko/20100101 Firefox/123.0",
       ))

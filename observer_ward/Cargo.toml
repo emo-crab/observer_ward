@@ -17,21 +17,21 @@ serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 serde_json = "1"
 dirs = "6.0.0"
-threadpool = "1.8.1"
+futures = { version = "0.3.31" }
+uuid = { version = "1.11.0", features = ["v4"] }
 thiserror = "2"
 env_logger = { version = "0.11.6", default-features = false, features = [
-  "auto-color",
+    "auto-color",
 ] }
 log = "0.4.26"
 console = "0.15.10"
 zip = { version = "2.3.0", default-features = false, features = ["deflate"] }
 actix-web-httpauth = "0.8.1"
 actix-web = { version = "4.9.0", default-features = false, features = [
-  "macros",
-  "compress-gzip",
-  "openssl",
+    "macros",
+    "compress-gzip",
 ] }
-openssl = { version = "0.10", features = ["vendored"] }
+tokio = { version = "1.38.0", features = ["macros", "rt", "rt-multi-thread"], default-features = false }
 [target.'cfg(target_os="windows")'.build-dependencies]
 winres = "0.1"
 [target.'cfg(not(target_os = "windows"))'.dependencies]
@@ -47,7 +47,7 @@ priority = "optional"
 assets = [["target/release/observer_ward", "usr/bin/", "755"]]
 [package.metadata.generate-rpm]
 assets = [
-  { source = "target/release/observer_ward", dest = "/usr/bin/observer_ward", mode = "0755" },
+    { source = "target/release/observer_ward", dest = "/usr/bin/observer_ward", mode = "0755" },
 ]
 
 [[bin]]

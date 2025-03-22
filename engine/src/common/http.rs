@@ -18,7 +18,9 @@ pub struct HttpRecord {
   favicon: BTreeMap<String, FaviconMap>,
   client_builder: ClientBuilder,
 }
+unsafe impl Send for HttpRecord {
 
+}
 impl HttpRecord {
   pub fn new(client_builder: ClientBuilder) -> Self {
     Self {
@@ -28,10 +30,10 @@ impl HttpRecord {
       client_builder,
     }
   }
-  fn fetch_favicon_hash(&mut self, url: &String) -> Option<FaviconMap> {
+  async fn fetch_favicon_hash(&mut self, url: &String) -> Option<FaviconMap> {
     self.skip.insert(url.to_string());
     let client = self.client_builder.clone().build().unwrap_or_default();
-    if let Ok(resp) = client.get(url).send().map_err(Error::Http) {
+    if let Ok(resp) = client.get(url).send().await.map_err(Error::Http) {
       if resp.status_code().as_u16() != 200
         || (if let Some(b) = resp.body() {
           !is_image(resp.headers(), b)
@@ -50,7 +52,7 @@ impl HttpRecord {
     }
     None
   }
-  pub fn find_favicon_tag(&mut self, response: &mut Response) {
+  pub async fn find_favicon_tag(&mut self, response: &mut Response) {
     // || self.response.status_code() > response.status_code()
     if self.response.uri() == "/" {
       self.response = response.clone();
@@ -62,7 +64,7 @@ impl HttpRecord {
         continue;
       }
       // 当图标404时，没有命中缓存，默认返回空字符串，需要判断一下
-      if let Some(hash) = self.fetch_favicon_hash(&link) {
+      if let Some(hash) = self.fetch_favicon_hash(&link).await {
         self.favicon.insert(link, hash);
       }
     }

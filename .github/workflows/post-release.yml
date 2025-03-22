@@ -118,12 +118,10 @@ jobs:
         shell: bash
         run: |
           choco config set cacheLocation "${{ github.workspace }}\choco-cache"
-          choco install llvm openssl
           export CARGO_PKG_VERSION=`date +'%-Y.%-m.%-d'`
           sed -i -e "s/^version = .*/version = \"`date +'%-Y.%-m.%-d'`\"/" observer_ward/Cargo.toml
           sed -i -e "s/\"observer_ward version\"/\"observer_ward v`date +'%-Y.%-m.%-d'`\"/" observer_ward/src/cli.rs
           echo "CARGO_PKG_VERSION=`date +'%Y.%m.%d'`" >>$GITHUB_ENV
-          echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" >>$GITHUB_ENV
           echo "RUSTFLAGS=-C target-feature=+crt-static" >>$GITHUB_ENV
       - name: Install packages (Macos)
         if: matrix.os == 'macos-latest'

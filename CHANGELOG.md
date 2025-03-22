@@ -1,6 +1,14 @@
 # Change Log
 
 <!-- next-header -->
+## [2025.3.23] - 2025.3.23
+
+### Fixes
+
+- 更新[slinger](https://github.com/emo-crab/slinger)，把之前的线程池修改为异步
+- 添加`length`和`extractor`到csv表格
+- 修改`body`调试为十六进制字符串
+- 删除openssl依赖
 
 ## [2025.3.3] - 2025.3.3
 

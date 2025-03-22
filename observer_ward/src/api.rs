@@ -8,12 +8,12 @@ use console::{style, Emoji};
 #[cfg(not(target_os = "windows"))]
 use daemonize::Daemonize;
 use engine::execute::ClusterType;
-use engine::slinger::openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslFiletype, SslMethod};
+use futures::channel::mpsc::unbounded;
+use futures::StreamExt;
 use log::{error, info};
 use std::collections::BTreeMap;
-use std::sync::mpsc::channel;
+use std::ops::Deref;
 use std::sync::RwLock;
-use std::thread;
 
 #[derive(Clone, Debug)]
 struct TokenAuth {
@@ -46,27 +46,32 @@ async fn what_web_api(
   config.proxy = cli_config.proxy.clone();
   config.nuclei_args = cli_config.nuclei_args.clone();
   let webhook = config.webhook.is_some();
-  if let Ok(cl) = cl.read() {
-    let output = Output::new(&config);
-    let (tx, rx) = channel();
-    let cl = cl.clone();
-    thread::spawn(move || {
-      ObserverWard::new(&config, cl).execute(tx);
-    });
-    if webhook {
-      // 异步识别任务，通过webhook返回结果
-      rt::spawn(async move {
-        for r in rx {
-          output.webhook_results(vec![r]);
-        }
-      });
-      HttpResponse::Ok().finish()
+  let cl = {
+    if let Ok(cl_guard) = cl.read() {
+      cl_guard.deref().clone()
     } else {
-      let results: Vec<BTreeMap<String, MatchedResult>> = rx.iter().collect();
-      HttpResponse::Ok().json(results)
+      ClusterType::default()
     }
+  };
+  let output = Output::new(&config);
+  let (tx, mut rx) = unbounded();
+  tokio::task::spawn(async move {
+    ObserverWard::new(&config, cl).execute(tx).await;
+  });
+  if webhook {
+    // 异步识别任务，通过webhook返回结果
+    rt::spawn(async move {
+      while let Some(r) = rx.next().await {
+        output.webhook_results(vec![r]).await;
+      }
+    });
+    HttpResponse::Ok().finish()
   } else {
-    HttpResponse::InternalServerError().finish()
+    let mut results: Vec<BTreeMap<String, MatchedResult>> = Vec::new();
+    while let Some(result) = rx.next().await {
+      results.push(result)
+    }
+    HttpResponse::Ok().json(results)
   }
 }
 
@@ -82,10 +87,10 @@ async fn set_config_api(
   }
   let helper = Helper::new(&config);
   if config.update_fingerprint {
-    helper.update_fingerprint();
+    helper.update_fingerprint().await;
   }
   if config.update_plugin {
-    helper.update_plugins();
+    helper.update_plugins().await;
   }
   if let Ok(mut cl) = cl.write() {
     let templates = config.templates();
@@ -139,7 +144,6 @@ pub fn api_server(
     token: config.token.clone(),
   });
   let token = config.token.clone();
-  let ssl = get_ssl_config(&config);
   let http_server = HttpServer::new(move || {
     App::new()
       .wrap(middleware::Logger::default())
@@ -157,19 +161,10 @@ pub fn api_server(
       http_server.bind_uds(u)?,
       "http://localhost/v1/observer_ward".to_string(),
     ),
-    UnixSocketAddr::SocketAddr(sa) => {
-      if let Ok(ssl_config) = ssl {
-        (
-          http_server.bind_openssl(sa, ssl_config)?,
-          format!("https://{}/v1/observer_ward", listening_address),
-        )
-      } else {
-        (
-          http_server.bind(sa)?,
-          format!("http://{}/v1/observer_ward", listening_address),
-        )
-      }
-    }
+    UnixSocketAddr::SocketAddr(sa) => (
+      http_server.bind(sa)?,
+      format!("http://{}/v1/observer_ward", listening_address),
+    ),
   };
   print_help(&url, token, listening_address);
   rt::System::new().block_on(http_server.workers(config.thread).run())
@@ -210,17 +205,6 @@ fn print_help(url: &str, t: Option<String>, listening_address: &UnixSocketAddr) 
   let result = r#"[result...]"#;
   info!("{}:{}", Emoji("📔", ""), style(api_doc).green());
   info!("{}:{}", Emoji("🗳", ""), style(result).green());
-}
-
-fn get_ssl_config(
-  config: &ObserverWardConfig,
-) -> Result<SslAcceptorBuilder, engine::slinger::openssl::error::ErrorStack> {
-  let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
-  let key_path = config.config_dir.join("key.pem");
-  let cert_path = config.config_dir.join("cert.pem");
-  builder.set_private_key_file(key_path, SslFiletype::PEM)?;
-  builder.set_certificate_chain_file(cert_path)?;
-  Ok(builder)
 }
 
 #[cfg(not(target_os = "windows"))]

@@ -13,7 +13,7 @@ impl<'a> Helper<'a> {
   pub fn new(config: &'a ObserverWardConfig) -> Self {
     Self { config }
   }
-  pub fn update_fingerprint(&self) {
+  pub async fn update_fingerprint(&self) {
     let fingerprint_path = self.config.config_dir.join("web_fingerprint_v4.json");
     let urls = vec!["https://0x727.github.io/FingerprintHub/web_fingerprint_v4.json"];
     for url in urls {
@@ -22,14 +22,14 @@ impl<'a> Helper<'a> {
         fingerprint_path
           .to_str()
           .unwrap_or("web_fingerprint_v4.json"),
-      ) {
+      ).await {
         error!("{}update fingerprint err: {}", Emoji("💢", ""), err);
         continue;
       } else {
         break;
       };
     }
-    if let Ok(f) = std::fs::File::open(&fingerprint_path) {
+    if let Ok(f) = File::open(&fingerprint_path) {
       match serde_json::from_reader::<File, Vec<Template>>(f) {
         Ok(ts) => {
           info!(
@@ -50,7 +50,7 @@ impl<'a> Helper<'a> {
       }
     }
   }
-  fn download_file_from_github(
+  async fn download_file_from_github(
     &self,
     download_url: &str,
     filename: &str,
@@ -58,7 +58,7 @@ impl<'a> Helper<'a> {
     let mut client_builder = self.config.http_client_builder();
     client_builder = client_builder.redirect(engine::slinger::redirect::Policy::Limit(10));
     let client = client_builder.build().unwrap_or_default();
-    match client.get(download_url).send() {
+    match client.get(download_url).send().await {
       Ok(response) => match File::create(filename) {
         Ok(mut f) => {
           if !response.status_code().is_success() {
@@ -87,7 +87,7 @@ impl<'a> Helper<'a> {
     }
     Ok(())
   }
-  pub fn update_self(&self) {
+  pub async fn update_self(&self) {
     // https://doc.rust-lang.org/reference/conditional-compilation.html
     let mut base_url =
       String::from("https://github.com/emo-crab/observer_ward/releases/download/defaultv4/");
@@ -107,7 +107,7 @@ impl<'a> Helper<'a> {
     };
     base_url.push_str(download_name);
     let save_filename = "update_".to_owned() + download_name;
-    match self.download_file_from_github(&base_url, &save_filename) {
+    match self.download_file_from_github(&base_url, &save_filename).await {
       Ok(_) => {
         info!(
           "{} please rename the file {} => {}",
@@ -121,12 +121,12 @@ impl<'a> Helper<'a> {
       }
     };
   }
-  pub fn update_plugins(&self) {
+  pub async fn update_plugins(&self) {
     let plugins_zip_path = self.config.config_dir.join("plugins.zip");
     if let Err(err) = self.download_file_from_github(
       "https://github.com/0x727/FingerprintHub/releases/download/defaultv4/plugins.zip",
       plugins_zip_path.to_str().unwrap_or("plugins.zip"),
-    ) {
+    ).await {
       error!("{}{}", Emoji("💢", ""), err);
       return;
     };
@@ -160,21 +160,21 @@ impl<'a> Helper<'a> {
     };
   }
 
-  pub fn run(&self) {
+  pub async fn run(&self) {
     if self.config.update_fingerprint {
-      self.update_fingerprint();
+      self.update_fingerprint().await;
       std::process::exit(0);
     }
     if self.config.update_self {
-      self.update_self();
+      self.update_self().await;
       std::process::exit(0);
     }
     if self.config.update_plugin {
-      self.update_plugins();
+      self.update_plugins().await;
       std::process::exit(0);
     }
     if let (Some(ts), Some(save_path)) = (&self.config.yaml_probes(), &self.config.probe_path) {
-      if let Ok(f) = std::fs::File::create(save_path) {
+      if let Ok(f) = File::create(save_path) {
         serde_json::to_writer(f, ts).unwrap_or_default();
         info!(
           "{}convert the {} yaml file of the probe directory to a json file {}",

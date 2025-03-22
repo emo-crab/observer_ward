@@ -7,7 +7,7 @@ use engine::slinger::http::header::HeaderValue;
 use engine::slinger::http::Uri;
 use engine::slinger::http_serde;
 use engine::slinger::redirect::Policy;
-use engine::slinger::{openssl, ClientBuilder, ConnectorBuilder, Proxy};
+use engine::slinger::{ClientBuilder, ConnectorBuilder, Proxy};
 use engine::template::Template;
 use log::{error, warn};
 use serde::{Deserialize, Serialize};
@@ -223,24 +223,10 @@ pub struct ObserverWardConfig {
 }
 
 fn default_token() -> Option<String> {
-  let hasher = openssl::hash::Hasher::new(openssl::hash::MessageDigest::md5());
-  if let Ok(mut h) = hasher {
-    let mut test_bytes = vec![0u8; 32];
-    openssl::rand::rand_bytes(&mut test_bytes).unwrap_or_default();
-    h.update(&test_bytes).unwrap_or_default();
-    if let Ok(bytes) = h.finish() {
-      let hex: String = bytes
-        .iter()
-        .map(|b| format!("{:02x}", b))
-        .collect::<Vec<String>>()
-        .join("");
-      return Some(hex);
-    }
-  }
-  None
+  Some(uuid::Uuid::new_v4().to_string())
 }
 
-pub fn default_config() -> PathBuf {
+fn default_config() -> PathBuf {
   if let Some(cp) = dirs::config_dir() {
     let observer_ward = cp.join("observer_ward");
     if !observer_ward.is_dir() || !observer_ward.exists() {
@@ -248,12 +234,12 @@ pub fn default_config() -> PathBuf {
     }
     observer_ward
   } else {
-    std::env::current_dir().expect("config path err")
+    current_dir().expect("config path err")
   }
 }
 
 fn default_thread() -> usize {
-  std::thread::available_parallelism().map_or(12, |x| x.get() * 4)
+  std::thread::available_parallelism().map_or(16, |x| x.get() * 4)
 }
 
 fn uri(value: &str) -> Result<Uri, String> {
@@ -327,7 +313,7 @@ impl ObserverWardConfig {
     let mut client_builder = ClientBuilder::new()
       .danger_accept_invalid_certs(true)
       .danger_accept_invalid_hostnames(true)
-      .min_tls_version(Some(engine::slinger::native_tls::Protocol::Tlsv10))
+      .min_tls_version(Some(engine::slinger::tls::Version::TLS_1_0))
       .redirect(Policy::Custom(engine::common::http::js_redirect))
       .timeout(Some(Duration::from_secs(self.timeout)));
     if let Ok(ua) = HeaderValue::from_str(&self.ua) {
@@ -389,7 +375,7 @@ impl ObserverWardConfig {
       return ts;
     }
     if let Some(fp) = &self.probe_path {
-      if let Ok(f) = std::fs::File::open(fp) {
+      if let Ok(f) = File::open(fp) {
         let ext = fp.extension().and_then(|x| x.to_str()).unwrap_or_default();
         match ext {
           "json" => {
@@ -421,7 +407,7 @@ impl ObserverWardConfig {
             self.config_dir.join(path)
           }
         });
-        if let Ok(f) = std::fs::File::open(&fingerprint_path) {
+        if let Ok(f) = File::open(&fingerprint_path) {
           match serde_json::from_reader::<File, Vec<_>>(f) {
             Ok(t) => {
               templates.extend(t);
@@ -443,7 +429,7 @@ impl ObserverWardConfig {
 }
 
 fn has_nuclei_app() -> bool {
-  return if cfg!(target_os = "windows") {
+  if cfg!(target_os = "windows") {
     Command::new("nuclei.exe")
       .args(["-version"])
       .stdin(Stdio::null())
@@ -455,5 +441,5 @@ fn has_nuclei_app() -> bool {
       .stdin(Stdio::null())
       .output()
       .is_ok()
-  };
+  }
 }

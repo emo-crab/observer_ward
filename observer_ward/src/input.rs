@@ -12,12 +12,12 @@ where
 
 pub fn read_file_to_target(file_path: &PathBuf) -> Vec<String> {
   if let Ok(lines) = read_lines(file_path) {
-    return lines.map_while(std::result::Result::ok).collect();
+    return lines.map_while(Result::ok).collect();
   }
   vec![]
 }
 
-pub fn read_from_stdio() -> std::result::Result<Vec<String>, std::io::Error> {
+pub fn read_from_stdio() -> Result<Vec<String>, std::io::Error> {
   let (tx, rx) = std::sync::mpsc::channel::<String>();
   let mut stdin = std::io::stdin();
   if stdin.is_terminal() {

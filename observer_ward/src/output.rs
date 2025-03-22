@@ -42,7 +42,7 @@ impl Output {
       }
     };
     if let OutputFormat::CSV = output_format {
-      writeln!(writer, "url,name,title,status_code,nuclei").unwrap_or_default();
+      writeln!(writer, "url,name,title,length,status_code,nuclei,extractor").unwrap_or_default();
     }
     Self {
       config: config.clone(),
@@ -100,14 +100,23 @@ impl Output {
                 .collect::<Vec<String>>()
             })
             .collect();
+          let extractor = mr
+            .fingerprint()
+            .iter()
+            .flat_map(|fp| fp.extractor())
+            .map(|(k, s)| format!("{}: {}", k, set_to_string(&s)))
+            .collect::<Vec<String>>()
+            .join(";");
           writeln!(
             self.writer,
-            "{},\"{}\",\"{}\",{},\"{}\"",
+            "{},\"{}\",\"{}\",{},{},\"{}\",\"{}\"",
             uri,
             app.join(";").trim(),
             set_to_string(&mr.title),
+            mr.length,
             mr.status.map_or(0, |x| x.as_u16()),
-            nuclei.join(";").trim()
+            nuclei.join(";").trim(),
+            extractor,
           )
           .unwrap_or_default();
         }
@@ -115,7 +124,7 @@ impl Output {
     }
     self.writer.flush().unwrap_or_default();
   }
-  pub fn webhook_results(&self, result: Vec<BTreeMap<String, MatchedResult>>) {
+  pub async fn webhook_results(&self, result: Vec<BTreeMap<String, MatchedResult>>) {
     if let Some(webhook_url) = &self.config.webhook {
       let mut headers = header::HeaderMap::new();
       headers.insert(
@@ -138,7 +147,11 @@ impl Output {
         .build()
         .unwrap_or_default();
       let what_web_result_json = serde_json::to_string(&result).unwrap_or("[]".to_string());
-      let _: Result<_, _> = client.post(webhook_url).body(what_web_result_json).send();
+      let _: Result<_, _> = client
+        .post(webhook_url)
+        .body(what_web_result_json)
+        .send()
+        .await;
     }
   }
 }
@@ -171,6 +184,7 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &BTreeMap<String, Mat
       write!(writer, "{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
       write!(writer, " [{}] ", style(set_to_string(&apps)).green()).unwrap_or_default();
       write!(writer, " <{}>", set_to_string(mr.title())).unwrap_or_default();
+      write!(writer, " <{}>", mr.length).unwrap_or_default();
       if let Some(csc) = &osc {
         write!(writer, " ({}) ", csc).unwrap_or_default();
       }
