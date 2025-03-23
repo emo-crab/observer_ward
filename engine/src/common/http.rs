@@ -4,6 +4,7 @@ use crate::error::Error;
 use crate::matchers::FaviconMap;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
+use fancy_regex::Regex;
 use md5::{Digest, Md5};
 use mime::Mime;
 use slinger::http::header;
@@ -11,6 +12,8 @@ use slinger::http::header::HeaderMap;
 use slinger::{Body, ClientBuilder, Response};
 use std::collections::{BTreeMap, HashSet};
 use std::str::FromStr;
+use std::sync::OnceLock;
+
 #[derive(Debug, Clone)]
 pub struct HttpRecord {
   response: Response,
@@ -18,9 +21,7 @@ pub struct HttpRecord {
   favicon: BTreeMap<String, FaviconMap>,
   client_builder: ClientBuilder,
 }
-unsafe impl Send for HttpRecord {
-
-}
+unsafe impl Send for HttpRecord {}
 impl HttpRecord {
   pub fn new(client_builder: ClientBuilder) -> Self {
     Self {
@@ -145,8 +146,9 @@ fn is_image(headers: &HeaderMap, body: &Body) -> bool {
     ct
   }
 }
-
+static RE: OnceLock<Regex> = OnceLock::new();
 fn get_favicon_link(response: &Response) -> HashSet<String> {
+  let re = RE.get_or_init(|| Regex::new(r#"(?im)-\d{1,3}x\d{1,3}"#).expect("RE_COMPILE_ERROR"));
   let base_url = response.uri();
   let text = response.text().unwrap_or_default();
   let mut icon_links = HashSet::new();
@@ -166,6 +168,9 @@ fn get_favicon_link(response: &Response) -> HashSet<String> {
             .and_then(|x| x.and_then(|x| x.try_as_utf8_str()))
         });
         if let Some(path) = href {
+          if re.is_match(path).unwrap_or_default() {
+            continue;
+          }
           if path.starts_with("http://") || path.starts_with("https://") {
             icon_links.insert(path.to_string());
           } else {
