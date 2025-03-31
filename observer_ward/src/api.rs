@@ -122,7 +122,7 @@ async fn get_config_api(
   HttpResponse::Ok().json(config.clone())
 }
 
-pub fn api_server(
+pub async fn api_server(
   listening_address: &UnixSocketAddr,
   config: ObserverWardConfig,
 ) -> std::io::Result<()> {
@@ -167,7 +167,7 @@ pub fn api_server(
     ),
   };
   print_help(&url, token, listening_address);
-  rt::System::new().block_on(http_server.workers(config.thread).run())
+  http_server.workers(config.thread).run().await
 }
 
 fn print_help(url: &str, t: Option<String>, listening_address: &UnixSocketAddr) {
