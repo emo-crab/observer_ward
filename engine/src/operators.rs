@@ -44,7 +44,7 @@ impl Operators {
       };
       let (extract_result, version) = match &extractor.extractor_type {
         ExtractorType::Regex(re) => extractor.extract_regex(re, words, &version),
-        ExtractorType::JSON(json) => extractor.extrat_json(json, words),
+        ExtractorType::JSON(json) => extractor.extract_json(json, words),
         ExtractorType::KVal(..) | ExtractorType::XPath(..) | ExtractorType::DSL(..) => {
           (HashSet::new(), BTreeMap::new())
         }

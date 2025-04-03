@@ -5,7 +5,6 @@ use crate::serde_format::is_default;
 use jsonpath_rust::JsonPath;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
-use std::str::FromStr;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -45,24 +44,22 @@ impl Extractor {
     }
     Ok(())
   }
-  pub fn extrat_json(
+  pub fn extract_json(
     &self,
     json_path: &JsonPathQuery,
     corpus: String,
   ) -> (HashSet<String>, BTreeMap<String, String>) {
     let mut extract_result = HashSet::new();
-    let json = if let Ok(x) = serde_json::from_str(&corpus) {
+    let json: serde_json::Value = if let Ok(x) = serde_json::from_str(&corpus) {
       x
     } else {
       return (extract_result, BTreeMap::new());
     };
     for path in json_path.json.iter() {
-      if let Ok(p) = JsonPath::from_str(path) {
-        if let serde_json::Value::Array(array) = p.find(&json) {
-          for v in array {
-            extract_result.insert(v.to_string());
-          }
-        };
+      if let Ok(array) = json.query(path) {
+        for v in array {
+          extract_result.insert(v.to_string());
+        }
       }
     }
     (extract_result, BTreeMap::new())
