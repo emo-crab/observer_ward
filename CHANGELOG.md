@@ -1,6 +1,12 @@
 # Change Log
 
 <!-- next-header -->
+## [2025.4.6] - 2025.4.6
+
+### Fixes
+
+- fix socks5 proxy tls
+
 ## [2025.3.31] - 2025.3.31
 
 ### Fixes
