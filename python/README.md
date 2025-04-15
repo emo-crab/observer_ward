@@ -4,9 +4,7 @@ Python绑定库，用于web技术指纹识别。这是[ObserverWard](https://git
 
 ## 安装
 
-```bash
-pip install observer-ward
-```
+- 请看 [BUILDING.md](BUILDING.md)文件
 
 ## 用法
 
