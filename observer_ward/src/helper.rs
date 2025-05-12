@@ -17,12 +17,15 @@ impl<'a> Helper<'a> {
     let fingerprint_path = self.config.config_dir.join("web_fingerprint_v4.json");
     let urls = vec!["https://0x727.github.io/FingerprintHub/web_fingerprint_v4.json"];
     for url in urls {
-      if let Err(err) = self.download_file_from_github(
-        url,
-        fingerprint_path
-          .to_str()
-          .unwrap_or("web_fingerprint_v4.json"),
-      ).await {
+      if let Err(err) = self
+        .download_file_from_github(
+          url,
+          fingerprint_path
+            .to_str()
+            .unwrap_or("web_fingerprint_v4.json"),
+        )
+        .await
+      {
         error!("{}update fingerprint err: {}", Emoji("💢", ""), err);
         continue;
       } else {
@@ -107,7 +110,10 @@ impl<'a> Helper<'a> {
     };
     base_url.push_str(download_name);
     let save_filename = "update_".to_owned() + download_name;
-    match self.download_file_from_github(&base_url, &save_filename).await {
+    match self
+      .download_file_from_github(&base_url, &save_filename)
+      .await
+    {
       Ok(_) => {
         info!(
           "{} please rename the file {} => {}",
@@ -123,10 +129,13 @@ impl<'a> Helper<'a> {
   }
   pub async fn update_plugins(&self) {
     let plugins_zip_path = self.config.config_dir.join("plugins.zip");
-    if let Err(err) = self.download_file_from_github(
-      "https://github.com/0x727/FingerprintHub/releases/download/defaultv4/plugins.zip",
-      plugins_zip_path.to_str().unwrap_or("plugins.zip"),
-    ).await {
+    if let Err(err) = self
+      .download_file_from_github(
+        "https://github.com/0x727/FingerprintHub/releases/download/defaultv4/plugins.zip",
+        plugins_zip_path.to_str().unwrap_or("plugins.zip"),
+      )
+      .await
+    {
       error!("{}{}", Emoji("💢", ""), err);
       return;
     };

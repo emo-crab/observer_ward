@@ -36,7 +36,8 @@ async fn main() {
     if config.daemon {
       background();
     }
-    api_server(address, config.clone()).await
+    api_server(address, config.clone())
+      .await
       .map_err(|err| error!("start api server err:{}", err))
       .unwrap_or_default();
     std::process::exit(0);

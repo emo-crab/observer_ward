@@ -30,9 +30,9 @@ pub struct GeneralName {
 }
 
 impl Default for X509Certificate {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl X509Certificate {
@@ -95,7 +95,7 @@ impl X509Certificate {
     //     })
     //     .collect(),
     // }
-    X509Certificate{
+    X509Certificate {
       text: "".to_string(),
       pem: vec![],
       public_key: None,
