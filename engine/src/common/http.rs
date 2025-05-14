@@ -91,7 +91,13 @@ impl HttpRecord {
 
 pub fn js_redirect(attempt: slinger::redirect::Attempt) -> slinger::redirect::Action {
   match attempt.default_redirect() {
-    Some(next) => attempt.follow(next),
+    Some(next) => {
+      if attempt.previous().len() > 10 || next.to_string() == attempt.url().to_string() {
+        attempt.stop(next)
+      } else {
+        attempt.follow(next)
+      }
+    }
     None => {
       let body = attempt.response().text().unwrap_or_default();
       match extract_redirect(&body, attempt.response().uri()) {
