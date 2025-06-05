@@ -81,6 +81,8 @@ impl NucleiRunner {
     for args in &config.nuclei_args {
       if let Some((arg, value)) = args.split_once(' ') {
         command.args([arg, value]);
+      } else {
+        command.arg([args]);
       };
     }
     if !config.ir {

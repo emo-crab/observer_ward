@@ -75,7 +75,7 @@
 
 ### 源码安装
 
-- 从源码编译安装，更多可以查看github的action工作流文件 [workflow](https://github.com/emo-crab/observer_ward/blob/main/.github/workflows/post-release.yml)
+- 从源码编译安装，更多可以查看github的action工作流文件 [workflow](.github/workflows/post-release.yml)
 
 ```bash,no-run
 cargo build --release --manifest-path=observer_ward/Cargo.toml
@@ -192,7 +192,7 @@ Options:
 | -o,--output             | 将结果保存到文件，如果文件后缀名是下面格式支持的可以省略`--format`参数                                 |
 | --format                | 输出格式：支持`json`，`csv`和`txt`，在保存文件的时候会根据文件后缀自动识别                            |
 | --no-color              | 禁用颜色输出                                                                   |
-| --nuclei-args           | nuclei的额外参数，会按照空格分割追加到调用nuclei参数，例如：`-es info`,排除info插件                  |
+| --nuclei-args           | nuclei的额外参数，会按照空格分割追加到调用nuclei参数，例如：`-es info`,排除info插件,支持多个             |
 | --silent                | 静默模式，不打印任何信息，常用在命令行管道作为输入源                                               |
 | --debug                 | 开启调试模式，会输出更多信息，包括请求和响应，提取到的图标哈希，nuclei调用命令行等信息                           |
 | --config-dir            | 指定配置文件夹，默认在用户配置文件夹下的`observer_ward`目录                                    |
@@ -208,7 +208,7 @@ Options:
 
 ### 更新指纹库
 
-- 从github下载指纹库，默认只更新web指纹，如果需要加载服务指纹需要自行下载[service_fingerprint_v4.json](https://github.com/0x727/FingerprintHub/blob/main/service_fingerprint_v4.json)
+- 从github下载指纹库，默认只更新web指纹，如果需要加载服务指纹需要自行下载[service_fingerprint_v4.json](https://0x727.github.io/FingerprintHub/service_fingerprint_v4.json)
   到配置文件夹。
 
 - 默认不更新服务指纹
@@ -438,6 +438,12 @@ Press CTRL+C to quit
  |_🐞: [Critical] thinkphp-5023-rce: ThinkPHP 5.0.23 - Remote Code Execution
   |_🔥: http://172.17.0.2/index.php?s=captcha
   |_🐚: curl -X 'POST' -d '_method=__construct&filter[]=phpinfo&method=get&server[REQUEST_METHOD]=1' -H 'Accept: */*' -H 'Accept-Language: en' -H 'Content-Type: application/x-www-form-urlencoded' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Safari/605.1.15 Ddg/17.4' 'http://172.17.0.2/index.php?s=captcha'
+```
+
+- 使用`--nuclei-args`追加nuclei参数，例如：上传结果到云端和排除信息插件
+
+```bash,no-run
+➜  ~ ./observer_ward -t http://172.17.0.2/ --plugin default --nuclei-args "-cloud-upload" --nuclei-args "-es info"
 ```
 
 ### 开启Web服务
