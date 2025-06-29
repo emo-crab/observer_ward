@@ -12,57 +12,70 @@ pub use crate::request::tcp::{Input, PortRange, TCPRequest};
 use crate::serde_format::is_default;
 use rustc_lexer::unescape;
 use serde::{Deserialize, Serialize};
-
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 #[serde(deny_unknown_fields)]
 pub struct Requests {
-  // description: |
-  //   HTTP contains the http request to make in the template.
-  // examples:
-  //   - value: exampleNormalHTTPRequest
-  // RequestsWithHTTP is placeholder(internal) only, and should not be used instead use RequestsHTTP
-  // Deprecated: Use RequestsHTTP instead.
+  ///description: |
+  ///   HTTP contains the http request to make in the template.
+  ///examples:
+  ///   - value: exampleNormalHTTPRequest
+  ///RequestsWithHTTP is placeholder(internal) only, and should not be used instead use RequestsHTTP
+  ///Deprecated: Use RequestsHTTP instead.
   #[serde(alias = "requests", default, skip_serializing_if = "is_default")]
+  #[cfg_attr(feature = "mcp", schemars(
+    title = "http requests to make",
+    description = "HTTP requests to make for the template"
+  ))]
   pub http: Vec<HTTPRequest>,
-  // description: |
-  //   DNS contains the dns request to make in the template
-  // examples:
-  //   - value: exampleNormalDNSRequest
-  // DNS(),
-  // description: |
-  //   File contains the file request to make in the template
-  // examples:
-  //   - value: exampleNormalFileRequest
-  // FILE(),
-  // description: |
-  //   TCP contains the network request to make in the template
-  // examples:
-  //   - value: exampleNormalNetworkRequest
-  // RequestsWithTCP is placeholder(internal) only, and should not be used instead use RequestsNetwork
-  // Deprecated: Use RequestsNetwork instead.
+  ///description: |
+  ///   DNS contains the dns request to make in the template
+  ///examples:
+  ///   - value: exampleNormalDNSRequest
+  ///DNS(),
+  ///description: |
+  ///   File contains the file request to make in the template
+  ///examples:
+  ///   - value: exampleNormalFileRequest
+  ///FILE(),
+  ///description: |
+  ///   TCP contains the network request to make in the template
+  ///examples:
+  ///   - value: exampleNormalNetworkRequest
+  ///RequestsWithTCP is placeholder(internal) only, and should not be used instead use RequestsNetwork
+  ///Deprecated: Use RequestsNetwork instead.
   #[serde(default, skip_serializing_if = "is_default")]
+  #[cfg_attr(feature = "mcp", schemars(
+    title = "network(tcp) requests to make",
+    description = "Network requests to make for the template"
+  ))]
   pub tcp: Vec<TCPRequest>,
-  // description: |
-  //   Headless contains the headless request to make in the template.
+  ///description: |
+  ///   Headless contains the headless request to make in the template.
   #[serde(default, skip_serializing_if = "is_default")]
+  #[cfg_attr(feature = "mcp", schemars(
+    title = "headless requests to make",
+    description = "Headless requests to make for the template"
+  ))]
   pub headless: Vec<HeadlessRequest>,
-  // description: |
-  //   SSL contains the SSL request to make in the template.
-  // SSL(),
-  // description: |
-  //   Websocket contains the Websocket request to make in the template.
-  // WEBSOCKET(),
-  // description: |
-  //   WHOIS contains the WHOIS request to make in the template.
-  // WHOIS(),
-  // description: |
-  //   Code contains code snippets.
+  ///description: |
+  ///   SSL contains the SSL request to make in the template.
+  ///SSL(),
+  ///description: |
+  ///   Websocket contains the Websocket request to make in the template.
+  ///WEBSOCKET(),
+  ///description: |
+  ///   WHOIS contains the WHOIS request to make in the template.
+  ///WHOIS(),
+  ///description: |
+  ///   Code contains code snippets.
   #[serde(default, skip_serializing_if = "is_default")]
+  #[cfg_attr(feature = "mcp", schemars(
+    title = "code snippets to make",
+    description = "Code snippets"
+  ))]
   pub code: Vec<CodeRequest>,
-  // description: |
-  //   Javascript contains the javascript request to make in the template.
-  // JAVASCRIPT(),
 }
 
 impl Requests {

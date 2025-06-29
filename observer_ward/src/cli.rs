@@ -3,8 +3,8 @@ use crate::parse_yaml;
 use argh::FromArgs;
 use console::Emoji;
 use engine::find_yaml_file;
-use engine::slinger::http::header::HeaderValue;
 use engine::slinger::http::Uri;
+use engine::slinger::http::header::HeaderValue;
 use engine::slinger::http_serde;
 use engine::slinger::redirect::Policy;
 use engine::slinger::{ClientBuilder, ConnectorBuilder, Proxy};
@@ -107,7 +107,7 @@ impl FromStr for UnixSocketAddr {
     }
   }
 }
-
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Serialize, Deserialize, Clone, FromArgs)]
 #[argh(description = "observer_ward version")]
 #[serde(rename_all = "kebab-case")]
@@ -211,6 +211,7 @@ pub struct ObserverWardConfig {
   /// send results to webhook server (ex:https://host:port/webhook)
   #[argh(option, from_str_fn(uri))]
   #[serde(default, with = "http_serde::option::uri")]
+  #[cfg_attr(feature = "mcp", schemars(with = "Option<String>"))]
   pub webhook: Option<Uri>,
   /// the auth will be set to the webhook request header AUTHORIZATION
   #[argh(option)]
@@ -220,6 +221,10 @@ pub struct ObserverWardConfig {
   #[argh(option)]
   #[serde(skip)]
   pub api_server: Option<UnixSocketAddr>,
+  /// enable stdio mcp server
+  #[argh(switch)]
+  #[serde(skip)]
+  pub mcp: bool,
 }
 
 fn default_token() -> Option<String> {

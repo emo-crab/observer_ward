@@ -1,42 +1,65 @@
 use crate::request::input_to_byte;
-use crate::serde_format::is_default;
 use crate::serde_format::Value;
+use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
+use slinger::Request;
 use slinger::http::Method;
 use slinger::http_serde;
-use slinger::Request;
 use std::collections::{BTreeMap, VecDeque};
 use std::path::PathBuf;
-
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct Http {
-  // description: |
-  //   Method is the HTTP Request Method.
+  /// description: |
+  ///   Method is the HTTP Request Method.
   #[serde(with = "http_serde::method", default)]
+  #[cfg_attr(feature = "mcp", schemars(
+        with = "String",
+        title = "method is the http request method",
+        description = "Method is the HTTP Request Method",
+  ))]
   pub method: Method,
-  // description: |
-  //   Path contains the path/s for the HTTP requests. It supports variables
-  //   as placeholders.
-  // examples:
-  //   - name: Some example path values
-  //     value: >
-  //       []string{"{{BaseURL}}", "{{BaseURL}}/+CSCOU+/../+CSCOE+/files/file_list.json?path=/sessions"}
+  /// description: |
+  ///   Path contains the path/s for the HTTP requests. It supports variables
+  ///   as placeholders.
+  /// examples:
+  ///   - name: Some example path values
+  ///     value: >
+  ///       []string{"{{BaseURL}}", "{{BaseURL}}/+CSCOU+/../+CSCOE+/files/file_list.json?path=/sessions"}
   #[serde(default)]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "path(s) for the http request",
+      description = "Path(s) to send http requests to",
+      example = r#"&["{{BaseURL}}", "{{BaseURL}}/+CSCOU+/../+CSCOE+/files/file_list.json?path=/sessions"]"#
+    )
+  )]
   pub path: Vec<String>,
-  // description: |
-  //   Body is an optional parameter which contains HTTP Request body.
-  // examples:
-  //   - name: Same Body for a Login POST request
-  //     value: "\"username=test&password=test\""
+  /// description: |
+  ///   Body is an optional parameter which contains HTTP Request body.
+  /// examples:
+  ///   - name: Same Body for a Login POST request
+  ///     value: "\"username=test&password=test\""
   #[serde(default, skip_serializing_if = "is_default")]
+  #[cfg_attr(feature = "mcp", schemars(
+    title = "body is the http request body",
+    description = "Body is an optional parameter which contains HTTP Request body",
+    example = r#"&"username=test&password=test""#
+  ))]
   pub body: Option<String>,
-  // description: |
-  //   Headers contains HTTP Headers to send with the request.
-  // examples:
-  //   - value: |
-  //       map[string]string{"Content-Type": "application/x-www-form-urlencoded", "Content-Length": "1", "Any-Header": "Any-Value"}
+  /// description: |
+  ///   Headers contains HTTP Headers to send with the request.
+  /// examples:
+  ///   - value: |
+  ///       map[string]string{"Content-Type": "application/x-www-form-urlencoded", "Content-Length": "1", "Any-Header": "Any-Value"}
   #[serde(default, skip_serializing_if = "is_default")]
+  #[cfg_attr(feature = "mcp", schemars(
+    title = "headers to send with the http request",
+    description = "Headers contains HTTP Headers to send with the request",
+    example = r#"&[("Content-Type", "application/x-www-form-urlencoded"), ("Content-Length", "1"), ("Any-Header", "Any-Value")]"#
+  ))]
   pub headers: BTreeMap<String, Value>,
 }
 

@@ -1,7 +1,7 @@
 use crate::cli::{Mode, ObserverWardConfig};
 use crate::error::new_io_error;
-use crate::nuclei::{gen_nuclei_tags, NucleiRunner};
-use console::{style, Emoji};
+use crate::nuclei::{NucleiRunner, gen_nuclei_tags};
+use console::{Emoji, style};
 use engine::common::cert::X509Certificate;
 use engine::common::html::extract_title;
 use engine::common::http::HttpRecord;
@@ -9,16 +9,16 @@ use engine::execute::{ClusterExecute, ClusterType};
 use engine::matchers::FaviconMap;
 use engine::request::RequestGenerator;
 use engine::results::{FingerprintResult, NucleiResult};
+use engine::slinger::http::StatusCode;
 use engine::slinger::http::header::HeaderValue;
 use engine::slinger::http::uri::{PathAndQuery, Uri};
-use engine::slinger::http::StatusCode;
 use engine::slinger::redirect::Policy;
-use engine::slinger::{http_serde, Request, Response};
+use engine::slinger::{Request, Response, http_serde};
 use engine::template::Template;
 use error::Result;
+use futures::StreamExt;
 use futures::channel::mpsc::UnboundedSender;
 use futures::stream::FuturesUnordered;
-use futures::StreamExt;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::collections::btree_map::Entry;
@@ -35,31 +35,96 @@ pub mod cli;
 pub mod error;
 pub mod helper;
 pub mod input;
+#[cfg(feature = "mcp")]
+pub mod mcp;
 mod nuclei;
 pub mod output;
 
 use engine::template::cluster::cluster_templates;
 
 // 子路径下面的匹配结果
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct MatchedResult {
-  // 标题集合,相同路径但是不同请求，请求头和
+  /// Collection of detected page titles (unique across different requests to same path)
+  #[cfg_attr(feature = "mcp", schemars(
+    title = "page titles",
+    description = "Unique collection of detected page titles from different requests to same path",
+    example = r#"["Homepage", "Login Page"]"#
+  ))]
   title: HashSet<String>,
+  /// Typical response body length in bytes
+  #[cfg_attr(feature = "mcp", schemars(
+    title = "response length",
+    description = "Typical response body length in bytes",
+    example = 1024
+  ))]
   length: usize,
-  #[serde(with = "http_serde::option::status_code")]
   // 最新状态码
+  #[serde(with = "http_serde::option::status_code")]
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "status code",
+      description = "The HTTP status code indicating the response status",
+      example = 200,
+      with = "Option<std::num::NonZeroU16>"
+    )
+  )]
   status: Option<StatusCode>,
   // favicon哈希
+  /// Favicon hash mappings (keyed by favicon URL or path)
+  #[cfg_attr(feature = "mcp", schemars(
+    title = "favicon hashes",
+    description = "Map of favicon hashes keyed by favicon URL/path",
+    example = r#"{
+            "/favicon.ico": {
+                "md5": "d41d8cd98f00b204e9800998ecf8427e",
+                "mmh3": -1205551036
+            }
+        }"#
+  ))]
   favicon: BTreeMap<String, FaviconMap>,
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(feature = "mcp", schemars(
+        title = "SSL certificate",
+        description = "SSL/TLS certificate information (present for HTTPS connections)",
+  ))]
   certificate: Option<X509Certificate>,
   // 简化指纹列表
+  /// Simplified fingerprint names/identifiers
+  #[cfg_attr(feature = "mcp", schemars(
+    title = "fingerprint names",
+    description = "Simplified set of technology fingerprint names",
+    example = r#"["nginx", "react", "bootstrap"]"#
+  ))]
   name: HashSet<String>,
   // 指纹信息
+  /// Detailed fingerprint matching results
+  #[cfg_attr(feature = "mcp", schemars(
+    title = "fingerprint details",
+    description = "Detailed technology fingerprint matching results",
+    example = r#"[{
+            "name": "nginx",
+            "version": "1.18.0",
+            "confidence": 95
+        }]"#
+  ))]
   fingerprints: Vec<FingerprintResult>,
   // 漏洞信息
+  /// Vulnerability detection results from Nuclei scans
+  #[cfg_attr(feature = "mcp", schemars(
+    title = "vulnerability findings",
+    description = "Vulnerability detection results grouped by Nuclei template ID",
+    example = r#"{
+            "CVE-2021-44228": [{
+                "template": "log4j-rce",
+                "severity": "critical"
+            }]
+        }"#
+  ))]
   nuclei: BTreeMap<String, Vec<NucleiResult>>,
 }
 
@@ -89,7 +154,7 @@ impl MatchedResult {
       self.length = text.len()
     }
     if let Some(t) = title {
-      self.title.insert(t.clone());
+      self.title.insert(t);
       self.status = Some(status_code);
     }
     // if self.certificate.is_none() {

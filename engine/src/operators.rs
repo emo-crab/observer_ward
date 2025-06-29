@@ -1,4 +1,4 @@
-use crate::error::{new_regex_error, Error, Result};
+use crate::error::{Error, Result, new_regex_error};
 use crate::extractors::{Extractor, ExtractorType};
 use crate::info::Version;
 use crate::matchers::{Condition, FaviconMap, Matcher, MatcherType};
@@ -6,17 +6,62 @@ use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 use slinger::Response;
 use std::collections::{BTreeMap, HashSet};
-
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct Operators {
+  // description: |
+  //   StopAtFirstMatch stops the execution of the requests and template as soon as a match is found.
   #[serde(default, skip_serializing_if = "is_default")]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "stop at first match",
+      description = "Stop the execution after a match is found"
+    )
+  )]
   pub stop_at_first_match: bool,
+  // description: |
+  //   MatchersCondition is the condition between the matchers. Default is OR.
+  // values:
+  //   - "and"
+  //   - "or"
   #[serde(default, skip_serializing_if = "is_default")]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "condition between the matchers",
+      description = "Conditions between the matchers",
+    )
+  )]
   pub matchers_condition: Condition,
+  // description: |
+  //   Matchers contains the detection mechanism for the request to identify
+  //   whether the request was successful by doing pattern matching
+  //   on request/responses.
+  //
+  //   Multiple matchers can be combined with `matcher-condition` flag
+  //   which accepts either `and` or `or` as argument.
   #[serde(default, skip_serializing_if = "is_default")]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "matchers to run on response",
+      description = "Detection mechanism to identify whether the request was successful by doing pattern matching"
+    )
+  )]
   pub matchers: Vec<Matcher>,
+  // description: |
+  //   Extractors contains the extraction mechanism for the request to identify
+  //   and extract parts of the response.
   #[serde(default, skip_serializing_if = "is_default")]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "extractors to run on response",
+      description = "Extractors contains the extraction mechanism for the request to identify and extract parts of the response"
+    )
+  )]
   pub extractors: Vec<Extractor>,
 }
 

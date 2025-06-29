@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {

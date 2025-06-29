@@ -50,7 +50,7 @@ pub mod string_vec_serde {
     d.deserialize_any(StringToVec(PhantomData))
   }
 }
-
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(untagged)]
 pub enum Value {
