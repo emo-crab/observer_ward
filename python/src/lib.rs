@@ -3,8 +3,8 @@ use engine::results::FingerprintResult;
 use engine::template::Template;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
-use slinger::http::StatusCode;
 use slinger::Response;
+use slinger::http::StatusCode;
 use std::collections::HashMap;
 use std::fs;
 

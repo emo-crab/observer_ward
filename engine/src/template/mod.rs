@@ -74,25 +74,34 @@ pub struct Template {
   /// description: |
   ///   Self Contained marks Requests for the template as self-contained
   #[serde(default, skip_serializing_if = "is_default")]
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "mark requests as self-contained",
-    description = "Mark Requests for the template as self-contained"
-  ))]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "mark requests as self-contained",
+      description = "Mark Requests for the template as self-contained"
+    )
+  )]
   pub self_contained: bool,
   /// description: |
   ///  Stop execution once first match is found
   #[serde(default, skip_serializing_if = "is_default")]
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "stop at first match",
-    description = "Stop at first match for the template"
-  ))]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "stop at first match",
+      description = "Stop at first match for the template"
+    )
+  )]
   pub stop_at_first_match: bool,
   /// Variables contains any variables for the current request.
   #[serde(default, skip_serializing_if = "is_default")]
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "variables for the http request",
-    description = "Variables contains any variables for the current request"
-  ))]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "variables for the http request",
+      description = "Variables contains any variables for the current request"
+    )
+  )]
   pub variables: BTreeMap<String, String>,
 }
 

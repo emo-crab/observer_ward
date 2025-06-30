@@ -225,6 +225,10 @@ pub struct ObserverWardConfig {
   #[argh(switch)]
   #[serde(skip)]
   pub mcp: bool,
+  /// read the path file and customize the LLM to generate prompt
+  #[argh(option)]
+  #[serde(skip)]
+  pub prompt_path: Option<PathBuf>,
 }
 
 fn default_token() -> Option<String> {

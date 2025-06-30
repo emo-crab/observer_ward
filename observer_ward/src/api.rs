@@ -1,15 +1,15 @@
 use crate::cli::{ObserverWardConfig, UnixSocketAddr};
 use crate::helper::Helper;
 use crate::output::Output;
-use crate::{cluster_templates, MatchedResult, ObserverWard};
-use actix_web::{get, middleware, post, rt, web, App, HttpResponse, HttpServer, Responder};
+use crate::{MatchedResult, ObserverWard, cluster_templates};
+use actix_web::{App, HttpResponse, HttpServer, Responder, get, middleware, post, rt, web};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
-use console::{style, Emoji};
+use console::{Emoji, style};
 #[cfg(not(target_os = "windows"))]
 use daemonize::Daemonize;
 use engine::execute::ClusterType;
-use futures::channel::mpsc::unbounded;
 use futures::StreamExt;
+use futures::channel::mpsc::unbounded;
 use log::{error, info};
 use std::collections::BTreeMap;
 use std::ops::Deref;

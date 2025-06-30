@@ -21,10 +21,13 @@ pub struct HTTPRequest {
   pub http_raw: HttpRaw,
   /// ID is the optional id of the request
   #[serde(default, skip_serializing_if = "is_default")]
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "id for the http request",
-    description = "ID for the HTTP Request"
-  ))]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "id for the http request",
+      description = "ID for the HTTP Request"
+    )
+  )]
   pub id: Option<String>,
   /// description: |
   ///  Name is the optional name of the request.
@@ -32,10 +35,13 @@ pub struct HTTPRequest {
   ///  If a name is specified, all the named request in a template can be matched upon
   ///  in a combined manner allowing multi-request based matchers.
   #[serde(default, skip_serializing_if = "is_default")]
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "name for the http request",
-    description = "Optional name for the HTTP Request"
-  ))]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "name for the http request",
+      description = "Optional name for the HTTP Request"
+    )
+  )]
   pub name: Option<String>,
   // description: |
   //   Attack is the type of payload combinations to perform.
@@ -49,16 +55,22 @@ pub struct HTTPRequest {
   #[serde(flatten, skip_serializing_if = "is_default")]
   pub payload_attack: Option<PayloadAttack>,
   #[serde(default, skip_serializing_if = "is_default")]
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "skip variable checks",
-    description = "Skips the check for unresolved variables in request"
-  ))]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "skip variable checks",
+      description = "Skips the check for unresolved variables in request"
+    )
+  )]
   pub skip_variables_check: bool,
   #[serde(default, skip_serializing_if = "is_default")]
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "stop at first match",
-    description = "Stop the execution after a match is found"
-  ))]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "stop at first match",
+      description = "Stop the execution after a match is found"
+    )
+  )]
   pub stop_at_first_match: bool,
   /// Operators for the current request go here.
   #[serde(flatten)]

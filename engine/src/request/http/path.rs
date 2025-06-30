@@ -14,11 +14,14 @@ pub struct Http {
   /// description: |
   ///   Method is the HTTP Request Method.
   #[serde(with = "http_serde::method", default)]
-  #[cfg_attr(feature = "mcp", schemars(
-        with = "String",
-        title = "method is the http request method",
-        description = "Method is the HTTP Request Method",
-  ))]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      with = "String",
+      title = "method is the http request method",
+      description = "Method is the HTTP Request Method",
+    )
+  )]
   pub method: Method,
   /// description: |
   ///   Path contains the path/s for the HTTP requests. It supports variables
@@ -43,11 +46,14 @@ pub struct Http {
   ///   - name: Same Body for a Login POST request
   ///     value: "\"username=test&password=test\""
   #[serde(default, skip_serializing_if = "is_default")]
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "body is the http request body",
-    description = "Body is an optional parameter which contains HTTP Request body",
-    example = r#"&"username=test&password=test""#
-  ))]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "body is the http request body",
+      description = "Body is an optional parameter which contains HTTP Request body",
+      example = r#"&"username=test&password=test""#
+    )
+  )]
   pub body: Option<String>,
   /// description: |
   ///   Headers contains HTTP Headers to send with the request.
@@ -55,11 +61,14 @@ pub struct Http {
   ///   - value: |
   ///       map[string]string{"Content-Type": "application/x-www-form-urlencoded", "Content-Length": "1", "Any-Header": "Any-Value"}
   #[serde(default, skip_serializing_if = "is_default")]
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "headers to send with the http request",
-    description = "Headers contains HTTP Headers to send with the request",
-    example = r#"&[("Content-Type", "application/x-www-form-urlencoded"), ("Content-Length", "1"), ("Any-Header", "Any-Value")]"#
-  ))]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "headers to send with the http request",
+      description = "Headers contains HTTP Headers to send with the request",
+      example = r#"&[("Content-Type", "application/x-www-form-urlencoded"), ("Content-Length", "1"), ("Any-Header", "Any-Value")]"#
+    )
+  )]
   pub headers: BTreeMap<String, Value>,
 }
 

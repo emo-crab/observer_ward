@@ -48,18 +48,24 @@ use engine::template::cluster::cluster_templates;
 #[serde(rename_all = "kebab-case")]
 pub struct MatchedResult {
   /// Collection of detected page titles (unique across different requests to same path)
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "page titles",
-    description = "Unique collection of detected page titles from different requests to same path",
-    example = r#"["Homepage", "Login Page"]"#
-  ))]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "page titles",
+      description = "Unique collection of detected page titles from different requests to same path",
+      example = r#"["Homepage", "Login Page"]"#
+    )
+  )]
   title: HashSet<String>,
   /// Typical response body length in bytes
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "response length",
-    description = "Typical response body length in bytes",
-    example = 1024
-  ))]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "response length",
+      description = "Typical response body length in bytes",
+      example = 1024
+    )
+  )]
   length: usize,
   // 最新状态码
   #[serde(with = "http_serde::option::status_code")]
@@ -76,55 +82,70 @@ pub struct MatchedResult {
   status: Option<StatusCode>,
   // favicon哈希
   /// Favicon hash mappings (keyed by favicon URL or path)
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "favicon hashes",
-    description = "Map of favicon hashes keyed by favicon URL/path",
-    example = r#"{
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "favicon hashes",
+      description = "Map of favicon hashes keyed by favicon URL/path",
+      example = r#"{
             "/favicon.ico": {
                 "md5": "d41d8cd98f00b204e9800998ecf8427e",
                 "mmh3": -1205551036
             }
         }"#
-  ))]
+    )
+  )]
   favicon: BTreeMap<String, FaviconMap>,
   #[serde(skip_serializing_if = "Option::is_none")]
-  #[cfg_attr(feature = "mcp", schemars(
-        title = "SSL certificate",
-        description = "SSL/TLS certificate information (present for HTTPS connections)",
-  ))]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "SSL certificate",
+      description = "SSL/TLS certificate information (present for HTTPS connections)",
+    )
+  )]
   certificate: Option<X509Certificate>,
   // 简化指纹列表
   /// Simplified fingerprint names/identifiers
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "fingerprint names",
-    description = "Simplified set of technology fingerprint names",
-    example = r#"["nginx", "react", "bootstrap"]"#
-  ))]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "fingerprint names",
+      description = "Simplified set of technology fingerprint names",
+      example = r#"["nginx", "react", "bootstrap"]"#
+    )
+  )]
   name: HashSet<String>,
   // 指纹信息
   /// Detailed fingerprint matching results
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "fingerprint details",
-    description = "Detailed technology fingerprint matching results",
-    example = r#"[{
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "fingerprint details",
+      description = "Detailed technology fingerprint matching results",
+      example = r#"[{
             "name": "nginx",
             "version": "1.18.0",
             "confidence": 95
         }]"#
-  ))]
+    )
+  )]
   fingerprints: Vec<FingerprintResult>,
   // 漏洞信息
   /// Vulnerability detection results from Nuclei scans
-  #[cfg_attr(feature = "mcp", schemars(
-    title = "vulnerability findings",
-    description = "Vulnerability detection results grouped by Nuclei template ID",
-    example = r#"{
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "vulnerability findings",
+      description = "Vulnerability detection results grouped by Nuclei template ID",
+      example = r#"{
             "CVE-2021-44228": [{
                 "template": "log4j-rce",
                 "severity": "critical"
             }]
         }"#
-  ))]
+    )
+  )]
   nuclei: BTreeMap<String, Vec<NucleiResult>>,
 }
 

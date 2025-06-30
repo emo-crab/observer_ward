@@ -26,12 +26,14 @@ pub fn read_from_stdio() -> Result<Vec<String>, std::io::Error> {
       "invalid input",
     ));
   }
-  std::thread::spawn(move || loop {
-    let mut buffer = String::new();
-    stdin.read_to_string(&mut buffer).unwrap_or_default();
-    if let Err(_err) = tx.send(buffer) {
-      break;
-    };
+  std::thread::spawn(move || {
+    loop {
+      let mut buffer = String::new();
+      stdin.read_to_string(&mut buffer).unwrap_or_default();
+      if let Err(_err) = tx.send(buffer) {
+        break;
+      };
+    }
   });
   loop {
     match rx.try_recv() {

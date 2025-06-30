@@ -1,6 +1,8 @@
 use crate::cli::ObserverWardConfig;
 use crate::{MatchedResult, ObserverWard};
 use engine::execute::ClusterType;
+use engine::template::Template;
+use engine::template::cluster::cluster_templates;
 use futures::StreamExt;
 use futures::channel::mpsc::unbounded;
 use rmcp::{
@@ -10,16 +12,27 @@ use rmcp::{
   service::RequestContext,
   tool, tool_handler, tool_router,
 };
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::future::Future;
 use std::ops::Deref;
 use std::sync::RwLock;
+
+const DEFAULT_PROMPT: &'static str = include_str!("../../prompt.txt");
+
 pub struct ObserverWardHandler {
   cluster_templates: RwLock<ClusterType>,
   config: ObserverWardConfig,
   tool_router: ToolRouter<ObserverWardHandler>,
 }
-
+#[derive(Debug, Serialize, Deserialize, Clone, schemars::JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+struct VerifyTemplate {
+  /// the URL target and other parameters to be verified
+  config: ObserverWardConfig,
+  /// template to be validated
+  template: Template,
+}
 // Use tool_router macro to generate the tool router
 #[tool_router]
 impl ObserverWardHandler {
@@ -43,6 +56,23 @@ impl ObserverWardHandler {
     let (tx, mut rx) = unbounded();
     tokio::task::spawn(async move {
       ObserverWard::new(&config.0, cl).execute(tx).await;
+    });
+    let mut results: Vec<BTreeMap<String, MatchedResult>> = Vec::new();
+    while let Some(result) = rx.next().await {
+      results.push(result)
+    }
+    let result = Content::json(&results)?;
+    Ok(CallToolResult::success(vec![result]))
+  }
+  #[tool(description = "Provide target and template calls to verify if the template is valid")]
+  async fn verify_template(
+    &self,
+    Parameters(VerifyTemplate { config, template }): Parameters<VerifyTemplate>,
+  ) -> Result<CallToolResult, McpError> {
+    let cl = cluster_templates(&vec![template]);
+    let (tx, mut rx) = unbounded();
+    tokio::task::spawn(async move {
+      ObserverWard::new(&config, cl).execute(tx).await;
     });
     let mut results: Vec<BTreeMap<String, MatchedResult>> = Vec::new();
     while let Some(result) = rx.next().await {
@@ -86,23 +116,25 @@ impl ServerHandler for ObserverWardHandler {
     Ok(ListPromptsResult {
       next_cursor: None,
       prompts: vec![Prompt::new(
-        "example_prompt",
-        Some("This is an example prompt that takes one required argument, message"),
+        "fingerprint_prompt",
+        Some("This prompt word is about how to generate fingerprint rules"),
         None,
       )],
     })
   }
   async fn get_prompt(
     &self,
-    GetPromptRequestParam { name, arguments }: GetPromptRequestParam,
+    GetPromptRequestParam { name, .. }: GetPromptRequestParam,
     _: RequestContext<RoleServer>,
   ) -> Result<GetPromptResult, McpError> {
     match name.as_str() {
-      "example_prompt" => {
-        let message = arguments
-          .and_then(|json| json.get("message")?.as_str().map(|s| s.to_string()))
-          .ok_or_else(|| McpError::invalid_params("No message provided to example_prompt", None))?;
-        let prompt = format!("This is an example prompt with your message here: '{message}'");
+      "fingerprint_prompt" => {
+        let prompt = self
+          .config
+          .prompt_path
+          .clone()
+          .map(|p| std::fs::read_to_string(p).unwrap_or(DEFAULT_PROMPT.to_string()))
+          .unwrap_or(DEFAULT_PROMPT.to_string());
         Ok(GetPromptResult {
           description: None,
           messages: vec![PromptMessage {

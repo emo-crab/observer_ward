@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use serde::{de, ser, Deserializer, Serializer};
+use serde::{Deserializer, Serializer, de, ser};
 use std::ops::Range;
 use std::str::FromStr;
 
