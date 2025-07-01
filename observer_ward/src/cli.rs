@@ -225,6 +225,7 @@ pub struct ObserverWardConfig {
   #[argh(switch)]
   #[serde(skip)]
   pub mcp: bool,
+  #[cfg(feature = "mcp")]
   /// read the path file and customize the LLM to generate prompt
   #[argh(option)]
   #[serde(skip)]

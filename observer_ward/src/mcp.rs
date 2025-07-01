@@ -1,6 +1,9 @@
 use crate::cli::ObserverWardConfig;
 use crate::{MatchedResult, ObserverWard};
 use engine::execute::ClusterType;
+use engine::info::Info;
+use engine::operators::{OperatorResult, Operators};
+use engine::slinger::Response;
 use engine::template::Template;
 use engine::template::cluster::cluster_templates;
 use futures::StreamExt;
@@ -18,7 +21,7 @@ use std::future::Future;
 use std::ops::Deref;
 use std::sync::RwLock;
 
-const DEFAULT_PROMPT: &'static str = include_str!("../../prompt.txt");
+const DEFAULT_PROMPT: &str = include_str!("../../prompt.txt");
 
 pub struct ObserverWardHandler {
   cluster_templates: RwLock<ClusterType>,
@@ -32,6 +35,26 @@ struct VerifyTemplate {
   config: ObserverWardConfig,
   /// template to be validated
   template: Template,
+}
+/// Verify Operators for Response
+#[derive(Debug, Serialize, Deserialize, Clone, schemars::JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+struct VerifyMatcher {
+  /// Response is the response of the request
+  response: Response,
+  /// Operators for the current request go here,matchers in operators cannot be empty
+  operators: Operators,
+}
+/// Verify Operators for Response
+#[derive(Debug, Serialize, Deserialize, Clone, schemars::JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+struct VerifyExtractor {
+  /// template info,store version information in metadata
+  info: Info,
+  /// Response is the response of the request
+  response: Response,
+  /// Operators for the current request go here,extractors in operators cannot be empty
+  operators: Operators,
 }
 // Use tool_router macro to generate the tool router
 #[tool_router]
@@ -89,6 +112,39 @@ impl ObserverWardHandler {
       )])),
       Err(err) => Err(McpError::internal_error(err.to_string(), None)),
     }
+  }
+  #[tool(description = "Verify Matcher for Response")]
+  async fn verify_matcher(
+    &self,
+    Parameters(VerifyMatcher {
+      response,
+      mut operators,
+    }): Parameters<VerifyMatcher>,
+  ) -> Result<CallToolResult, McpError> {
+    let mut result = OperatorResult::default();
+    if let Err(err) = operators.compile() {
+      return Err(McpError::internal_error(err.to_string(), None));
+    };
+    if let Err(err) = operators.matcher(&response, &mut result) {
+      return Err(McpError::internal_error(err.to_string(), None));
+    };
+    return Ok(CallToolResult::success(vec![Content::json(result)?]));
+  }
+  #[tool(description = "Verify Extractor for Response")]
+  async fn verify_extractor(
+    &self,
+    Parameters(VerifyExtractor {
+      info,
+      response,
+      mut operators,
+    }): Parameters<VerifyExtractor>,
+  ) -> Result<CallToolResult, McpError> {
+    let mut result = OperatorResult::default();
+    if let Err(err) = operators.compile() {
+      return Err(McpError::internal_error(err.to_string(), None));
+    };
+    operators.extractor(info.get_version(), &response, &mut result);
+    return Ok(CallToolResult::success(vec![Content::json(result)?]));
   }
 }
 

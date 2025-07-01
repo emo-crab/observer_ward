@@ -103,8 +103,9 @@ pub struct Info {
   ///   This should contain links relevant to the template.
   ///
   /// examples:
-  ///   - value: >
-  ///       []string{"https://github.com/strapi/strapi", "https://github.com/getgrav/grav"}
+  /// - value: >
+  ///   []string{"https://github.com/strapi/strapi", "https://github.com/getgrav/grav"}
+  ///
   #[serde(
     deserialize_with = "string_vec_serde::deserialize",
     skip_serializing_if = "Vec::is_empty",
@@ -132,8 +133,8 @@ pub struct Info {
   ///   Metadata of the template.
   ///
   /// examples:
-  ///   - value: >
-  ///       map[string]string{"customField1":"customValue1"}
+  /// - value: >
+  ///   map[string]string{"customField1":"customValue1"}
   #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
   #[cfg_attr(
     feature = "mcp",

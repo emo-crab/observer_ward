@@ -541,7 +541,7 @@ impl ObserverWard {
         || runner
           .matched_result
           .get(&runner.target.to_string())
-          .map_or(false, |x| x.title.is_empty())
+          .is_some_and(|x| x.title.is_empty())
       {
         runner.update_result(result, None);
       }

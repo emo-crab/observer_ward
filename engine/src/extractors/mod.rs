@@ -186,7 +186,6 @@ impl ERegex {
     }
     self.compiled_regex[index]
       .get_or_try_init(|| fancy_regex::Regex::new(&self.regex[index]).map_err(new_regex_error))
-      .map(|r| r)
   }
 }
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]

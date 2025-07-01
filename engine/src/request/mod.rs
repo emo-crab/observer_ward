@@ -18,12 +18,11 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "lowercase")]
 #[serde(deny_unknown_fields)]
 pub struct Requests {
-  ///description: |
-  ///   HTTP contains the http request to make in the template.
-  ///examples:
-  ///   - value: exampleNormalHTTPRequest
-  ///RequestsWithHTTP is placeholder(internal) only, and should not be used instead use RequestsHTTP
-  ///Deprecated: Use RequestsHTTP instead.
+  /// description: |
+  /// HTTP contains the http request to make in the template.
+  /// examples:
+  /// - value: exampleNormalHTTPRequest
+  ///   RequestsWithHTTP is placeholder(internal) only, and should not be used instead use RequestsHTTP
   #[serde(alias = "requests", default, skip_serializing_if = "is_default")]
   #[cfg_attr(
     feature = "mcp",
@@ -33,22 +32,20 @@ pub struct Requests {
     )
   )]
   pub http: Vec<HTTPRequest>,
-  ///description: |
-  ///   DNS contains the dns request to make in the template
-  ///examples:
-  ///   - value: exampleNormalDNSRequest
-  ///DNS(),
-  ///description: |
-  ///   File contains the file request to make in the template
-  ///examples:
-  ///   - value: exampleNormalFileRequest
-  ///FILE(),
-  ///description: |
+  // description: |
+  //   DNS contains the dns request to make in the template
+  // examples:
+  //   - value: exampleNormalDNSRequest
+  // DNS(),
+  // description: |
+  //   File contains the file request to make in the template
+  // examples:
+  //   - value: exampleNormalFileRequest
+  // FILE(),
+  /// description: |
   ///   TCP contains the network request to make in the template
-  ///examples:
+  /// examples:
   ///   - value: exampleNormalNetworkRequest
-  ///RequestsWithTCP is placeholder(internal) only, and should not be used instead use RequestsNetwork
-  ///Deprecated: Use RequestsNetwork instead.
   #[serde(default, skip_serializing_if = "is_default")]
   #[cfg_attr(
     feature = "mcp",

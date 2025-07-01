@@ -6,6 +6,7 @@ use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 use slinger::Response;
 use std::collections::{BTreeMap, HashSet};
+/// Operators for the current request go here.
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "kebab-case")]
@@ -66,7 +67,7 @@ pub struct Operators {
 }
 
 impl Operators {
-  pub(crate) fn compile(&mut self) -> Result<()> {
+  pub fn compile(&mut self) -> Result<()> {
     for matcher in self.matchers.iter_mut() {
       matcher.compile().map_err(new_regex_error)?;
     }
@@ -172,11 +173,52 @@ impl Operators {
   }
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct OperatorResult {
+  /// Description: Indicates whether the template matched the response
+  /// Example: true
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "Match Status",
+      description = "Boolean indicating if the template matched the response",
+      example = "true"
+    )
+  )]
   matched: bool,
+  /// Description: Set of names that matched during the operation
+  /// Example: ["apache", "tomcat"]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "Matched Names",
+      description = "Set of names that matched during the operation",
+      example = r#"["apache", "tomcat"]"#
+    )
+  )]
   name: HashSet<String>,
+  /// Description: List of words that triggered the matcher
+  /// Example: ["server: apache", "x-powered-by: tomcat"]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "Matcher Words",
+      description = "List of words that triggered the matcher",
+      example = r#"["server: apache", "x-powered-by: tomcat"]"#
+    )
+  )]
   matcher_word: Vec<String>,
+  /// Description: Key-value pairs of extracted data from the operation
+  /// Example: {"user": ["admin"], "version": ["1.0"]}
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "Extracted Results",
+      description = "Key-value pairs of extracted data from the operation",
+      example = r#"{"user": ["admin"], "version": ["1.0"]}"#
+    )
+  )]
   extract_result: BTreeMap<String, HashSet<String>>,
 }
 

@@ -87,10 +87,7 @@ pub fn extract_redirect(text: &str, cur_uri: &slinger::http::Uri) -> Option<slin
   }
   if let Some(next_url) = next_url_list.into_iter().next() {
     return if next_url.starts_with("http://") || next_url.starts_with("https://") {
-      match slinger::http::Uri::from_str(&next_url) {
-        Ok(next_path) => Some(next_path),
-        Err(_) => None,
-      }
+      slinger::http::Uri::from_str(&next_url).ok()
     } else {
       join(cur_uri, &next_url)
     };

@@ -29,7 +29,8 @@ pub struct Http {
   /// examples:
   ///   - name: Some example path values
   ///     value: >
-  ///       []string{"{{BaseURL}}", "{{BaseURL}}/+CSCOU+/../+CSCOE+/files/file_list.json?path=/sessions"}
+  ///     []string{"{{BaseURL}}", "{{BaseURL}}/+CSCOU+/../+CSCOE+/files/file_list.json?path=/sessions"}
+  ///
   #[serde(default)]
   #[cfg_attr(
     feature = "mcp",
@@ -45,6 +46,7 @@ pub struct Http {
   /// examples:
   ///   - name: Same Body for a Login POST request
   ///     value: "\"username=test&password=test\""
+  ///
   #[serde(default, skip_serializing_if = "is_default")]
   #[cfg_attr(
     feature = "mcp",
@@ -58,8 +60,9 @@ pub struct Http {
   /// description: |
   ///   Headers contains HTTP Headers to send with the request.
   /// examples:
-  ///   - value: |
-  ///       map[string]string{"Content-Type": "application/x-www-form-urlencoded", "Content-Length": "1", "Any-Header": "Any-Value"}
+  /// - value: |
+  ///   map[string]string{"Content-Type": "application/x-www-form-urlencoded", "Content-Length": "1", "Any-Header": "Any-Value"}
+  ///
   #[serde(default, skip_serializing_if = "is_default")]
   #[cfg_attr(
     feature = "mcp",

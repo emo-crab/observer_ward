@@ -19,8 +19,7 @@ pub fn cluster_templates(templates_list: &[Template]) -> ClusterType {
           .requests
           .operators()
           .iter()
-          .map(|op| op.matchers.is_empty() && op.extractors.is_empty())
-          .all(|op| op)
+          .all(|op| op.matchers.is_empty() && op.extractors.is_empty())
         {
           compile_templates_list.push(template);
         }

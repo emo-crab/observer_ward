@@ -18,7 +18,7 @@ jsonpath-rust = "1.0.0"
 rustc_lexer = "0.1.0"
 serde_json = "1"
 #git = "https://github.com/emo-crab/slinger",
-slinger = { version = "0.2.6", features = [
+slinger = { git = "https://github.com/emo-crab/slinger", features = [
     "serde",
     "cookie",
     "tls",

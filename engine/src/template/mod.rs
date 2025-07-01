@@ -51,14 +51,15 @@ pub struct Template {
   /// description: |
   ///   Flow contains the execution flow for the template.
   /// examples:
-  ///   - flow: |
-  /// 		for region in regions {
-  ///  	    http(0)
-  ///  	 }
-  ///  	 for vpc in vpcs {
-  ///  	    http(1)
-  ///  	 }
-  ///
+  /// ```yaml
+  /// - flow: |
+  ///   for region in regions {
+  ///    http(0)
+  ///  }
+  ///  for vpc in vpcs {
+  ///   http(1)
+  /// }
+  ///```
   #[serde(skip_serializing_if = "is_default")]
   #[cfg_attr(
     feature = "mcp",
