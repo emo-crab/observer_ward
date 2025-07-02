@@ -7,6 +7,7 @@ use base64::engine::general_purpose::STANDARD;
 use fancy_regex::Regex;
 use md5::{Digest, Md5};
 use mime::Mime;
+use serde::{Deserialize, Serialize};
 use slinger::http::header;
 use slinger::http::header::HeaderMap;
 use slinger::{Body, ClientBuilder, Response};
@@ -14,11 +15,15 @@ use std::collections::{BTreeMap, HashSet};
 use std::str::FromStr;
 use std::sync::OnceLock;
 
-#[derive(Debug, Clone)]
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+#[serde(deny_unknown_fields)]
 pub struct HttpRecord {
   response: Response,
   skip: HashSet<String>,
   favicon: BTreeMap<String, FaviconMap>,
+  #[serde(skip)]
   client_builder: ClientBuilder,
 }
 unsafe impl Send for HttpRecord {}

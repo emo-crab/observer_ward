@@ -28,6 +28,18 @@ pub struct ObserverWardHandler {
   config: ObserverWardConfig,
   tool_router: ToolRouter<ObserverWardHandler>,
 }
+impl ObserverWardHandler {
+  fn get_cluster_templates(&self)->ClusterType{
+    let cl = {
+      if let Ok(cl_guard) = self.cluster_templates.read() {
+        cl_guard.deref().clone()
+      } else {
+        ClusterType::default()
+      }
+    };
+    cl
+  }
+}
 #[derive(Debug, Serialize, Deserialize, Clone, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 struct VerifyTemplate {
@@ -69,23 +81,20 @@ impl ObserverWardHandler {
   }
   #[tool(description = "Scan the application fingerprint of the URL target")]
   async fn scan(&self, config: Parameters<ObserverWardConfig>) -> Result<CallToolResult, McpError> {
-    let cl = {
-      if let Ok(cl_guard) = self.cluster_templates.read() {
-        cl_guard.deref().clone()
-      } else {
-        ClusterType::default()
-      }
-    };
+    let cl = self.get_cluster_templates();
     let (tx, mut rx) = unbounded();
     tokio::task::spawn(async move {
       ObserverWard::new(&config.0, cl).execute(tx).await;
     });
     let mut results: Vec<BTreeMap<String, MatchedResult>> = Vec::new();
-    while let Some(result) = rx.next().await {
-      results.push(result)
+    let mut records = None;
+    while let Some((result, record)) = rx.next().await {
+      results.push(result);
+      records = record;
     }
     let result = Content::json(&results)?;
-    Ok(CallToolResult::success(vec![result]))
+    let record = Content::json(&records)?;
+    Ok(CallToolResult::success(vec![result, record]))
   }
   #[tool(description = "Provide target and template calls to verify if the template is valid")]
   async fn verify_template(
@@ -98,11 +107,14 @@ impl ObserverWardHandler {
       ObserverWard::new(&config, cl).execute(tx).await;
     });
     let mut results: Vec<BTreeMap<String, MatchedResult>> = Vec::new();
-    while let Some(result) = rx.next().await {
-      results.push(result)
+    let mut records = None;
+    while let Some((result, record)) = rx.next().await {
+      results.push(result);
+      records = record;
     }
     let result = Content::json(&results)?;
-    Ok(CallToolResult::success(vec![result]))
+    let record = Content::json(&records)?;
+    Ok(CallToolResult::success(vec![result, record]))
   }
   #[tool(description = "Get templates count")]
   async fn templates_count(&self) -> Result<CallToolResult, McpError> {
@@ -112,6 +124,23 @@ impl ObserverWardHandler {
       )])),
       Err(err) => Err(McpError::internal_error(err.to_string(), None)),
     }
+  }
+  #[tool(description = "Get response by target")]
+  async fn get_response(
+    &self,
+    config: Parameters<ObserverWardConfig>,
+  ) -> Result<CallToolResult, McpError> {
+    let (tx, mut rx) = unbounded();
+    let cl = self.get_cluster_templates();
+    tokio::task::spawn(async move {
+      ObserverWard::new(&config.0,  cl).execute(tx).await;
+    });
+    let mut records = None;
+    while let Some((_result, record)) = rx.next().await {
+      records = record;
+    }
+    let record = Content::json(&records)?;
+    Ok(CallToolResult::success(vec![record]))
   }
   #[tool(description = "Verify Matcher for Response")]
   async fn verify_matcher(

@@ -61,14 +61,14 @@ async fn what_web_api(
   if webhook {
     // 异步识别任务，通过webhook返回结果
     rt::spawn(async move {
-      while let Some(r) = rx.next().await {
-        output.webhook_results(vec![r]).await;
+      while let Some((result,_record)) = rx.next().await {
+        output.webhook_results(vec![result]).await;
       }
     });
     HttpResponse::Ok().finish()
   } else {
     let mut results: Vec<BTreeMap<String, MatchedResult>> = Vec::new();
-    while let Some(result) = rx.next().await {
+    while let Some((result,_record)) = rx.next().await {
       results.push(result)
     }
     HttpResponse::Ok().json(results)

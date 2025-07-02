@@ -109,7 +109,7 @@ async fn cli(config: ObserverWardConfig, cl: ClusterType) {
     ObserverWard::new(&config, cl).execute(tx).await;
   });
   let mut output = Output::new(&output_config);
-  while let Some(result) = rx.next().await {
+  while let Some((result,_record)) = rx.next().await {
     output.save_and_print(result.clone());
     output.webhook_results(vec![result]).await;
   }

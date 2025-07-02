@@ -28,7 +28,6 @@ pub struct Http {
   ///   as placeholders.
   /// examples:
   ///   - name: Some example path values
-  ///     value: >
   ///     []string{"{{BaseURL}}", "{{BaseURL}}/+CSCOU+/../+CSCOE+/files/file_list.json?path=/sessions"}
   ///
   #[serde(default)]
