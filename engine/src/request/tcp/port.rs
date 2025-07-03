@@ -1,9 +1,10 @@
 use crate::error::{Error, Result};
-use serde::{de, ser, Deserializer, Serializer};
+use serde::{Deserializer, Serializer, de, ser};
 use std::ops::Range;
 use std::str::FromStr;
 
 // 端口，支持单个端口和范围：80，443-1024
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 pub struct PortRange {
   /// 单个端口列表

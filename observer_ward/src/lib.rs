@@ -1,7 +1,7 @@
 use crate::cli::{Mode, ObserverWardConfig};
 use crate::error::new_io_error;
-use crate::nuclei::{gen_nuclei_tags, NucleiRunner};
-use console::{style, Emoji};
+use crate::nuclei::{NucleiRunner, gen_nuclei_tags};
+use console::{Emoji, style};
 use engine::common::cert::X509Certificate;
 use engine::common::html::extract_title;
 use engine::common::http::HttpRecord;
@@ -9,16 +9,16 @@ use engine::execute::{ClusterExecute, ClusterType};
 use engine::matchers::FaviconMap;
 use engine::request::RequestGenerator;
 use engine::results::{FingerprintResult, NucleiResult};
+use engine::slinger::http::StatusCode;
 use engine::slinger::http::header::HeaderValue;
 use engine::slinger::http::uri::{PathAndQuery, Uri};
-use engine::slinger::http::StatusCode;
 use engine::slinger::redirect::Policy;
-use engine::slinger::{http_serde, Request, Response};
+use engine::slinger::{Request, Response, http_serde};
 use engine::template::Template;
 use error::Result;
+use futures::StreamExt;
 use futures::channel::mpsc::UnboundedSender;
 use futures::stream::FuturesUnordered;
-use futures::StreamExt;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::collections::btree_map::Entry;
@@ -35,31 +35,117 @@ pub mod cli;
 pub mod error;
 pub mod helper;
 pub mod input;
+#[cfg(feature = "mcp")]
+pub mod mcp;
 mod nuclei;
 pub mod output;
 
 use engine::template::cluster::cluster_templates;
 
 // 子路径下面的匹配结果
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct MatchedResult {
-  // 标题集合,相同路径但是不同请求，请求头和
+  /// Collection of detected page titles (unique across different requests to same path)
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "page titles",
+      description = "Unique collection of detected page titles from different requests to same path",
+      example = r#"["Homepage", "Login Page"]"#
+    )
+  )]
   title: HashSet<String>,
+  /// Typical response body length in bytes
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "response length",
+      description = "Typical response body length in bytes",
+      example = 1024
+    )
+  )]
   length: usize,
-  #[serde(with = "http_serde::option::status_code")]
   // 最新状态码
+  #[serde(with = "http_serde::option::status_code")]
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "status code",
+      description = "The HTTP status code indicating the response status",
+      example = 200,
+      with = "Option<std::num::NonZeroU16>"
+    )
+  )]
   status: Option<StatusCode>,
   // favicon哈希
+  /// Favicon hash mappings (keyed by favicon URL or path)
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "favicon hashes",
+      description = "Map of favicon hashes keyed by favicon URL/path",
+      example = r#"{
+            "/favicon.ico": {
+                "md5": "d41d8cd98f00b204e9800998ecf8427e",
+                "mmh3": -1205551036
+            }
+        }"#
+    )
+  )]
   favicon: BTreeMap<String, FaviconMap>,
   #[serde(skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "SSL certificate",
+      description = "SSL/TLS certificate information (present for HTTPS connections)",
+    )
+  )]
   certificate: Option<X509Certificate>,
   // 简化指纹列表
+  /// Simplified fingerprint names/identifiers
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "fingerprint names",
+      description = "Simplified set of technology fingerprint names",
+      example = r#"["nginx", "react", "bootstrap"]"#
+    )
+  )]
   name: HashSet<String>,
   // 指纹信息
+  /// Detailed fingerprint matching results
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "fingerprint details",
+      description = "Detailed technology fingerprint matching results",
+      example = r#"[{
+            "name": "nginx",
+            "version": "1.18.0",
+            "confidence": 95
+        }]"#
+    )
+  )]
   fingerprints: Vec<FingerprintResult>,
   // 漏洞信息
+  /// Vulnerability detection results from Nuclei scans
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "vulnerability findings",
+      description = "Vulnerability detection results grouped by Nuclei template ID",
+      example = r#"{
+            "CVE-2021-44228": [{
+                "template": "log4j-rce",
+                "severity": "critical"
+            }]
+        }"#
+    )
+  )]
   nuclei: BTreeMap<String, Vec<NucleiResult>>,
 }
 
@@ -89,7 +175,7 @@ impl MatchedResult {
       self.length = text.len()
     }
     if let Some(t) = title {
-      self.title.insert(t.clone());
+      self.title.insert(t);
       self.status = Some(status_code);
     }
     // if self.certificate.is_none() {
@@ -141,12 +227,18 @@ impl MatchedResult {
   }
 }
 
-#[derive(Debug, Clone)]
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+#[serde(deny_unknown_fields)]
 pub struct ClusterExecuteRunner {
   // 单个目标
+  #[serde(with = "http_serde::uri")]
+  #[cfg_attr(feature = "mcp", schemars(with = "String"))]
   target: Uri,
   // 子路径匹配结果
   matched_result: BTreeMap<String, MatchedResult>,
+  http_record: Option<HttpRecord>,
   cache: BTreeMap<u64, Response>,
 }
 
@@ -158,6 +250,7 @@ impl ClusterExecuteRunner {
     Self {
       target: uri.clone(),
       matched_result: BTreeMap::new(),
+      http_record: None,
       cache: Default::default(),
     }
   }
@@ -381,7 +474,10 @@ impl ObserverWard {
       cluster_type,
     })
   }
-  pub async fn execute(self: Arc<Self>, tx: UnboundedSender<BTreeMap<String, MatchedResult>>) {
+  pub async fn execute(
+    self: Arc<Self>,
+    tx: UnboundedSender<(BTreeMap<String, MatchedResult>, Option<HttpRecord>)>,
+  ) {
     let input = self.config.input();
     info!(
       "{}target loaded: {}",
@@ -455,11 +551,12 @@ impl ObserverWard {
         || runner
           .matched_result
           .get(&runner.target.to_string())
-          .map_or(false, |x| x.title.is_empty())
+          .is_some_and(|x| x.title.is_empty())
       {
         runner.update_result(result, None);
       }
     }
+    runner.http_record = Some(http_record);
   }
   // 根据端口优先选择探针
   async fn tcp(&self, runner: &mut ClusterExecuteRunner) {
@@ -500,7 +597,7 @@ impl ObserverWard {
       runner.tcp(&self.config, clusters).await.unwrap_or_default();
     }
   }
-  pub async fn run(&self, target: Uri) -> BTreeMap<String, MatchedResult> {
+  pub async fn run(&self, target: Uri) -> (BTreeMap<String, MatchedResult>, Option<HttpRecord>) {
     debug!("{}: {}", Emoji("🚦", "start"), target);
     let mut runner = ClusterExecuteRunner::new(&target);
     match target.scheme_str() {
@@ -523,7 +620,7 @@ impl ObserverWard {
       Some("tcp") | Some("tls") => {
         if let Some(tcp) = &self.cluster_type.tcp_default {
           if let Err(_err) = runner.tcp(&self.config, tcp).await {
-            return runner.matched_result;
+            return (runner.matched_result, runner.http_record);
           }
         }
         self.tcp(&mut runner).await;
@@ -543,7 +640,7 @@ impl ObserverWard {
       })
     });
     debug!("{}: {}", Emoji("🔚", "end"), target);
-    runner.matched_result
+    (runner.matched_result, runner.http_record)
   }
   async fn handle_http_mode(&self, runner: &mut ClusterExecuteRunner, target: &Uri) {
     let schemes = vec!["https", "http"];

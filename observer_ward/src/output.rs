@@ -1,6 +1,6 @@
-use crate::cli::{ObserverWardConfig, OutputFormat};
 use crate::MatchedResult;
-use console::{style, Emoji};
+use crate::cli::{ObserverWardConfig, OutputFormat};
+use console::{Emoji, style};
 use engine::slinger::http::header;
 use std::collections::{BTreeMap, HashSet};
 use std::fs::File;

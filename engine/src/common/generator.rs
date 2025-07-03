@@ -12,6 +12,7 @@ use std::ops::Index;
 //   - "batteringram"
 //   - "pitchfork"
 //   - "clusterbomb"
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum AttackType {
@@ -36,11 +37,25 @@ impl IntoIterator for PayloadIterator {
     self.payload_iterator.into_iter()
   }
 }
-
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub struct PayloadAttack {
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "attack is the payload combination",
+      description = "Attack is the type of payload combinations to perform",
+    )
+  )]
   pub attack: AttackType,
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "payloads for the http request",
+      description = "Payloads contains any payloads for the current request"
+    )
+  )]
   pub payloads: BTreeMap<String, Value>,
 }
 

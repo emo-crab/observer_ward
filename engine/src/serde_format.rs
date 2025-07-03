@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter};
 
 // 无论是字符串或者字符串列表都转成集合，序列化再
 pub mod string_vec_serde {
-  use serde::{de, Deserialize, Deserializer, Serializer};
+  use serde::{Deserialize, Deserializer, Serializer, de};
   use std::fmt;
   use std::marker::PhantomData;
 
@@ -50,7 +50,7 @@ pub mod string_vec_serde {
     d.deserialize_any(StringToVec(PhantomData))
   }
 }
-
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(untagged)]
 pub enum Value {

@@ -1,7 +1,7 @@
 [workspace.package]
 #name = "observer-ward"                             #改这个
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Kali-Team <root@kali-team.cn>"]
 include = ["LICENSE", "Cargo.toml", "src/**/*.rs"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

@@ -2,27 +2,42 @@ use crate::info::Info;
 use crate::operators::OperatorResult;
 use crate::serde_format::Value;
 use serde::{Deserialize, Serialize};
+use slinger::Response;
 use slinger::http::uri::Uri;
 use slinger::http_serde;
 use slinger::record::HTTPRecord;
-use slinger::Response;
 use std::collections::{BTreeMap, HashSet};
 
 // 指纹匹配结果
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 pub struct FingerprintResult {
   // 当前请求所命中的全面规则
+  /// Collection of all matched fingerprint rules
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "matcher results",
+      description = "Detailed results of all matched fingerprinting rules",
+      example = r#"[{
+            "name": "nginx-version",
+            "matched": "server header",
+            "confidence": 90
+        }]"#
+    )
+  )]
   matcher_results: Vec<MatcherResult>,
   #[serde(with = "http_serde::uri")]
+  #[cfg_attr(feature = "mcp", schemars(with = "String"))]
   // 当前URI
   matched_at: Uri,
   // 当前请求和响应记录
   #[serde(skip_serializing_if = "Option::is_none")]
   record: Option<HTTPRecord>,
 }
-
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
@@ -97,21 +112,85 @@ impl FingerprintResult {
     em
   }
 }
-
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct NucleiResult {
+  /// Unique identifier of the template that produced this result
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "template identifier",
+      description = "Unique identifier of the template that produced this result"
+    )
+  )]
   pub template_id: String,
+  /// Timestamp when the match occurred
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "match timestamp",
+      description = "Timestamp indicating when the template matched the target"
+    )
+  )]
   pub matched_at: String,
+  /// Results extracted from the target using extractors
   #[serde(default, skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "extracted results",
+      description = "Values extracted from the target using the template's extractors"
+    )
+  )]
   pub extracted_results: Option<Vec<String>>,
+  /// Additional metadata associated with the result
   #[serde(default)]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "result metadata",
+      description = "Additional metadata associated with the scan result"
+    )
+  )]
   pub meta: BTreeMap<String, Value>,
+  /// Information about the template that produced this result
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "template information",
+      description = "Detailed information about the template that generated this result"
+    )
+  )]
   pub info: Info,
+  /// cURL command that could reproduce this request
   #[serde(default)]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "curl command",
+      description = "cURL command that could reproduce the request that led to this result"
+    )
+  )]
   pub curl_command: String,
+  /// The raw request that was sent (if enabled in configuration)
   #[serde(default, skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "raw request",
+      description = "The complete request that was sent to the target (if request logging is enabled)"
+    )
+  )]
   pub request: Option<String>,
+  /// The raw response received (if enabled in configuration)
   #[serde(default, skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "raw response",
+      description = "The complete response received from the target (if response logging is enabled)"
+    )
+  )]
   pub response: Option<String>,
 }

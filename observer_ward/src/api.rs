@@ -1,15 +1,15 @@
 use crate::cli::{ObserverWardConfig, UnixSocketAddr};
 use crate::helper::Helper;
 use crate::output::Output;
-use crate::{cluster_templates, MatchedResult, ObserverWard};
-use actix_web::{get, middleware, post, rt, web, App, HttpResponse, HttpServer, Responder};
+use crate::{MatchedResult, ObserverWard, cluster_templates};
+use actix_web::{App, HttpResponse, HttpServer, Responder, get, middleware, post, rt, web};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
-use console::{style, Emoji};
+use console::{Emoji, style};
 #[cfg(not(target_os = "windows"))]
 use daemonize::Daemonize;
 use engine::execute::ClusterType;
-use futures::channel::mpsc::unbounded;
 use futures::StreamExt;
+use futures::channel::mpsc::unbounded;
 use log::{error, info};
 use std::collections::BTreeMap;
 use std::ops::Deref;
@@ -61,14 +61,14 @@ async fn what_web_api(
   if webhook {
     // 异步识别任务，通过webhook返回结果
     rt::spawn(async move {
-      while let Some(r) = rx.next().await {
-        output.webhook_results(vec![r]).await;
+      while let Some((result, _record)) = rx.next().await {
+        output.webhook_results(vec![result]).await;
       }
     });
     HttpResponse::Ok().finish()
   } else {
     let mut results: Vec<BTreeMap<String, MatchedResult>> = Vec::new();
-    while let Some(result) = rx.next().await {
+    while let Some((result, _record)) = rx.next().await {
       results.push(result)
     }
     HttpResponse::Ok().json(results)

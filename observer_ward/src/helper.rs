@@ -1,5 +1,5 @@
 use crate::cli::ObserverWardConfig;
-use console::{style, Emoji};
+use console::{Emoji, style};
 use engine::template::Template;
 use log::{error, info, warn};
 use std::fs::File;

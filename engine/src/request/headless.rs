@@ -3,7 +3,7 @@ use crate::operators::Operators;
 use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct HeadlessRequest {
@@ -18,11 +18,11 @@ pub struct HeadlessRequest {
   #[serde(default)]
   pub fuzzing: Vec<Fuzzing>,
 }
-
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct Fuzzing {}
-
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub struct Step {
@@ -32,7 +32,7 @@ pub struct Step {
   #[serde(default)]
   pub args: BTreeMap<String, String>,
 }
-
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Action {

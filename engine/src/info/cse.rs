@@ -174,6 +174,7 @@ impl From<CSE> for Vec<Matcher> {
           matcher_type: MatcherType::Regex(MRegex {
             regex: r,
             group: None,
+            compiled_regex: Vec::new(),
           }),
           ..Matcher::default()
         };
