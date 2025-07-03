@@ -59,3 +59,8 @@ assets = [
 [[bin]]
 name = "observer_ward"
 path = "src/main.rs"
+
+[[bin]]
+name = "observer_ward_mcp"
+path = "src/main.rs"
+required-features = ["mcp"]
