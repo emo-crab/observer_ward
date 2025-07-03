@@ -474,7 +474,10 @@ impl ObserverWard {
       cluster_type,
     })
   }
-  pub async fn execute(self: Arc<Self>, tx: UnboundedSender<(BTreeMap<String, MatchedResult>,Option<HttpRecord>)>) {
+  pub async fn execute(
+    self: Arc<Self>,
+    tx: UnboundedSender<(BTreeMap<String, MatchedResult>, Option<HttpRecord>)>,
+  ) {
     let input = self.config.input();
     info!(
       "{}target loaded: {}",

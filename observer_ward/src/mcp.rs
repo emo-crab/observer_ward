@@ -29,15 +29,14 @@ pub struct ObserverWardHandler {
   tool_router: ToolRouter<ObserverWardHandler>,
 }
 impl ObserverWardHandler {
-  fn get_cluster_templates(&self)->ClusterType{
-    let cl = {
+  fn get_cluster_templates(&self) -> ClusterType {
+    {
       if let Ok(cl_guard) = self.cluster_templates.read() {
         cl_guard.deref().clone()
       } else {
         ClusterType::default()
       }
-    };
-    cl
+    }
   }
 }
 #[derive(Debug, Serialize, Deserialize, Clone, schemars::JsonSchema)]
@@ -133,7 +132,7 @@ impl ObserverWardHandler {
     let (tx, mut rx) = unbounded();
     let cl = self.get_cluster_templates();
     tokio::task::spawn(async move {
-      ObserverWard::new(&config.0,  cl).execute(tx).await;
+      ObserverWard::new(&config.0, cl).execute(tx).await;
     });
     let mut records = None;
     while let Some((_result, record)) = rx.next().await {
