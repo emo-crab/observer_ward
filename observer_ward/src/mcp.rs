@@ -1,4 +1,5 @@
 use crate::cli::ObserverWardConfig;
+use crate::output::Output;
 use crate::{MatchedResult, ObserverWard};
 use engine::execute::ClusterType;
 use engine::info::Info;
@@ -81,15 +82,32 @@ impl ObserverWardHandler {
   #[tool(description = "Scan the application fingerprint of the URL target")]
   async fn scan(&self, config: Parameters<ObserverWardConfig>) -> Result<CallToolResult, McpError> {
     let cl = self.get_cluster_templates();
+    let mut config = config.0.clone();
+    config.plugin = self.config.plugin.clone();
+    config.config_dir = self.config.config_dir.clone();
+    config.mode = self.config.mode.clone();
+    config.proxy = self.config.proxy.clone();
+    config.nuclei_args = self.config.nuclei_args.clone();
+    let webhook = config.webhook.is_some();
+    let output = Output::new(&config);
     let (tx, mut rx) = unbounded();
     tokio::task::spawn(async move {
-      ObserverWard::new(&config.0, cl).execute(tx).await;
+      ObserverWard::new(&config, cl).execute(tx).await;
     });
     let mut results: Vec<BTreeMap<String, MatchedResult>> = Vec::new();
     let mut records = None;
-    while let Some((result, record)) = rx.next().await {
-      results.push(result);
-      records = record;
+    if webhook {
+      // 异步识别任务，通过webhook返回结果
+      tokio::task::spawn(async move {
+        while let Some((result, _record)) = rx.next().await {
+          output.webhook_results(vec![result]).await;
+        }
+      });
+    } else {
+      while let Some((result, record)) = rx.next().await {
+        results.push(result);
+        records = record;
+      }
     }
     let result = Content::json(&results)?;
     let record = Content::json(&records)?;
