@@ -18,7 +18,8 @@ on:
   push:
     tags:
       - "v*"
-
+  workflow_call:
+  workflow_dispatch:
 env:
   BIN_NAME: observer_ward
 jobs:
@@ -59,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [linux, macos, macos_m1, win-msvc, linux-arm-v7, linux-aarch64]
+        build: [ linux, macos, macos_m1,win-msvc, win7-msvc, linux-arm-v7, linux-aarch64 ]
         include:
           - build: linux
             os: ubuntu-latest
@@ -81,6 +82,11 @@ jobs:
             rust: stable
             target: i686-pc-windows-msvc
             file: observer_ward.exe
+          - build: win7-msvc
+            os: windows-latest
+            rust: nightly
+            target: i686-win7-windows-msvc
+            file: observer_ward_win7.exe
           - build: linux-arm-v7
             os: ubuntu-latest
             rust: stable
@@ -135,8 +141,14 @@ jobs:
           profile: minimal
           override: true
           target: ${{ matrix.target }}
-      - name: Build release binary
+      - name: Build stable release binary
+        if: matrix.rust == 'stable'
         run: cargo build --target ${{ matrix.target }} --verbose --release
+      - name: Build nightly release binary
+        if: matrix.rust == 'nightly'
+        run: |
+          rustup component add rust-src --toolchain nightly-i686-win7-windows-msvc
+          cargo +nightly build --target ${{ matrix.target }} --verbose --release
       - name: Build archive
         shell: bash
         run: |
