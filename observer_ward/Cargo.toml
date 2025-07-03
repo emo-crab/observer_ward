@@ -28,7 +28,7 @@ thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 log = "0.4.26"
-console = "0.15.10"
+console = "0.16.0"
 zip = { version = "4.0.0", default-features = false, features = ["deflate"] }
 actix-web-httpauth = "0.8.1"
 actix-web = { version = "4.9.0", default-features = false, features = [
