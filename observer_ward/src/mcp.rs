@@ -142,7 +142,9 @@ impl ObserverWardHandler {
       Err(err) => Err(McpError::internal_error(err.to_string(), None)),
     }
   }
-  #[tool(description = "Get response by target")]
+  #[tool(
+    description = "Fetch response from uri,supporting http(s)://, tcp:// and tls:// protocols"
+  )]
   async fn get_response(
     &self,
     config: Parameters<ObserverWardConfig>,
