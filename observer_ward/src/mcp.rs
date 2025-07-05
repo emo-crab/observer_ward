@@ -5,6 +5,8 @@ use engine::execute::ClusterType;
 use engine::info::Info;
 use engine::operators::{OperatorResult, Operators};
 use engine::slinger::Response;
+use engine::slinger::http::Uri;
+use engine::slinger::http_serde;
 use engine::template::Template;
 use engine::template::cluster::cluster_templates;
 use futures::StreamExt;
@@ -21,7 +23,6 @@ use std::collections::BTreeMap;
 use std::future::Future;
 use std::ops::Deref;
 use std::sync::RwLock;
-
 const DEFAULT_PROMPT: &str = include_str!("../../prompt.txt");
 
 pub struct ObserverWardHandler {
@@ -42,9 +43,19 @@ impl ObserverWardHandler {
 }
 #[derive(Debug, Serialize, Deserialize, Clone, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case")]
+struct Target {
+  /// the URL target and other parameters to be verified
+  #[serde(with = "http_serde::uri")]
+  #[cfg_attr(feature = "mcp", schemars(with = "String"))]
+  target: Uri,
+}
+#[derive(Debug, Serialize, Deserialize, Clone, schemars::JsonSchema)]
+#[serde(rename_all = "kebab-case")]
 struct VerifyTemplate {
   /// the URL target and other parameters to be verified
-  config: ObserverWardConfig,
+  #[serde(with = "http_serde::uri")]
+  #[cfg_attr(feature = "mcp", schemars(with = "String"))]
+  target: Uri,
   /// template to be validated
   template: Template,
 }
@@ -80,14 +91,13 @@ impl ObserverWardHandler {
     }
   }
   #[tool(description = "Scan the application fingerprint of the URL target")]
-  async fn scan(&self, config: Parameters<ObserverWardConfig>) -> Result<CallToolResult, McpError> {
+  async fn scan(
+    &self,
+    Parameters(Target { target }): Parameters<Target>,
+  ) -> Result<CallToolResult, McpError> {
     let cl = self.get_cluster_templates();
-    let mut config = config.0.clone();
-    config.plugin = self.config.plugin.clone();
-    config.config_dir = self.config.config_dir.clone();
-    config.mode = self.config.mode.clone();
-    config.proxy = self.config.proxy.clone();
-    config.nuclei_args = self.config.nuclei_args.clone();
+    let mut config = self.config.clone();
+    config.target = vec![target.to_string()];
     let webhook = config.webhook.is_some();
     let output = Output::new(&config);
     let (tx, mut rx) = unbounded();
@@ -95,7 +105,6 @@ impl ObserverWardHandler {
       ObserverWard::new(&config, cl).execute(tx).await;
     });
     let mut results: Vec<BTreeMap<String, MatchedResult>> = Vec::new();
-    let mut records = None;
     if webhook {
       // 异步识别任务，通过webhook返回结果
       tokio::task::spawn(async move {
@@ -104,34 +113,31 @@ impl ObserverWardHandler {
         }
       });
     } else {
-      while let Some((result, record)) = rx.next().await {
+      while let Some((result, _record)) = rx.next().await {
         results.push(result);
-        records = record;
       }
     }
     let result = Content::json(&results)?;
-    let record = Content::json(&records)?;
-    Ok(CallToolResult::success(vec![result, record]))
+    Ok(CallToolResult::success(vec![result]))
   }
   #[tool(description = "Provide target and template calls to verify if the template is valid")]
   async fn verify_template(
     &self,
-    Parameters(VerifyTemplate { config, template }): Parameters<VerifyTemplate>,
+    Parameters(VerifyTemplate { target, template }): Parameters<VerifyTemplate>,
   ) -> Result<CallToolResult, McpError> {
+    let mut config = self.config.clone();
+    config.target = vec![target.to_string()];
     let cl = cluster_templates(&vec![template]);
     let (tx, mut rx) = unbounded();
     tokio::task::spawn(async move {
       ObserverWard::new(&config, cl).execute(tx).await;
     });
     let mut results: Vec<BTreeMap<String, MatchedResult>> = Vec::new();
-    let mut records = None;
-    while let Some((result, record)) = rx.next().await {
+    while let Some((result, _record)) = rx.next().await {
       results.push(result);
-      records = record;
     }
     let result = Content::json(&results)?;
-    let record = Content::json(&records)?;
-    Ok(CallToolResult::success(vec![result, record]))
+    Ok(CallToolResult::success(vec![result]))
   }
   #[tool(description = "Get templates count")]
   async fn templates_count(&self) -> Result<CallToolResult, McpError> {
@@ -147,12 +153,14 @@ impl ObserverWardHandler {
   )]
   async fn get_response(
     &self,
-    config: Parameters<ObserverWardConfig>,
+    Parameters(Target { target }): Parameters<Target>,
   ) -> Result<CallToolResult, McpError> {
+    let mut config = self.config.clone();
+    config.target = vec![target.to_string()];
     let (tx, mut rx) = unbounded();
     let cl = self.get_cluster_templates();
     tokio::task::spawn(async move {
-      ObserverWard::new(&config.0, cl).execute(tx).await;
+      ObserverWard::new(&config, cl).execute(tx).await;
     });
     let mut records = None;
     while let Some((_result, record)) = rx.next().await {
@@ -161,7 +169,7 @@ impl ObserverWardHandler {
     let record = Content::json(&records)?;
     Ok(CallToolResult::success(vec![record]))
   }
-  #[tool(description = "Verify Matcher for Response")]
+  #[tool(description = "Verify response matcher (for fingerprint generation only)")]
   async fn verify_matcher(
     &self,
     Parameters(VerifyMatcher {
@@ -178,7 +186,7 @@ impl ObserverWardHandler {
     };
     return Ok(CallToolResult::success(vec![Content::json(result)?]));
   }
-  #[tool(description = "Verify Extractor for Response")]
+  #[tool(description = "Verify response extractor (for fingerprint generation only)")]
   async fn verify_extractor(
     &self,
     Parameters(VerifyExtractor {

@@ -21,6 +21,7 @@ use std::sync::OnceLock;
 #[serde(deny_unknown_fields)]
 pub struct HttpRecord {
   response: Response,
+  #[serde(skip)]
   skip: HashSet<String>,
   favicon: BTreeMap<String, FaviconMap>,
   #[serde(skip)]
