@@ -51,7 +51,7 @@ jobs:
           - build: win7-msvc
             os: windows-latest
             rust: nightly
-            target: i686-win7-windows-msvc
+            target: x86_64-pc-windows-msvc
             file: observer_ward_win7.exe
           - build: linux-arm-v7
             os: ubuntu-latest
@@ -115,7 +115,7 @@ jobs:
       - name: Build nightly release binary
         if: matrix.rust == 'nightly'
         run: |
-          rustup component add rust-src --toolchain nightly-i686-win7-windows-msvc
+          rustup component add rust-src --toolchain nightly-${{ matrix.target }}
           cargo +nightly build --target ${{ matrix.target }} --verbose --release --bin observer_ward
           cargo +nightly build --target ${{ matrix.target }} --verbose --release --features=mcp --bin observer_ward_mcp
       - name: Build archive
@@ -150,13 +150,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: ${{ env.ASSET }}
+          tag_name: defaultv4
       - name: Upload binary to release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: defaultv4
           files: |
             ${{ env.BIN_FILE }}
             ${{ env.MCP_BIN_FILE }}
-          tag_name: defaultv4
       - name: Install Cargo deb (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -166,4 +167,5 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: defaultv4
           files: target/${{ matrix.target }}/debian/observer-ward_${{ needs.create-release.outputs.release_version }}_${{ matrix.target }}.deb
