@@ -7,6 +7,7 @@ use slinger::http::uri::Uri;
 use slinger::http_serde;
 use slinger::record::HTTPRecord;
 use std::collections::{BTreeMap, HashSet};
+use std::sync::Arc;
 
 // 指纹匹配结果
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
@@ -35,7 +36,7 @@ pub struct FingerprintResult {
   matched_at: Uri,
   // 当前请求和响应记录
   #[serde(skip_serializing_if = "Option::is_none")]
-  record: Option<HTTPRecord>,
+  record: Option<Arc<HTTPRecord>>,
 }
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,13 +44,13 @@ pub struct FingerprintResult {
 #[serde(deny_unknown_fields)]
 pub struct MatcherResult {
   pub template: String,
-  pub info: Info,
+  pub info: Arc<Info>,
   pub matcher_name: Vec<String>,
   pub extractor: BTreeMap<String, HashSet<String>>,
 }
 
 impl FingerprintResult {
-  pub fn push(&mut self, template: &String, info: &Info, ops: OperatorResult) {
+  pub fn push(&mut self, template: &Arc<str>, info: &Arc<Info>, ops: OperatorResult) {
     self.matcher_results.push(MatcherResult {
       template: template.to_string(),
       info: info.clone(),
@@ -63,12 +64,12 @@ impl FingerprintResult {
     Self {
       matcher_results: vec![],
       matched_at: uri,
-      record: Some(HTTPRecord {
+      record: Some(Arc::new(HTTPRecord {
         request,
         raw_request: Default::default(),
         response: response.clone(),
         raw_response: Default::default(),
-      }),
+      })),
     }
   }
   pub fn matched_at(&self) -> &Uri {
@@ -162,7 +163,7 @@ pub struct NucleiResult {
       description = "Detailed information about the template that generated this result"
     )
   )]
-  pub info: Info,
+  pub info: Arc<Info>,
   /// cURL command that could reproduce this request
   #[serde(default)]
   #[cfg_attr(

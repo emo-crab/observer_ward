@@ -146,7 +146,7 @@ pub struct MatchedResult {
         }"#
     )
   )]
-  nuclei: BTreeMap<String, Vec<NucleiResult>>,
+  nuclei: BTreeMap<String, Vec<Arc<NucleiResult>>>,
 }
 
 impl MatchedResult {
@@ -159,7 +159,7 @@ impl MatchedResult {
   pub fn fingerprint(&self) -> &Vec<FingerprintResult> {
     &self.fingerprints
   }
-  pub fn nuclei_result(&self) -> &BTreeMap<String, Vec<NucleiResult>> {
+  pub fn nuclei_result(&self) -> &BTreeMap<String, Vec<Arc<NucleiResult>>> {
     &self.nuclei
   }
 

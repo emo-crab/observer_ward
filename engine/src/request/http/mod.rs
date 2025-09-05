@@ -2,17 +2,17 @@ mod option;
 mod path;
 mod raw;
 
-use crate::operators::Operators;
-use std::collections::VecDeque;
-use std::fmt::Debug;
-
 use crate::common::{PayloadAttack, PayloadIterator};
+use crate::operators::Operators;
 use crate::request::http::option::HttpOption;
 pub use crate::request::http::path::Http;
 pub use crate::request::http::raw::Raw;
 use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 use slinger::Request;
+use std::collections::VecDeque;
+use std::fmt::Debug;
+use std::sync::Arc;
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
@@ -74,7 +74,7 @@ pub struct HTTPRequest {
   pub stop_at_first_match: bool,
   /// Operators for the current request go here.
   #[serde(flatten)]
-  pub http_option: HttpOption,
+  pub http_option: Arc<HttpOption>,
   #[serde(flatten)]
   pub operators: Operators,
 }

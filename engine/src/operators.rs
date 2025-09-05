@@ -6,6 +6,7 @@ use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 use slinger::Response;
 use std::collections::{BTreeMap, HashSet};
+
 /// Operators for the current request go here.
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]

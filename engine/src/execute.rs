@@ -4,25 +4,24 @@ use crate::request::{PortRange, Requests};
 use crate::results::FingerprintResult;
 use crate::template::Template;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct ClusteredOperator {
-  template: String,
-  info: Info,
-  operators: Vec<Operators>,
+  template: Arc<str>,
+  info: Arc<Info>,
+  operators: Vec<Arc<Operators>>,
 }
 
 impl ClusteredOperator {
-  pub fn new(t: Template) -> Self {
-    let template = t
-      .id
-      .split_once(':')
-      .map_or(t.id.to_string(), |(name, _hash)| name.to_string());
-    Self {
+  pub fn new(t: Arc<Template>) -> Arc<Self> {
+    let (name, _hash) = t.id.split_once(':').unwrap_or((&t.id, ":"));
+    let template = Arc::<str>::from(name.to_string().into_boxed_str());
+    Arc::new(Self {
       template,
-      info: t.info,
+      info: t.info.clone(),
       operators: t.requests.operators(),
-    }
+    })
   }
   pub fn matcher(&self, results: &mut FingerprintResult) {
     let response = results.response().unwrap_or_default();
@@ -41,11 +40,11 @@ impl ClusteredOperator {
 
 #[derive(Debug, Clone, Default)]
 pub struct ClusterType {
-  pub web_default: Vec<ClusterExecute>,
-  pub web_favicon: Vec<ClusterExecute>,
-  pub web_other: Vec<ClusterExecute>,
-  pub tcp_default: Option<ClusterExecute>,
-  pub tcp_other: BTreeMap<String, ClusterExecute>,
+  pub web_default: Vec<Arc<ClusterExecute>>,
+  pub web_favicon: Vec<Arc<ClusterExecute>>,
+  pub web_other: Vec<Arc<ClusterExecute>>,
+  pub tcp_default: Option<Arc<ClusterExecute>>,
+  pub tcp_other: BTreeMap<String, Arc<ClusterExecute>>,
   pub port_range: BTreeMap<String, Option<PortRange>>,
 }
 
@@ -62,7 +61,7 @@ impl ClusterType {
 
 #[derive(Debug, Clone)]
 pub struct ClusterExecute {
-  pub requests: Requests,
+  pub requests: Arc<Requests>,
   pub rarity: u8,
-  pub operators: Vec<ClusteredOperator>,
+  pub operators: Vec<Arc<ClusteredOperator>>,
 }

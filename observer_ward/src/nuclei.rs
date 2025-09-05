@@ -5,6 +5,7 @@ use log::{debug, error};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct NucleiRunner {
@@ -23,7 +24,7 @@ impl NucleiRunner {
       targets: HashSet::new(),
     }
   }
-  fn output(&self, command: &mut Command) -> Vec<NucleiResult> {
+  fn output(&self, command: &mut Command) -> Vec<Arc<NucleiResult>> {
     debug!("{}: {:?}", Emoji("🐚", "nuclei command"), command);
     let mut result = Vec::new();
     let output = command.output().expect("command_line_output");
@@ -34,7 +35,7 @@ impl NucleiRunner {
         .collect();
       for line in templates_output.iter() {
         match serde_json::from_str::<NucleiResult>(line) {
-          Ok(template) => result.push(template),
+          Ok(template) => result.push(Arc::new(template)),
           Err(err) => {
             error!("{}", err);
           }
@@ -43,7 +44,7 @@ impl NucleiRunner {
     }
     result
   }
-  fn run_with_plugin(&self, config: &ObserverWardConfig) -> Vec<NucleiResult> {
+  fn run_with_plugin(&self, config: &ObserverWardConfig) -> Vec<Arc<NucleiResult>> {
     if self.plugins.is_empty() {
       return Default::default();
     }
@@ -53,7 +54,7 @@ impl NucleiRunner {
     }
     self.output(&mut command)
   }
-  fn run_with_condition(&self, config: &ObserverWardConfig) -> Vec<NucleiResult> {
+  fn run_with_condition(&self, config: &ObserverWardConfig) -> Vec<Arc<NucleiResult>> {
     if self.condition.is_empty() {
       return Default::default();
     }
@@ -93,7 +94,7 @@ impl NucleiRunner {
     }
     command
   }
-  pub fn run(&self, config: &ObserverWardConfig) -> Vec<NucleiResult> {
+  pub fn run(&self, config: &ObserverWardConfig) -> Vec<Arc<NucleiResult>> {
     let mut result = Vec::new();
     result.extend(self.run_with_plugin(config));
     result.extend(self.run_with_condition(config));

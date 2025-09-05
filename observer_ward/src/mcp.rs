@@ -12,15 +12,14 @@ use engine::template::cluster::cluster_templates;
 use futures::StreamExt;
 use futures::channel::mpsc::unbounded;
 use rmcp::{
-  Error as McpError, RoleServer, ServerHandler,
-  handler::server::{router::tool::ToolRouter, tool::Parameters},
+  ErrorData, RoleServer, ServerHandler,
+  handler::server::{router::tool::ToolRouter, wrapper::Parameters},
   model::*,
   service::RequestContext,
   tool, tool_handler, tool_router,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::future::Future;
 use std::ops::Deref;
 use std::sync::RwLock;
 const DEFAULT_PROMPT: &str = include_str!("../../prompt.txt");
@@ -94,7 +93,7 @@ impl ObserverWardHandler {
   async fn scan(
     &self,
     Parameters(Target { target }): Parameters<Target>,
-  ) -> Result<CallToolResult, McpError> {
+  ) -> Result<CallToolResult, ErrorData> {
     let cl = self.get_cluster_templates();
     let mut config = self.config.clone();
     config.target = vec![target.to_string()];
@@ -124,10 +123,10 @@ impl ObserverWardHandler {
   async fn verify_template(
     &self,
     Parameters(VerifyTemplate { target, template }): Parameters<VerifyTemplate>,
-  ) -> Result<CallToolResult, McpError> {
+  ) -> Result<CallToolResult, ErrorData> {
     let mut config = self.config.clone();
     config.target = vec![target.to_string()];
-    let cl = cluster_templates(&vec![template]);
+    let cl = cluster_templates(&[template]);
     let (tx, mut rx) = unbounded();
     tokio::task::spawn(async move {
       ObserverWard::new(&config, cl).execute(tx).await;
@@ -140,12 +139,12 @@ impl ObserverWardHandler {
     Ok(CallToolResult::success(vec![result]))
   }
   #[tool(description = "Get templates count")]
-  async fn templates_count(&self) -> Result<CallToolResult, McpError> {
+  async fn templates_count(&self) -> Result<CallToolResult, ErrorData> {
     match self.cluster_templates.read() {
       Ok(ct) => Ok(CallToolResult::success(vec![Content::text(
         ct.count().to_string(),
       )])),
-      Err(err) => Err(McpError::internal_error(err.to_string(), None)),
+      Err(err) => Err(ErrorData::internal_error(err.to_string(), None)),
     }
   }
   #[tool(
@@ -154,7 +153,7 @@ impl ObserverWardHandler {
   async fn get_response(
     &self,
     Parameters(Target { target }): Parameters<Target>,
-  ) -> Result<CallToolResult, McpError> {
+  ) -> Result<CallToolResult, ErrorData> {
     let mut config = self.config.clone();
     config.target = vec![target.to_string()];
     let (tx, mut rx) = unbounded();
@@ -176,13 +175,13 @@ impl ObserverWardHandler {
       response,
       mut operators,
     }): Parameters<VerifyMatcher>,
-  ) -> Result<CallToolResult, McpError> {
+  ) -> Result<CallToolResult, ErrorData> {
     let mut result = OperatorResult::default();
     if let Err(err) = operators.compile() {
-      return Err(McpError::internal_error(err.to_string(), None));
+      return Err(ErrorData::internal_error(err.to_string(), None));
     };
     if let Err(err) = operators.matcher(&response, &mut result) {
-      return Err(McpError::internal_error(err.to_string(), None));
+      return Err(ErrorData::internal_error(err.to_string(), None));
     };
     return Ok(CallToolResult::success(vec![Content::json(result)?]));
   }
@@ -194,10 +193,10 @@ impl ObserverWardHandler {
       response,
       mut operators,
     }): Parameters<VerifyExtractor>,
-  ) -> Result<CallToolResult, McpError> {
+  ) -> Result<CallToolResult, ErrorData> {
     let mut result = OperatorResult::default();
     if let Err(err) = operators.compile() {
-      return Err(McpError::internal_error(err.to_string(), None));
+      return Err(ErrorData::internal_error(err.to_string(), None));
     };
     operators.extractor(info.get_version(), &response, &mut result);
     return Ok(CallToolResult::success(vec![Content::json(result)?]));
@@ -224,7 +223,7 @@ impl ServerHandler for ObserverWardHandler {
     &self,
     _request: Option<PaginatedRequestParam>,
     _: RequestContext<RoleServer>,
-  ) -> Result<ListPromptsResult, McpError> {
+  ) -> Result<ListPromptsResult, ErrorData> {
     Ok(ListPromptsResult {
       next_cursor: None,
       prompts: vec![Prompt::new(
@@ -238,7 +237,7 @@ impl ServerHandler for ObserverWardHandler {
     &self,
     GetPromptRequestParam { name, .. }: GetPromptRequestParam,
     _: RequestContext<RoleServer>,
-  ) -> Result<GetPromptResult, McpError> {
+  ) -> Result<GetPromptResult, ErrorData> {
     match name.as_str() {
       "fingerprint_prompt" => {
         let prompt = self
@@ -255,14 +254,14 @@ impl ServerHandler for ObserverWardHandler {
           }],
         })
       }
-      _ => Err(McpError::invalid_params("prompt not found", None)),
+      _ => Err(ErrorData::invalid_params("prompt not found", None)),
     }
   }
   async fn list_resource_templates(
     &self,
     _request: Option<PaginatedRequestParam>,
     _: RequestContext<RoleServer>,
-  ) -> Result<ListResourceTemplatesResult, McpError> {
+  ) -> Result<ListResourceTemplatesResult, ErrorData> {
     Ok(ListResourceTemplatesResult {
       next_cursor: None,
       resource_templates: Vec::new(),
@@ -273,7 +272,7 @@ impl ServerHandler for ObserverWardHandler {
     &self,
     _request: InitializeRequestParam,
     _context: RequestContext<RoleServer>,
-  ) -> Result<InitializeResult, McpError> {
+  ) -> Result<InitializeResult, ErrorData> {
     Ok(self.get_info())
   }
 }

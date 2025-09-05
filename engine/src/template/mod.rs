@@ -5,6 +5,7 @@ use crate::request::{HttpRaw, Requests};
 use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 pub mod cluster;
 /// Template is a YAML input file which defines all the requests and
@@ -47,7 +48,7 @@ pub struct Template {
       description = "Info contains metadata for the template"
     )
   )]
-  pub info: Info,
+  pub info: Arc<Info>,
   /// description: |
   ///   Flow contains the execution flow for the template.
   /// examples:

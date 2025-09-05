@@ -7,10 +7,11 @@ use slinger::Response;
 use slinger::http::StatusCode;
 use std::collections::HashMap;
 use std::fs;
+use std::sync::Arc;
 
 #[pyclass]
 struct ObserverWard {
-  operators: Vec<ClusteredOperator>,
+  operators: Vec<Arc<ClusteredOperator>>,
 }
 
 #[pymethods]
@@ -93,13 +94,13 @@ impl ObserverWard {
 /// 通过 JSON 字符串创建并返回 operators
 ///
 /// 假设 JSON 字符串表示模板数组，每个模板可用于构造 ClusteredOperator 实例。
-pub fn create_operators_from_json(json: &str) -> Vec<ClusteredOperator> {
+pub fn create_operators_from_json(json: &str) -> Vec<Arc<ClusteredOperator>> {
   // 使用 serde_json 解析 JSON 字符串为模板数组
-  let templates: Vec<Template> =
+  let templates: Vec<Arc<Template>> =
     serde_json::from_str(json).expect("解析 JSON 失败，请检查输入格式");
 
   // 遍历每个模板，创建 ClusteredOperator 对象并收集到 operators 数组中
-  let operators: Vec<ClusteredOperator> =
+  let operators: Vec<Arc<ClusteredOperator>> =
     templates.into_iter().map(ClusteredOperator::new).collect();
 
   println!("已接收到 {} 个指纹模板", operators.len());

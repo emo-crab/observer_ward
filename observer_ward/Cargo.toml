@@ -12,7 +12,7 @@ license = "GPL-3.0-only"
 
 [dependencies]
 engine = { path = "../engine" }
-rmcp = { git = "https://github.com/cn-kali-team/rust-sdk", branch = "schemars", features = [
+rmcp = { git = "https://github.com/modelcontextprotocol/rust-sdk", branch = "main", features = [
     "server",
     "transport-io"
 ], optional = true }

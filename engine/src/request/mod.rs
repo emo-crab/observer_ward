@@ -12,6 +12,7 @@ pub use crate::request::tcp::{Input, PortRange, TCPRequest};
 use crate::serde_format::is_default;
 use rustc_lexer::unescape;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 /// There must be a field that is not empty
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -143,20 +144,20 @@ impl Requests {
     }
     false
   }
-  pub fn operators(&self) -> Vec<Operators> {
+  pub fn operators(&self) -> Vec<Arc<Operators>> {
     let mut all = Vec::new();
     all.extend(
       self
         .http
         .iter()
-        .map(|h| h.operators.clone())
+        .map(|h| Arc::new(h.operators.clone()))
         .collect::<Vec<_>>(),
     );
     all.extend(
       self
         .tcp
         .iter()
-        .map(|t| t.operators.clone())
+        .map(|t| Arc::new(t.operators.clone()))
         .collect::<Vec<_>>(),
     );
     all
