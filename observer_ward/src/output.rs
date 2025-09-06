@@ -52,22 +52,22 @@ impl Output {
     }
   }
 
-  pub fn save_and_print(&mut self, result: BTreeMap<String, MatchedResult>) {
+  pub fn save_and_print(&mut self, result: &BTreeMap<String, MatchedResult>) {
     match self.format {
       OutputFormat::STD => {
         // 保存到文件
         if self.output {
           console::set_colors_enabled(false);
-          write_to_buf(&mut self.writer, &result);
+          write_to_buf(&mut self.writer, result);
         }
         if !self.config.silent {
           console::set_colors_enabled(true);
-          write_to_buf(&mut BufWriter::new(Box::new(std::io::stdout())), &result);
+          write_to_buf(&mut BufWriter::new(Box::new(std::io::stdout())), result);
         }
       }
       OutputFormat::JSON => {
         if !self.config.silent {
-          write_to_buf(&mut BufWriter::new(Box::new(std::io::stdout())), &result);
+          write_to_buf(&mut BufWriter::new(Box::new(std::io::stdout())), result);
         }
         writeln!(
           self.writer,
@@ -78,7 +78,7 @@ impl Output {
       }
       OutputFormat::CSV => {
         if !self.config.silent {
-          write_to_buf(&mut BufWriter::new(Box::new(std::io::stdout())), &result);
+          write_to_buf(&mut BufWriter::new(Box::new(std::io::stdout())), result);
         }
         for (uri, mr) in result {
           let app: Vec<String> = mr

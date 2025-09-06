@@ -107,13 +107,13 @@ impl ObserverWardHandler {
     if webhook {
       // 异步识别任务，通过webhook返回结果
       tokio::task::spawn(async move {
-        while let Some((result, _record)) = rx.next().await {
-          output.webhook_results(vec![result]).await;
+        while let Some(execute_result) = rx.next().await {
+          output.webhook_results(vec![execute_result.matched]).await;
         }
       });
     } else {
-      while let Some((result, _record)) = rx.next().await {
-        results.push(result);
+      while let Some(execute_result) = rx.next().await {
+        results.push(execute_result.matched);
       }
     }
     let result = Content::json(&results)?;
@@ -132,8 +132,8 @@ impl ObserverWardHandler {
       ObserverWard::new(&config, cl).execute(tx).await;
     });
     let mut results: Vec<BTreeMap<String, MatchedResult>> = Vec::new();
-    while let Some((result, _record)) = rx.next().await {
-      results.push(result);
+    while let Some(execute_result) = rx.next().await {
+      results.push(execute_result.matched);
     }
     let result = Content::json(&results)?;
     Ok(CallToolResult::success(vec![result]))
@@ -162,8 +162,8 @@ impl ObserverWardHandler {
       ObserverWard::new(&config, cl).execute(tx).await;
     });
     let mut records = None;
-    while let Some((_result, record)) = rx.next().await {
-      records = record;
+    while let Some(execute_result) = rx.next().await {
+      records = execute_result.record;
     }
     let record = Content::json(&records)?;
     Ok(CallToolResult::success(vec![record]))

@@ -238,7 +238,7 @@ pub struct ClusterExecuteRunner {
   target: Uri,
   // 子路径匹配结果
   matched_result: BTreeMap<String, MatchedResult>,
-  http_record: Option<HttpRecord>,
+  http_record: Option<Arc<HttpRecord>>,
   cache: BTreeMap<u64, Response>,
 }
 
@@ -466,7 +466,10 @@ pub struct ObserverWard {
   config: ObserverWardConfig,
   cluster_type: ClusterType,
 }
-
+pub struct ExecuteResult {
+  pub matched: BTreeMap<String, MatchedResult>,
+  pub record: Option<Arc<HttpRecord>>,
+}
 impl ObserverWard {
   pub fn new(config: &ObserverWardConfig, cluster_type: ClusterType) -> Arc<Self> {
     Arc::new(Self {
@@ -474,10 +477,7 @@ impl ObserverWard {
       cluster_type,
     })
   }
-  pub async fn execute(
-    self: Arc<Self>,
-    tx: UnboundedSender<(BTreeMap<String, MatchedResult>, Option<HttpRecord>)>,
-  ) {
+  pub async fn execute(self: Arc<Self>, tx: UnboundedSender<ExecuteResult>) {
     let input = self.config.input();
     info!(
       "{}target loaded: {}",
@@ -556,7 +556,7 @@ impl ObserverWard {
         runner.update_result(result, None);
       }
     }
-    runner.http_record = Some(http_record);
+    runner.http_record = Some(Arc::new(http_record));
   }
   // 根据端口优先选择探针
   async fn tcp(&self, runner: &mut ClusterExecuteRunner) {
@@ -597,7 +597,7 @@ impl ObserverWard {
       runner.tcp(&self.config, clusters).await.unwrap_or_default();
     }
   }
-  pub async fn run(&self, target: Uri) -> (BTreeMap<String, MatchedResult>, Option<HttpRecord>) {
+  pub async fn run(&self, target: Uri) -> ExecuteResult {
     debug!("{}: {}", Emoji("🚦", "start"), target);
     let mut runner = ClusterExecuteRunner::new(&target);
     match target.scheme_str() {
@@ -620,7 +620,10 @@ impl ObserverWard {
       Some("tcp") | Some("tls") => {
         if let Some(tcp) = &self.cluster_type.tcp_default {
           if let Err(_err) = runner.tcp(&self.config, tcp).await {
-            return (runner.matched_result, runner.http_record);
+            return ExecuteResult {
+              matched: runner.matched_result,
+              record: runner.http_record,
+            };
           }
         }
         self.tcp(&mut runner).await;
@@ -640,7 +643,10 @@ impl ObserverWard {
       })
     });
     debug!("{}: {}", Emoji("🔚", "end"), target);
-    (runner.matched_result, runner.http_record)
+    ExecuteResult {
+      matched: runner.matched_result,
+      record: runner.http_record,
+    }
   }
   async fn handle_http_mode(&self, runner: &mut ClusterExecuteRunner, target: &Uri) {
     let schemes = vec!["https", "http"];
