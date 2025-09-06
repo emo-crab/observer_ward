@@ -76,7 +76,7 @@ pub struct HTTPRequest {
   #[serde(flatten)]
   pub http_option: Arc<HttpOption>,
   #[serde(flatten)]
-  pub operators: Operators,
+  pub operators: Arc<Operators>,
 }
 
 #[derive(Debug)]

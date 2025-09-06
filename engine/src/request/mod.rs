@@ -32,7 +32,7 @@ pub struct Requests {
       description = "HTTP requests to make for the template"
     )
   )]
-  pub http: Vec<HTTPRequest>,
+  pub http: Vec<Arc<HTTPRequest>>,
   // description: |
   //   DNS contains the dns request to make in the template
   // examples:
@@ -55,7 +55,7 @@ pub struct Requests {
       description = "Network requests to make for the template"
     )
   )]
-  pub tcp: Vec<TCPRequest>,
+  pub tcp: Vec<Arc<TCPRequest>>,
   ///description: |
   ///   Headless contains the headless request to make in the template.
   #[serde(default, skip_serializing_if = "is_default")]
@@ -66,7 +66,7 @@ pub struct Requests {
       description = "Headless requests to make for the template"
     )
   )]
-  pub headless: Vec<HeadlessRequest>,
+  pub headless: Vec<Arc<HeadlessRequest>>,
   ///description: |
   ///   SSL contains the SSL request to make in the template.
   ///SSL(),
@@ -132,10 +132,10 @@ impl Requests {
     }
     false
   }
-  pub fn is_web(&self) -> Option<&HTTPRequest> {
+  pub fn is_web(&self) -> Option<&Arc<HTTPRequest>> {
     self.http.first()
   }
-  pub fn is_tcp(&self) -> Option<&TCPRequest> {
+  pub fn is_tcp(&self) -> Option<&Arc<TCPRequest>> {
     self.tcp.first()
   }
   pub fn is_tcp_default(&self) -> bool {
@@ -150,14 +150,14 @@ impl Requests {
       self
         .http
         .iter()
-        .map(|h| Arc::new(h.operators.clone()))
+        .map(|h| h.operators.clone())
         .collect::<Vec<_>>(),
     );
     all.extend(
       self
         .tcp
         .iter()
-        .map(|t| Arc::new(t.operators.clone()))
+        .map(|t| t.operators.clone())
         .collect::<Vec<_>>(),
     );
     all
@@ -165,7 +165,7 @@ impl Requests {
 
   pub fn default_web_index() -> Self {
     Self {
-      http: vec![HTTPRequest {
+      http: vec![Arc::new(HTTPRequest {
         http_raw: HttpRaw::Path(Http {
           method: Default::default(),
           path: vec!["{{BaseURL}}/".to_string()],
@@ -179,7 +179,7 @@ impl Requests {
         stop_at_first_match: false,
         http_option: Default::default(),
         operators: Default::default(),
-      }],
+      })],
       tcp: vec![],
       headless: vec![],
       code: vec![],

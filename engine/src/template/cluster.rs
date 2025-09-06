@@ -41,7 +41,7 @@ pub fn cluster_templates(templates_list: &[Template]) -> ClusterType {
     let info = clusters[0].info.clone();
     let cops = clusters.into_iter().map(ClusteredOperator::new).collect();
     let cluster_execute = Arc::new(ClusterExecute {
-      requests: Arc::new(requests.clone()),
+      requests: requests.clone(),
       rarity: info.get_rarity().unwrap_or_default(),
       operators: cops,
     });

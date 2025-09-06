@@ -72,7 +72,7 @@ pub struct Template {
   )]
   pub flow: Option<String>,
   #[serde(flatten)]
-  pub requests: Requests,
+  pub requests: Arc<Requests>,
   /// description: |
   ///   Self Contained marks Requests for the template as self-contained
   #[serde(default, skip_serializing_if = "is_default")]
@@ -109,49 +109,70 @@ pub struct Template {
 
 impl Template {
   pub fn compile(&mut self) -> Result<()> {
-    for http in self.requests.http.iter_mut() {
-      http.operators.compile().map_err(new_regex_error)?;
+    let requests = Arc::make_mut(&mut self.requests);
+    for http in requests.http.iter_mut() {
+      let mutable_http = Arc::make_mut(http);
+      let mutable_operators = Arc::make_mut(&mut mutable_http.operators);
+      mutable_operators.compile().map_err(new_regex_error)?;
     }
-    for tcp in self.requests.tcp.iter_mut() {
-      tcp.operators.compile().map_err(new_regex_error)?;
+    for tcp in requests.tcp.iter_mut() {
+      let mutable_tcp = Arc::make_mut(tcp);
+      let mutable_operators = Arc::make_mut(&mut mutable_tcp.operators);
+      mutable_operators.compile().map_err(new_regex_error)?;
     }
     Ok(())
   }
   pub fn find_favicon(&mut self) -> Option<Template> {
     let mut new_template = self.clone();
-    let mut flag = false;
-    for (request_index, request) in self.requests.http.iter_mut().enumerate() {
-      let mut favicon = Vec::new();
-      if let HttpRaw::Path(ref mut http) = request.http_raw {
-        let mut remove_path = Vec::new();
-        let mut new_http = http.clone();
-        while let Some(index) = http
-          .path
-          .iter_mut()
-          .position(|p| p.ends_with("favicon.ico"))
-        {
-          remove_path.push(http.path.remove(index));
-        }
-        if !remove_path.is_empty() {
-          new_http.path = remove_path;
-          new_template.requests.http[request_index].http_raw = HttpRaw::Path(new_http);
-        }
-      }
-      let mut new_operators = request.operators.clone();
-      while let Some(index) = request
-        .operators
-        .matchers
-        .iter_mut()
-        .position(|m| matches!(m.matcher_type, MatcherType::Favicon(..)))
-      {
-        favicon.push(request.operators.matchers.remove(index));
-      }
-      if !favicon.is_empty() {
-        flag = true;
-        new_operators.matchers = favicon;
-        new_template.requests.http[request_index].operators = new_operators;
+    let new_requests = Arc::make_mut(&mut new_template.requests);
+
+    let mut found = false;
+
+    for i in 0..self.requests.http.len() {
+      if self.process_favicon_for_request(i, new_requests) {
+        found = true;
       }
     }
-    if flag { Some(new_template) } else { None }
+    found.then_some(new_template)
+  }
+  fn process_favicon_for_request(&self, index: usize, new_requests: &mut Requests) -> bool {
+    let request = &self.requests.http[index];
+    let mut has_favicon = false;
+
+    // 检查路径
+    if let HttpRaw::Path(ref http) = request.http_raw {
+      let favicon_paths: Vec<_> = http
+        .path
+        .iter()
+        .filter(|p| p.ends_with("favicon.ico"))
+        .cloned()
+        .collect();
+
+      if !favicon_paths.is_empty() {
+        has_favicon = true;
+        let new_http = Arc::make_mut(&mut new_requests.http[index]);
+
+        if let HttpRaw::Path(ref mut new_http_raw) = new_http.http_raw {
+          new_http_raw.path = favicon_paths;
+        }
+      }
+    }
+
+    // 检查匹配器
+    let favicon_matchers: Vec<_> = request
+      .operators
+      .matchers
+      .iter()
+      .filter(|m| matches!(m.matcher_type, MatcherType::Favicon(..)))
+      .cloned()
+      .collect();
+
+    if !favicon_matchers.is_empty() {
+      has_favicon = true;
+      let new_http = Arc::make_mut(&mut new_requests.http[index]);
+      let new_operators = Arc::make_mut(&mut new_http.operators);
+      new_operators.matchers = favicon_matchers;
+    }
+    has_favicon
   }
 }

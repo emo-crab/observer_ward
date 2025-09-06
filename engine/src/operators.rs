@@ -6,6 +6,7 @@ use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 use slinger::Response;
 use std::collections::{BTreeMap, HashSet};
+use std::sync::Arc;
 
 /// Operators for the current request go here.
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
@@ -52,7 +53,7 @@ pub struct Operators {
       description = "Detection mechanism to identify whether the request was successful by doing pattern matching"
     )
   )]
-  pub matchers: Vec<Matcher>,
+  pub matchers: Vec<Arc<Matcher>>,
   // description: |
   //   Extractors contains the extraction mechanism for the request to identify
   //   and extract parts of the response.
@@ -64,16 +65,18 @@ pub struct Operators {
       description = "Extractors contains the extraction mechanism for the request to identify and extract parts of the response"
     )
   )]
-  pub extractors: Vec<Extractor>,
+  pub extractors: Vec<Arc<Extractor>>,
 }
 
 impl Operators {
   pub fn compile(&mut self) -> Result<()> {
     for matcher in self.matchers.iter_mut() {
-      matcher.compile().map_err(new_regex_error)?;
+      let mutable_matcher = Arc::make_mut(matcher);
+      mutable_matcher.compile().map_err(new_regex_error)?;
     }
     for extractor in self.extractors.iter_mut() {
-      extractor.compile().map_err(new_regex_error)?;
+      let mutable_extractor = Arc::make_mut(extractor);
+      mutable_extractor.compile().map_err(new_regex_error)?;
     }
     Ok(())
   }

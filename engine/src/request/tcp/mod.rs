@@ -6,6 +6,7 @@ use crate::request::input_to_byte;
 use crate::serde_format::is_default;
 pub use port::PortRange;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
@@ -48,7 +49,7 @@ pub struct TCPRequest {
   pub port: Option<PortRange>,
   // Operators for the current request go here.
   #[serde(flatten)]
-  pub operators: Operators,
+  pub operators: Arc<Operators>,
   // ID is the optional id of the request
   #[serde(flatten, skip_serializing_if = "is_default")]
   pub payload_attack: Option<PayloadAttack>,
