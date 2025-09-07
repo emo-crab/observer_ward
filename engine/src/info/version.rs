@@ -1,4 +1,4 @@
-use fancy_regex::Captures;
+use crate::operators::regex::OneOfCaptures;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -25,7 +25,7 @@ pub struct Version {
 }
 
 impl Version {
-  pub fn captures(&self, captures: Captures) -> BTreeMap<String, String> {
+  pub fn captures(&self, captures: OneOfCaptures) -> BTreeMap<String, String> {
     let replace = |x: &str| {
       let mut x = x.to_string();
       for (index, value) in self.extract_parameters(&x) {

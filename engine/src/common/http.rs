@@ -1,7 +1,7 @@
 use super::html::extract_redirect;
 use super::uri::join;
 use crate::error::Error;
-use crate::matchers::FaviconMap;
+use crate::operators::matchers::FaviconMap;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use fancy_regex::Regex;

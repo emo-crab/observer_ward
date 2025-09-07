@@ -1,12 +1,16 @@
 use crate::error::{Error, Result, new_regex_error};
-use crate::extractors::{Extractor, ExtractorType};
 use crate::info::Version;
-use crate::matchers::{Condition, FaviconMap, Matcher, MatcherType};
+use crate::operators::extractors::{Extractor, ExtractorType};
+use crate::operators::matchers::{Condition, FaviconMap, Matcher, MatcherType};
 use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 use slinger::Response;
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
+
+pub mod extractors;
+pub mod matchers;
+pub mod regex;
 
 /// Operators for the current request go here.
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
@@ -87,13 +91,14 @@ impl Operators {
     result: &mut OperatorResult,
   ) {
     for (index, extractor) in self.extractors.iter().enumerate() {
-      let words = if let Ok(w) = extractor.part.get_matcher_word_from_part(response) {
-        w
-      } else {
-        continue;
-      };
+      let (words, body) =
+        if let Ok((words, body)) = extractor.part.get_matcher_word_from_part(response) {
+          (words, body)
+        } else {
+          continue;
+        };
       let (extract_result, version) = match &extractor.extractor_type {
-        ExtractorType::Regex(re) => extractor.extract_regex(re, words, &version),
+        ExtractorType::Regex(re) => extractor.extract_regex(re, words, body, &version),
         ExtractorType::JSON(json) => extractor.extract_json(json, words),
         ExtractorType::KVal(..) | ExtractorType::XPath(..) | ExtractorType::DSL(..) => {
           (HashSet::new(), BTreeMap::new())
@@ -118,7 +123,7 @@ impl Operators {
       return Ok(());
     }
     for matcher in self.matchers.iter() {
-      let words = matcher.part.get_matcher_word_from_part(response)?;
+      let (words, body) = matcher.part.get_matcher_word_from_part(response)?;
       let (is_match, mw) = match &matcher.matcher_type {
         MatcherType::Word(word) => matcher.match_word(word, words),
         MatcherType::Favicon(fav) => {
@@ -135,7 +140,7 @@ impl Operators {
           matcher.match_status_code(status, response.status_code().as_u16()),
           vec![response.status_code().as_u16().to_string()],
         ),
-        MatcherType::Regex(re) => matcher.match_regex(re, words),
+        MatcherType::Regex(re) => matcher.match_regex(re, words, body),
         MatcherType::None
         | MatcherType::DSL(..)
         | MatcherType::Binary(..)

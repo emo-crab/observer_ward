@@ -22,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::ops::Deref;
 use std::sync::RwLock;
+
 const DEFAULT_PROMPT: &str = include_str!("../../prompt.txt");
 
 pub struct ObserverWardHandler {

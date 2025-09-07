@@ -13,6 +13,7 @@ use slinger::Request;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::sync::Arc;
+
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]

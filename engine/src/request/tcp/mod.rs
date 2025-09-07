@@ -7,6 +7,7 @@ use crate::serde_format::is_default;
 pub use port::PortRange;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]

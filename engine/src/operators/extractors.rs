@@ -1,11 +1,15 @@
-use crate::error::{Error, Result, new_regex_error};
+use crate::error::Result;
 use crate::info::Version;
-use crate::matchers::Part;
+use crate::operators::matchers::Part;
+use crate::operators::regex::RegexPattern;
 use crate::serde_format::is_default;
 use jsonpath_rust::JsonPath;
+use log::error;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
+use slinger::Body;
 use std::collections::{BTreeMap, HashSet};
+
 /// Extractor defines a mechanism to extract data from protocol responses
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,8 +98,9 @@ impl Extractor {
   }
   pub(crate) fn extract_regex(
     &self,
-    regex_list: &ERegex,
+    regex_list: &RegexPattern,
     corpus: String,
+    body: Body,
     version: &Option<Version>,
   ) -> (HashSet<String>, BTreeMap<String, String>) {
     let mut extract_result = HashSet::new();
@@ -104,18 +109,19 @@ impl Extractor {
     for (i, _) in regex_list.regex.iter().enumerate() {
       let re = match regex_list.get_compiled(i) {
         Ok(re) => re,
-        Err(_) => continue, // 如果编译失败，跳过这个正则
+        Err(err) => {
+          error!("extract regex compiled error: {:?}", err);
+          continue;
+        } // 如果编译失败，跳过这个正则
       };
-      re.captures(&corpus)
+      re.captures(&corpus, &body)
         .map(|e| {
-          e.map(|e| {
-            if let Some(eg) = e.get(group) {
-              extract_result.insert(eg.as_str().to_string());
-            }
-            if let Some(ver) = version {
-              version_map = ver.captures(e);
-            }
-          })
+          if let Some(eg) = e.get(group) {
+            extract_result.insert(eg);
+          }
+          if let Some(ver) = version {
+            version_map.extend(ver.captures(e));
+          }
         })
         .unwrap_or_default();
     }
@@ -129,7 +135,7 @@ impl Extractor {
 pub enum ExtractorType {
   /// Regex extractor using regular expression patterns
   #[cfg_attr(feature = "mcp", schemars(title = "regex extractor"))]
-  Regex(ERegex),
+  Regex(RegexPattern),
   // name:kval
   KVal(KVal),
   // name:xpath
@@ -139,55 +145,7 @@ pub enum ExtractorType {
   // name:dsl
   DSL(DSL),
 }
-#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-#[serde(deny_unknown_fields)]
-pub struct ERegex {
-  /// Regular expression patterns to extract from a part
-  #[cfg_attr(
-    feature = "mcp",
-    schemars(
-      title = "regex to extract from part",
-      description = "Regex contains the regular expression patterns to extract from a part"
-    )
-  )]
-  pub regex: Vec<String>,
-  /// Numbered group to extract from the regex
-  #[serde(default, skip_serializing_if = "is_default")]
-  #[cfg_attr(
-    feature = "mcp",
-    schemars(
-      title = "group to extract from regex",
-      description = "Group specifies a numbered group to extract from the regex"
-    )
-  )]
-  pub group: Option<usize>,
-  /// 预编译正则
-  #[serde(skip)]
-  pub compiled_regex: Vec<OnceCell<fancy_regex::Regex>>,
-}
-impl PartialEq for ERegex {
-  fn eq(&self, other: &Self) -> bool {
-    self.regex == other.regex && self.group == other.group
-  }
-}
-impl ERegex {
-  pub fn get_compiled(&self, index: usize) -> Result<&fancy_regex::Regex> {
-    if index >= self.regex.len() {
-      return Err(Error::IO(std::io::Error::new(
-        std::io::ErrorKind::InvalidData,
-        format!(
-          "Index out of bounds: {} >= {}",
-          index,
-          self.compiled_regex.len()
-        ),
-      )));
-    }
-    self.compiled_regex[index]
-      .get_or_try_init(|| fancy_regex::Regex::new(&self.regex[index]).map_err(new_regex_error))
-  }
-}
+
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]

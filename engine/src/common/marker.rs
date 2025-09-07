@@ -22,7 +22,6 @@ enum Token {
 impl From<&String> for Token {
   fn from(value: &String) -> Self {
     if value.contains("(") && value.contains(")") {
-      println!("{}", value);
       Self::Func(Func { name: "".to_string(), args: vec![] })
     } else {
       Self::Var(value.to_string())
@@ -97,7 +96,6 @@ impl Marker {
       if let Some(value) = self.contexts.get(&b.string) {
         self.template.replace_range(b.start..b.end, value);
       } else {
-        println!("{:?}", b);
         self.unresolved.push(b);
       }
       println!("{}", self.template);

@@ -1,6 +1,6 @@
 use crate::error::{Result, new_regex_error};
 use crate::info::Info;
-use crate::matchers::MatcherType;
+use crate::operators::matchers::MatcherType;
 use crate::request::{HttpRaw, Requests};
 use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};

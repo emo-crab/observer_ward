@@ -13,6 +13,7 @@ use crate::serde_format::is_default;
 use rustc_lexer::unescape;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
 /// There must be a field that is not empty
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

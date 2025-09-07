@@ -6,7 +6,7 @@ use engine::common::cert::X509Certificate;
 use engine::common::html::extract_title;
 use engine::common::http::HttpRecord;
 use engine::execute::{ClusterExecute, ClusterType};
-use engine::matchers::FaviconMap;
+use engine::operators::matchers::FaviconMap;
 use engine::request::RequestGenerator;
 use engine::results::{FingerprintResult, NucleiResult};
 use engine::slinger::http::StatusCode;

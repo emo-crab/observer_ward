@@ -1,9 +1,7 @@
 pub mod common;
 pub mod error;
 pub mod execute;
-pub mod extractors;
 pub mod info;
-pub mod matchers;
 pub mod operators;
 pub mod request;
 pub mod results;

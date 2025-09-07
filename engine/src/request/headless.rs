@@ -3,6 +3,7 @@ use crate::operators::Operators;
 use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]

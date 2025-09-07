@@ -1,11 +1,14 @@
-use crate::error::{Error, Result, new_regex_error};
+use crate::error::{Error, Result};
+use crate::operators::regex::RegexPattern;
 use crate::serde_format::is_default;
+use log::error;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de, ser};
-use slinger::Response;
+use slinger::{Body, Response};
 use std::collections::{BTreeMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
+
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -205,26 +208,30 @@ impl Matcher {
     }
     (false, matched_words)
   }
-  pub(crate) fn match_regex(&self, regex_list: &MRegex, corpus: String) -> (bool, Vec<String>) {
+  pub(crate) fn match_regex(
+    &self,
+    regex_list: &RegexPattern,
+    corpus: String,
+    body: Body,
+  ) -> (bool, Vec<String>) {
     let mut matched_regexes = Vec::new();
     // 遍历所有正则表达式模式
     for (i, _) in regex_list.regex.iter().enumerate() {
       // 获取编译后的正则表达式（懒加载）
       let re = match regex_list.get_compiled(i) {
         Ok(re) => re,
-        Err(_) => continue, // 如果编译失败，跳过这个正则
-      };
-      // 执行匹配
-      let matcher = match re.captures(&corpus) {
-        Ok(matcher) => matcher,
-        Err(_) => continue,
+        Err(err) => {
+          error!("match regex compiled error: {:?}", err);
+          continue;
+        } // 如果编译失败，跳过这个正则
       };
 
-      match matcher {
+      // 执行匹配
+      match re.captures(&corpus, &body) {
         Some(c) => {
           // 处理匹配结果
           if let Some(m) = c.get(regex_list.group.unwrap_or(0)) {
-            matched_regexes.push(m.as_str().to_string());
+            matched_regexes.push(m);
           }
           // 如果是 OR 条件且不需要匹配所有，提前返回
           if matches!(self.condition, Condition::Or) && !self.match_all {
@@ -273,7 +280,7 @@ pub enum MatcherType {
   Favicon(Favicon),
   Word(Word),
   Status(Status),
-  Regex(MRegex),
+  Regex(RegexPattern),
   DSL(DSL),
   Binary(Binary),
   XPath(MatcherXPath),
@@ -400,27 +407,6 @@ pub struct MRegex {
   #[serde(skip)]
   pub compiled_regex: Vec<OnceCell<fancy_regex::Regex>>,
 }
-impl PartialEq for MRegex {
-  fn eq(&self, other: &Self) -> bool {
-    self.regex == other.regex && self.group == other.group
-  }
-}
-impl MRegex {
-  pub fn get_compiled(&self, index: usize) -> Result<&fancy_regex::Regex> {
-    if index >= self.regex.len() {
-      return Err(Error::IO(std::io::Error::new(
-        std::io::ErrorKind::InvalidData,
-        format!(
-          "Index out of bounds: {} >= {}",
-          index,
-          self.compiled_regex.len()
-        ),
-      )));
-    }
-    self.compiled_regex[index]
-      .get_or_try_init(|| fancy_regex::Regex::new(&self.regex[index]).map_err(new_regex_error))
-  }
-}
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
@@ -470,9 +456,9 @@ pub enum Part {
 }
 
 impl Part {
-  pub(crate) fn get_matcher_word_from_part(&self, response: &Response) -> Result<String> {
+  pub(crate) fn get_matcher_word_from_part(&self, response: &Response) -> Result<(String, Body)> {
     let body = response.body().clone().unwrap_or_default();
-    let body = match String::from_utf8(body.as_ref().to_vec()) {
+    let body_string = match String::from_utf8(body.as_ref().to_vec()) {
       Ok(s) => s,
       Err(_) => format!("{}", body.escape_ascii()),
     };
@@ -481,10 +467,10 @@ impl Part {
       header_string.push_str(&format!("{}: {}\r\n", k, v.to_str().unwrap_or_default()));
     }
     let result = match &self {
-      Part::Body => body.to_string(),
+      Part::Body => body_string,
       Part::Header => header_string,
       Part::Response => {
-        format!("{}\r\n\r\n{}", header_string, body)
+        format!("{}\r\n\r\n{}", header_string, body_string)
       }
       Part::Name(name) => {
         if let Some(v) = response.headers().get(name) {
@@ -497,7 +483,7 @@ impl Part {
         }
       }
     };
-    Ok(result)
+    Ok((result, body))
   }
 }
 

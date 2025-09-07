@@ -1,7 +1,9 @@
-use crate::matchers::{Favicon, MRegex, Matcher, MatcherType, Word};
+use crate::operators::matchers::{Favicon, Matcher, MatcherType, Word};
+use crate::operators::regex::RegexPattern;
 use crate::serde_format::string_vec_serde;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::sync::Arc;
 
 // 空间搜索引擎查询语法CyberspaceSearchEngineQuery
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -80,7 +82,7 @@ fn or_and_split(query: &str) -> Vec<String> {
   parts
 }
 
-impl From<CSE> for Vec<Matcher> {
+impl From<CSE> for Vec<Arc<Matcher>> {
   fn from(val: CSE) -> Self {
     let mut mt = Vec::new();
     let mut keyword = HashSet::new();
@@ -171,7 +173,7 @@ impl From<CSE> for Vec<Matcher> {
       r.sort();
       if !r.is_empty() {
         let m = Matcher {
-          matcher_type: MatcherType::Regex(MRegex {
+          matcher_type: MatcherType::Regex(RegexPattern {
             regex: r,
             group: None,
             compiled_regex: Vec::new(),
@@ -181,7 +183,7 @@ impl From<CSE> for Vec<Matcher> {
         mt.push(m);
       }
     }
-    mt
+    mt.into_iter().map(Arc::new).collect()
   }
 }
 
