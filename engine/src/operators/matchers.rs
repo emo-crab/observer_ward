@@ -221,7 +221,7 @@ impl Matcher {
       let re = match regex_list.get_compiled(i) {
         Ok(re) => re,
         Err(err) => {
-          error!("match regex compiled error: {:?}", err);
+          error!("match regex compiled error: {err:?}", );
           continue;
         } // 如果编译失败，跳过这个正则
       };
@@ -470,7 +470,7 @@ impl Part {
       Part::Body => body_string,
       Part::Header => header_string,
       Part::Response => {
-        format!("{}\r\n\r\n{}", header_string, body_string)
+        format!("{header_string}\r\n\r\n{body_string}" )
       }
       Part::Name(name) => {
         if let Some(v) = response.headers().get(name) {

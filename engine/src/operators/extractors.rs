@@ -110,7 +110,7 @@ impl Extractor {
       let re = match regex_list.get_compiled(i) {
         Ok(re) => re,
         Err(err) => {
-          error!("extract regex compiled error: {:?}", err);
+          error!("extract regex compiled error: {err:?}");
           continue;
         } // 如果编译失败，跳过这个正则
       };

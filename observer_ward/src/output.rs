@@ -186,7 +186,7 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &BTreeMap<String, Mat
       write!(writer, " <{}>", set_to_string(mr.title())).unwrap_or_default();
       write!(writer, " <{}>", mr.length).unwrap_or_default();
       if let Some(csc) = &osc {
-        write!(writer, " ({}) ", csc).unwrap_or_default();
+        write!(writer, " ({csc}) ").unwrap_or_default();
       }
       writeln!(writer, "]").unwrap_or_default();
       if !fp.matcher_result().iter().all(|x| x.extractor.is_empty()) {
@@ -254,7 +254,7 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &BTreeMap<String, Mat
         .unwrap_or_default();
       }
       if let Some(csc) = &osc {
-        write!(writer, " ({}) ", csc).unwrap_or_default();
+        write!(writer, " ({csc}) ").unwrap_or_default();
       }
       writeln!(writer, "]").unwrap_or_default();
     }

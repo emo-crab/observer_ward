@@ -106,10 +106,10 @@ impl From<&Value> for HeaderValue {
       Value::Num(n) => n.to_string(),
       Value::String(s) => s.to_string(),
       Value::List(l) => {
-        format!("{:?}", l)
+        format!("{l:?}")
       }
       Value::Map(m) => {
-        format!("{:?}", m)
+        format!("{m:?}")
       }
     };
     HeaderValue::from_str(&s).unwrap_or(HeaderValue::from_static(""))

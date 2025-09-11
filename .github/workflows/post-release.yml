@@ -58,43 +58,40 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [ linux, macos, macos_m1,win-msvc, win7-msvc, linux-arm-v7, linux-aarch64 ]
+        build: [ linux, linux-gnu, macos, macos_m1,win-msvc, win7-msvc, linux-arm-v7, linux-aarch64 ]
         include:
           - build: linux
             os: ubuntu-latest
             rust: stable
             target: x86_64-unknown-linux-musl
-            file: observer_ward_amd64
+          - build: linux-gnu
+            os: ubuntu-latest
+            rust: stable
+            target: x86_64-pc-windows-gnu
           - build: macos
             os: macos-latest
             rust: stable
             target: x86_64-apple-darwin
-            file: observer_ward_darwin
           - build: macos_m1
             os: macos-latest
             rust: stable
             target: aarch64-apple-darwin
-            file: observer_ward_aarch64_darwin
           - build: win-msvc
             os: windows-latest
             rust: stable
             target: i686-pc-windows-msvc
-            file: observer_ward.exe
           - build: win7-msvc
             os: windows-latest
             rust: nightly
-            target: i686-win7-windows-msvc
-            file: observer_ward_win7.exe
+            target: x86_64-pc-windows-msvc
           - build: linux-arm-v7
             os: ubuntu-latest
             rust: stable
             target: armv7-unknown-linux-gnueabihf
-            file: observer_ward_armv7
           - build: linux-aarch64
             os: ubuntu-latest
             rust: stable
             target: aarch64-unknown-linux-gnu
-            file: observer_ward_aarch64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
@@ -147,16 +144,16 @@ jobs:
       - name: Build nightly release binary
         if: matrix.rust == 'nightly'
         run: |
-          rustup component add rust-src --toolchain nightly-i686-win7-windows-msvc
-          cargo +nightly build --target ${{ matrix.target }} --verbose --release --bin observer_ward
-          cargo +nightly build --target ${{ matrix.target }} --verbose --release --features=mcp --bin observer_ward_mcp
+          rustup component add rust-src --toolchain nightly-x86_64-pc-windows-msvc
+          cargo +nightly build --target ${{ matrix.target }} -Zbuild-std --verbose --release --bin observer_ward
+          cargo +nightly build --target ${{ matrix.target }} -Zbuild-std --verbose --release --features=mcp --bin observer_ward_mcp
       - name: Build archive
         shell: bash
         run: |
           staging="${{ env.BIN_NAME }}_${{ needs.create-release.outputs.release_version }}_${{ matrix.target }}"
           mkdir -p "$staging"
           cp {README.md,LICENSE} "$staging/"
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          if [ "${{ matrix.os }}" = "windows-latest" ] || [[ "${{ matrix.target }}" == *"windows"* ]]; then
             bin_file="target/${{ matrix.target }}/release/${{ env.BIN_NAME }}.exe"
             mcp_bin_file="target/${{ matrix.target }}/release/${{ env.BIN_NAME }}_mcp.exe"
             cp "$bin_file" "$staging/"

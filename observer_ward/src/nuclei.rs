@@ -37,7 +37,7 @@ impl NucleiRunner {
         match serde_json::from_str::<NucleiResult>(line) {
           Ok(template) => result.push(Arc::new(template)),
           Err(err) => {
-            error!("{}", err);
+            error!("{err}");
           }
         };
       }
@@ -112,11 +112,11 @@ pub fn gen_nuclei_tags(product: &str, tags: &[String]) -> Vec<String> {
     .map(|x| x.to_string())
     .collect();
   if !tags.contains(&product.to_string()) {
-    or_condition.push(format!("contains(tags,'{}')", product));
+    or_condition.push(format!("contains(tags,'{product}')"));
   }
   // 只留单个的tags，防止误报
   for tag in tags {
-    or_condition.push(format!("contains(tags,'{}')", tag));
+    or_condition.push(format!("contains(tags,'{tag}')"));
   }
   or_condition
 }

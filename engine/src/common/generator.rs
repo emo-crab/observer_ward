@@ -152,7 +152,7 @@ mod tests {
       payloads: payload,
     };
     for p in PayloadIterator::from(&payload_attack) {
-      println!("{:?}", p);
+      println!("{p:?}");
     }
   }
 }

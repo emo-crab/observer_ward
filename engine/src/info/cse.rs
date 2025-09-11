@@ -168,7 +168,7 @@ impl From<CSE> for Vec<Arc<Matcher>> {
       let mut r: Vec<String> = title
         .iter()
         .filter(|x| !keyword.contains(*x))
-        .map(|x| format!("(?mi)<title[^>]*>{}.*?</title>", x))
+        .map(|x| format!("(?mi)<title[^>]*>{x}.*?</title>"))
         .collect();
       r.sort();
       if !r.is_empty() {
@@ -194,6 +194,6 @@ mod tests {
   #[test]
   fn it_works() {
     let o = or_and_split("icon_hash=\"160707013\" || icon_hash=\"-1815707560\"");
-    println!("{:?}", o);
+    println!("{o:?}");
   }
 }

@@ -67,14 +67,14 @@ impl Regexp {
     let fancy_regex = match fancy_regex::Regex::new(pattern) {
       Ok(r) => Some(r),
       Err(err) => {
-        error!("new fancy regex pattern error:{:?}", err);
+        error!("new fancy regex pattern error:{err:?}" );
         None
       }
     };
     let bytes_regex = match regex::bytes::Regex::new(pattern) {
       Ok(r) => Some(r),
       Err(err) => {
-        error!("new bytes regex pattern error:{:?}", err);
+        error!("new bytes regex pattern error:{err:?}" );
         None
       }
     };

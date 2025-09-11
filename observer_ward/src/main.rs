@@ -16,6 +16,9 @@ use tracing_subscriber::prelude::*;
 #[tokio::main]
 async fn main() {
   let config = ObserverWardConfig::default();
+  if config.no_color {
+    console::set_colors_enabled(false);
+  }
   let log_filter = if config.debug {
     "observer_ward=debug,actix_web=debug"
   } else if config.silent {
@@ -33,9 +36,6 @@ async fn main() {
     .with(tracing_subscriber::EnvFilter::new(log_filter))
     .with(fmt_layer)
     .init();
-  if config.no_color {
-    console::set_colors_enabled(false);
-  }
   if let Some(address) = &config.api_server {
     #[cfg(not(target_os = "windows"))]
     if config.daemon {
@@ -43,7 +43,7 @@ async fn main() {
     }
     api_server(address, config.clone())
       .await
-      .map_err(|err| error!("start api server err:{}", err))
+      .map_err(|err| error!("start api server err:{err}"))
       .unwrap_or_default();
     std::process::exit(0);
   }

@@ -163,7 +163,7 @@ pub async fn api_server(
     ),
     UnixSocketAddr::SocketAddr(sa) => (
       http_server.bind(sa)?,
-      format!("http://{}/v1/observer_ward", listening_address),
+      format!("http://{listening_address}/v1/observer_ward"),
     ),
   };
   print_help(&url, token, listening_address);

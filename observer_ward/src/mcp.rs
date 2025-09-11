@@ -214,6 +214,7 @@ impl ServerHandler for ObserverWardHandler {
         .enable_tools()
         .build(),
       server_info: Implementation {
+        title:None,
         name: "observer_ward MCP Server".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
       },

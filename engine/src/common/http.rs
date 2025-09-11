@@ -130,7 +130,7 @@ fn favicon_hash(content: &Body) -> FaviconMap {
   // # Insert newlines (\n) every 76 characters, and also at the end
   for (index, char) in bs64.chars().enumerate() {
     buf.push(char);
-    if (index + 1) % 76 == 0 {
+    if (index + 1).is_multiple_of(76){
       buf.push('\n');
     }
   }

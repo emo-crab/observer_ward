@@ -91,7 +91,7 @@ impl Version {
               num += (digit as usize - '0' as usize) * multiplier;
               multiplier *= 10;
             }
-            parameters.insert(num, format!("${}", num));
+            parameters.insert(num, format!("${num}"));
           }
         }
       }
