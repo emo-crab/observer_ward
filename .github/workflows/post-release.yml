@@ -159,7 +159,7 @@ jobs:
             new_bin_file="target/${{ matrix.target }}/release/${{ matrix.target }}.exe"
             new_mcp_bin_file="target/${{ matrix.target }}/release/${{ matrix.target }}_mcp.exe"
             mv "$bin_file" "$new_bin_file"
-            mv "$mcp_bin_file" "new_mcp_bin_file"
+            mv "$mcp_bin_file" "$new_mcp_bin_file"
             cp "$new_bin_file" "$staging/"
             cp "$new_mcp_bin_file" "$staging/"
             cd "$staging"
