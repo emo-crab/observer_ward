@@ -26,7 +26,7 @@ futures = { version = "0.3.31" }
 uuid = { version = "1.11.0", features = ["v4"] }
 thiserror = "2"
 tracing = "0.1"
-tracing-subscriber = { version = "=0.3.19", features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "=0.3.20", features = ["env-filter", "fmt"] }
 log = "0.4.26"
 console = "0.16.0"
 zip = { version = "4.0.0", default-features = false, features = ["deflate"] }
