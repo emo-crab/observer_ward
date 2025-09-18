@@ -1,9 +1,10 @@
 use crate::cli::ObserverWardConfig;
-use console::{Emoji, style};
+use console::Emoji;
 use engine::template::Template;
 use log::{error, info, warn};
 use std::fs::File;
 use std::io::Cursor;
+const OBSERVER_WARD_TARGET: &str = env!("OBSERVER_WARD_TARGET");
 
 pub struct Helper<'a> {
   config: &'a ObserverWardConfig,
@@ -38,7 +39,7 @@ impl<'a> Helper<'a> {
           info!(
             "{}successfully updated {} fingerprint",
             Emoji("🔄", ""),
-            style(ts.len()).blue()
+            ts.len()
           );
         }
         Err(err) => {
@@ -94,22 +95,15 @@ impl<'a> Helper<'a> {
     // https://doc.rust-lang.org/reference/conditional-compilation.html
     let mut base_url =
       String::from("https://github.com/emo-crab/observer_ward/releases/download/defaultv4/");
-    let mut download_name = "observer_ward_amd64";
+    let mut download_name = OBSERVER_WARD_TARGET.to_string();
+    if cfg!(feature = "mcp") {
+      download_name.push_str("_mcp");
+    }
     if cfg!(target_os = "windows") {
-      download_name = "observer_ward.exe";
-    } else if cfg!(target_os = "linux") && cfg!(target_arch = "x86_64") {
-      download_name = "observer_ward_amd64";
-    } else if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64") {
-      download_name = "observer_ward_aarch64";
-    } else if cfg!(target_os = "linux") && cfg!(target_arch = "arm") {
-      download_name = "observer_ward_armv7";
-    } else if cfg!(target_os = "macos") && cfg!(target_arch = "x86_64") {
-      download_name = "observer_ward_darwin";
-    } else if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
-      download_name = "observer_ward_aarch64_darwin";
+      download_name.push_str(".exe");
     };
-    base_url.push_str(download_name);
-    let save_filename = "update_".to_owned() + download_name;
+    base_url.push_str(&download_name);
+    let save_filename = format!("update_{download_name}");
     match self
       .download_file_from_github(&base_url, &save_filename)
       .await
@@ -119,7 +113,11 @@ impl<'a> Helper<'a> {
           "{} please rename the file {} => {}",
           Emoji("ℹ️", ""),
           save_filename,
-          download_name
+          std::env::current_exe()
+            .unwrap_or_default()
+            .file_name()
+            .unwrap_or(std::ffi::OsStr::new(&download_name))
+            .to_string_lossy(),
         );
       }
       Err(err) => {

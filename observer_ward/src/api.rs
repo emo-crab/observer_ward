@@ -4,7 +4,7 @@ use crate::output::Output;
 use crate::{MatchedResult, ObserverWard, cluster_templates};
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, middleware, post, rt, web};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
-use console::{Emoji, style};
+use console::Emoji;
 #[cfg(not(target_os = "windows"))]
 use daemonize::Daemonize;
 use engine::execute::ClusterType;
@@ -97,14 +97,10 @@ async fn set_config_api(
     info!(
       "{}probes loaded: {}",
       Emoji("📇", ""),
-      style(templates.len().to_string()).blue()
+      templates.len()
     );
     let new_cl = cluster_templates(&templates);
-    info!(
-      "{}optimized probes: {}",
-      Emoji("🚀", ""),
-      style(new_cl.count()).blue()
-    );
+    info!("{}optimized probes: {}", Emoji("🚀", ""), new_cl.count());
     *cl = new_cl;
   }
   HttpResponse::Ok().json(config)
@@ -127,17 +123,9 @@ pub async fn api_server(
   config: ObserverWardConfig,
 ) -> std::io::Result<()> {
   let templates = config.templates();
-  info!(
-    "{}probes loaded: {}",
-    Emoji("📇", ""),
-    style(templates.len()).blue()
-  );
+  info!("{}probes loaded: {}", Emoji("📇", ""), templates.len());
   let cl = cluster_templates(&templates);
-  info!(
-    "{}optimized probes: {}",
-    Emoji("🚀", ""),
-    style(cl.count()).blue()
-  );
+  info!("{}optimized probes: {}", Emoji("🚀", ""), cl.count());
   let cluster_templates = web::Data::new(RwLock::new(cl));
   let web_config = web::Data::new(config.clone());
   let token_auth = web::Data::new(TokenAuth {
@@ -203,8 +191,8 @@ fn print_help(url: &str, t: Option<String>, listening_address: &UnixSocketAddr) 
     }
   };
   let result = r#"[result...]"#;
-  info!("{}:{}", Emoji("📔", ""), style(api_doc).green());
-  info!("{}:{}", Emoji("🗳", ""), style(result).green());
+  info!("{}:{}", Emoji("📔", ""), api_doc);
+  info!("{}:{}", Emoji("🗳", ""), result);
 }
 
 #[cfg(not(target_os = "windows"))]

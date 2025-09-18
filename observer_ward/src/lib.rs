@@ -1,7 +1,7 @@
 use crate::cli::{Mode, ObserverWardConfig};
 use crate::error::new_io_error;
 use crate::nuclei::{NucleiRunner, gen_nuclei_tags};
-use console::{Emoji, style};
+use console::Emoji;
 use engine::common::cert::X509Certificate;
 use engine::common::html::extract_title;
 use engine::common::http::HttpRecord;
@@ -479,11 +479,7 @@ impl ObserverWard {
   }
   pub async fn execute(self: Arc<Self>, tx: UnboundedSender<ExecuteResult>) {
     let input = self.config.input();
-    info!(
-      "{}target loaded: {}",
-      Emoji("🎯", ""),
-      style(input.len()).blue()
-    );
+    info!("{}target loaded: {}", Emoji("🎯", ""), input.len());
     let mut worker = FuturesUnordered::new();
     let mut targets = input.into_iter();
     for _ in 0..self.config.thread {

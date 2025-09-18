@@ -1,4 +1,4 @@
-use console::{Emoji, style};
+use console::Emoji;
 use engine::execute::ClusterType;
 use engine::template::cluster::cluster_templates;
 use futures::StreamExt;
@@ -58,17 +58,9 @@ async fn main() {
     helper.update_fingerprint().await;
     templates = config.templates();
   }
-  info!(
-    "{}probes loaded: {}",
-    Emoji("📇", ""),
-    style(templates.len()).blue()
-  );
+  info!("{}probes loaded: {}", Emoji("📇", ""), templates.len());
   let cl = cluster_templates(&templates);
-  info!(
-    "{}optimized probes: {}",
-    Emoji("🚀", ""),
-    style(cl.count()).blue()
-  );
+  info!("{}optimized probes: {}", Emoji("🚀", ""), cl.count());
   if config.mcp {
     mcp(config, cl).await
   } else {
