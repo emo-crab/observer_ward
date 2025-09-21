@@ -94,11 +94,7 @@ async fn set_config_api(
   }
   if let Ok(mut cl) = cl.write() {
     let templates = config.templates();
-    info!(
-      "{}probes loaded: {}",
-      Emoji("📇", ""),
-      templates.len()
-    );
+    info!("{}probes loaded: {}", Emoji("📇", ""), templates.len());
     let new_cl = cluster_templates(&templates);
     info!("{}optimized probes: {}", Emoji("🚀", ""), new_cl.count());
     *cl = new_cl;

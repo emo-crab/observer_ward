@@ -19,10 +19,10 @@ use error::Result;
 use futures::StreamExt;
 use futures::channel::mpsc::UnboundedSender;
 use futures::stream::FuturesUnordered;
+use fxhash::FxHasher;
 use log::{debug, info};
+use moka::future::Cache;
 use serde::{Deserialize, Serialize};
-use std::collections::btree_map::Entry;
-use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
 use std::hash::Hasher;
@@ -239,9 +239,12 @@ pub struct ClusterExecuteRunner {
   // 子路径匹配结果
   matched_result: BTreeMap<String, MatchedResult>,
   http_record: Option<Arc<HttpRecord>>,
-  cache: BTreeMap<u64, Response>,
+  #[serde(skip, default = "default_cache")]
+  cache: Cache<u64, Response>,
 }
-
+fn default_cache() -> Cache<u64, Response> {
+  Cache::builder().max_capacity(100).build()
+}
 impl ClusterExecuteRunner {
   pub fn result(&self) -> &BTreeMap<String, MatchedResult> {
     &self.matched_result
@@ -251,7 +254,7 @@ impl ClusterExecuteRunner {
       target: uri.clone(),
       matched_result: BTreeMap::new(),
       http_record: None,
-      cache: Default::default(),
+      cache: Cache::builder().max_capacity(100).build(),
     }
   }
   fn update_result(&mut self, result: FingerprintResult, key: Option<String>) {
@@ -332,15 +335,17 @@ impl ClusterExecuteRunner {
       // 请求全部路径
       for request in generator {
         debug!("{}{:#?}", Emoji("📤", ""), request);
-        let response = match self.cache.entry(self.get_request_hash(&request)) {
-          Entry::Vacant(v) => v.insert(client.execute(request.clone()).await?),
-          Entry::Occupied(o) => o.into_mut(),
-        };
+        let mut response = self
+          .cache
+          .entry(self.get_request_hash(&request))
+          .or_insert(client.execute(request.clone()).await?)
+          .await
+          .into_value();
         debug!("{}{:#?}", Emoji("📥", ""), response);
         // 提取icon
-        http_record.find_favicon_tag(response).await;
+        http_record.find_favicon_tag(&mut response).await;
         let mut flag = false;
-        let mut result = FingerprintResult::new(response);
+        let mut result = FingerprintResult::new(&response);
         cluster
           .operators
           .iter()
@@ -357,11 +362,20 @@ impl ClusterExecuteRunner {
     Ok(())
   }
   fn get_request_hash(&self, request: &Request) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    hasher.write(request.method().to_string().as_bytes());
+    let mut hasher = FxHasher::default();
+    hasher.write(request.method().as_str().as_bytes());
     hasher.write(request.uri().to_string().as_bytes());
-    hasher.write(format!("{:?}", request.headers()).as_bytes());
-    hasher.write(request.body().unwrap_or(&engine::slinger::Body::default()));
+    for (name, value) in request.headers() {
+      hasher.write(name.as_str().as_bytes());
+      hasher.write(b"\0"); // 分隔符
+      hasher.write(value.as_bytes());
+    }
+
+    // 谨慎：只有在你确定需要 body 时才哈希它
+    if let Some(body) = request.body().as_ref() {
+      hasher.write(body);
+    }
+
     hasher.finish()
   }
 }
