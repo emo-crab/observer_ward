@@ -30,7 +30,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "=0.3.20", features = ["env-filter", "fmt"] }
 log = "0.4.28"
 console = "0.16.0"
-zip = { version = "4.0.0", default-features = false, features = ["deflate"] }
+zip = { version = "5.1.1", default-features = false, features = ["deflate"] }
 actix-web-httpauth = "0.8.1"
 actix-web = { version = "4.11.0", default-features = false, features = [
     "macros",
