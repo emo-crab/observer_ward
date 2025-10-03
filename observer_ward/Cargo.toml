@@ -37,7 +37,7 @@ actix-web = { version = "4.11.0", default-features = false, features = [
     "compress-gzip",
 ] }
 tokio = { version = "1.38.0", features = ["macros", "rt", "rt-multi-thread"], default-features = false }
-moka = { version = "0.12.10", features = ["future"] }
+moka = { version = "0.12.11", features = ["future"] }
 [features]
 mcp = ["rmcp", "engine/mcp", "schemars"]
 [target.'cfg(target_os="windows")'.build-dependencies]
