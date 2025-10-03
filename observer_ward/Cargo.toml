@@ -36,7 +36,7 @@ actix-web = { version = "4.11.0", default-features = false, features = [
     "macros",
     "compress-gzip",
 ] }
-tokio = { version = "1.38.0", features = ["macros", "rt", "rt-multi-thread"], default-features = false }
+tokio = { version = "1.46.1", features = ["macros", "rt", "rt-multi-thread"], default-features = false }
 moka = { version = "0.12.11", features = ["future"] }
 [features]
 mcp = ["rmcp", "engine/mcp", "schemars"]
