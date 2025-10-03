@@ -32,7 +32,7 @@ log = "0.4.26"
 console = "0.16.0"
 zip = { version = "4.0.0", default-features = false, features = ["deflate"] }
 actix-web-httpauth = "0.8.1"
-actix-web = { version = "4.9.0", default-features = false, features = [
+actix-web = { version = "4.11.0", default-features = false, features = [
     "macros",
     "compress-gzip",
 ] }
