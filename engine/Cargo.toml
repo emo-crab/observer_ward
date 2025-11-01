@@ -14,7 +14,7 @@ fancy-regex = { version = "0.16.2", default-features = false, features = [
     "unicode",
     "perf",
 ] }
-regex = { version = "1.11.1", default-features = false, features = [
+regex = { version = "1.12.2", default-features = false, features = [
     "std",
     "unicode",
     "perf",
