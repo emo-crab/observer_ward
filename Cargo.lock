@@ -578,7 +578,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1687,8 +1687,8 @@ dependencies = [
 
 [[package]]
 name = "rmcp"
-version = "0.7.0"
-source = "git+https://github.com/modelcontextprotocol/rust-sdk?branch=main#c0b777c7f784ba2d456b03c2ec3b98c9b28b5e10"
+version = "0.8.3"
+source = "git+https://github.com/modelcontextprotocol/rust-sdk?branch=main#04e0590652d029e2cdfadee6f4c7255280dfba0e"
 dependencies = [
  "base64",
  "chrono",
@@ -1707,8 +1707,8 @@ dependencies = [
 
 [[package]]
 name = "rmcp-macros"
-version = "0.7.0"
-source = "git+https://github.com/modelcontextprotocol/rust-sdk?branch=main#c0b777c7f784ba2d456b03c2ec3b98c9b28b5e10"
+version = "0.8.3"
+source = "git+https://github.com/modelcontextprotocol/rust-sdk?branch=main#04e0590652d029e2cdfadee6f4c7255280dfba0e"
 dependencies = [
  "darling",
  "proc-macro2",
