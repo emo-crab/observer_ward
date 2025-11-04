@@ -157,7 +157,7 @@ pub struct ObserverWardConfig {
   pub ic: bool,
   /// customized template dir
   #[argh(option)]
-  #[serde(skip)]
+  #[serde(default)]
   pub plugin: Option<PathBuf>,
   /// export to the file
   #[argh(option, short = 'o')]
@@ -320,7 +320,7 @@ impl ObserverWardConfig {
       .write_timeout(Some(timeout))
   }
   pub fn http_client_builder(&self) -> ClientBuilder {
-    let mut client_builder = ClientBuilder::new()
+    let mut client_builder = ClientBuilder::default()
       .danger_accept_invalid_certs(true)
       .danger_accept_invalid_hostnames(true)
       .min_tls_version(Some(engine::slinger::tls::Version::TLS_1_0))

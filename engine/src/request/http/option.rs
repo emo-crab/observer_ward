@@ -132,7 +132,7 @@ impl HttpOption {
     } else {
       slinger::redirect::Policy::None
     };
-    slinger::ClientBuilder::new()
+    slinger::ClientBuilder::default()
       .danger_accept_invalid_certs(true)
       .danger_accept_invalid_hostnames(true)
       .cookie_store(self.cookie_reuse)

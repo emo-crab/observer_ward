@@ -40,7 +40,9 @@ async fn what_web_api(
     return HttpResponse::Unauthorized().finish();
   }
   let mut config = config.clone();
-  config.plugin = cli_config.plugin.clone();
+  if config.plugin.is_some(){
+    config.plugin = cli_config.plugin.clone();
+  }
   config.config_dir = cli_config.config_dir.clone();
   config.mode = cli_config.mode.clone();
   config.proxy = cli_config.proxy.clone();

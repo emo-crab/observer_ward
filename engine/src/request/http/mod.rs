@@ -93,11 +93,11 @@ pub enum HttpRaw {
 }
 
 impl RequestGenerator {
-  pub fn new(value: &HTTPRequest, uri: slinger::http::uri::Uri) -> Self {
+  pub fn new(value: &HTTPRequest, uri: &slinger::http::uri::Uri) -> Self {
     let _payload = value.payload_attack.as_ref().map(PayloadIterator::from);
     let requests = match &value.http_raw {
-      HttpRaw::Path(paths) => paths.to_requests(&uri),
-      HttpRaw::Raw(raws) => raws.to_requests(&uri),
+      HttpRaw::Path(paths) => paths.to_requests(uri),
+      HttpRaw::Raw(raws) => raws.to_requests(uri),
     };
     RequestGenerator { requests }
   }

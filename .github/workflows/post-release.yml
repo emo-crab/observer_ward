@@ -140,13 +140,11 @@ jobs:
         if: matrix.rust == 'stable'
         run: |
           cargo build --target ${{ matrix.target }} --verbose --release --bin observer_ward
-          cargo build --target ${{ matrix.target }} --verbose --release --features=mcp --bin observer_ward_mcp
       - name: Build nightly release binary
         if: matrix.rust == 'nightly'
         run: |
           rustup component add rust-src --toolchain nightly-x86_64-pc-windows-msvc
           cargo +nightly build --target ${{ matrix.target }} -Zbuild-std --verbose --release --bin observer_ward
-          cargo +nightly build --target ${{ matrix.target }} -Zbuild-std --verbose --release --features=mcp --bin observer_ward_mcp
       - name: Build archive
         shell: bash
         run: |
@@ -155,31 +153,17 @@ jobs:
           cp {README.md,LICENSE} "$staging/"
           if [ "${{ matrix.os }}" = "windows-latest" ] || [[ "${{ matrix.target }}" == *"windows"* ]]; then
             bin_file="target/${{ matrix.target }}/release/${{ env.BIN_NAME }}.exe"
-            mcp_bin_file="target/${{ matrix.target }}/release/${{ env.BIN_NAME }}_mcp.exe"
-            new_bin_file="target/${{ matrix.target }}/release/${{ matrix.target }}.exe"
-            new_mcp_bin_file="target/${{ matrix.target }}/release/${{ matrix.target }}_mcp.exe"
-            mv "$bin_file" "$new_bin_file"
-            mv "$mcp_bin_file" "$new_mcp_bin_file"
-            cp "$new_bin_file" "$staging/"
-            cp "$new_mcp_bin_file" "$staging/"
+            cp "$bin_file" "$staging/"
             cd "$staging"
             7z a "../$staging.zip" .
             echo "ASSET=$staging.zip" >> $GITHUB_ENV
-            echo "BIN_FILE=$new_bin_file" >> $GITHUB_ENV
-            echo "MCP_BIN_FILE=$new_mcp_bin_file" >> $GITHUB_ENV
+            echo "BIN_FILE=$bin_file" >> $GITHUB_ENV
           else
             bin_file="target/${{ matrix.target }}/release/${{ env.BIN_NAME }}"
-            mcp_bin_file="target/${{ matrix.target }}/release/${{ env.BIN_NAME }}_mcp"
-            new_bin_file="target/${{ matrix.target }}/release/${{ matrix.target }}"
-            new_mcp_bin_file="target/${{ matrix.target }}/release/${{ matrix.target }}_mcp"
-            mv "$bin_file" "$new_bin_file"
-            mv "$mcp_bin_file" "$new_mcp_bin_file"
-            cp "$new_bin_file" "$staging/"
-            cp "$new_mcp_bin_file" "$staging/"
+            cp "$bin_file" "$staging/"
             echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
-            echo "BIN_FILE=$new_bin_file" >> $GITHUB_ENV
-            echo "MCP_BIN_FILE=$new_mcp_bin_file" >> $GITHUB_ENV
-            tar czf "$staging.tar.gz" -C "$staging" ${{ matrix.target }} ${{ matrix.target }}_mcp README.md LICENSE
+            echo "BIN_FILE=$bin_file" >> $GITHUB_ENV
+            tar czf "$staging.tar.gz" -C "$staging" ${{ matrix.target }} README.md LICENSE
           fi
       - name: Upload release archive
         uses: softprops/action-gh-release@v2
@@ -192,7 +176,6 @@ jobs:
         with:
           files: |
             ${{ env.BIN_FILE }}
-            ${{ env.MCP_BIN_FILE }}
           tag_name: defaultv4
       - name: Install Cargo deb (Ubuntu)
         if: matrix.os == 'ubuntu-latest'

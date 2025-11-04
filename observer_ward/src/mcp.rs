@@ -217,6 +217,8 @@ impl ServerHandler for ObserverWardHandler {
         title:None,
         name: "observer_ward MCP Server".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
+        icons: None,
+        website_url: None,
       },
       instructions: Some("observer_ward MCP server. A set of MCP services for web application fingerprint identification based on FingerprintHub rules".to_string()),
     }
