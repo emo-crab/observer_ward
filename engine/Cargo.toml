@@ -30,7 +30,6 @@ slinger = { version = "0.2.9", features = [
     "charset",
     "gzip",
     "schema",
-    "http2",
     "rustls"
 ] }
 md-5 = "0.10.6"
