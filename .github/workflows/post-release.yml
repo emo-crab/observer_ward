@@ -163,7 +163,7 @@ jobs:
             cp "$bin_file" "$staging/"
             echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
             echo "BIN_FILE=$bin_file" >> $GITHUB_ENV
-            tar czf "$staging.tar.gz" -C "$staging" ${{ matrix.target }} README.md LICENSE
+            tar czf "$staging.tar.gz" -C "$staging" ${{ env.BIN_NAME }} README.md LICENSE
           fi
       - name: Upload release archive
         uses: softprops/action-gh-release@v2
