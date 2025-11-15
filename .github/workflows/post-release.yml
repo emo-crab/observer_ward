@@ -58,7 +58,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [ linux, linux-gnu, macos, macos_m1,win-msvc, win7-msvc, linux-arm-v7, linux-aarch64 ]
+        build: [ linux, windows-gnu, macos, macos_m1,win-msvc, win7-msvc, linux-arm-v7, linux-aarch64 ]
         include:
           - build: linux
             os: ubuntu-latest
