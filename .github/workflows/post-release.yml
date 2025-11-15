@@ -64,7 +64,7 @@ jobs:
             os: ubuntu-latest
             rust: stable
             target: x86_64-unknown-linux-musl
-          - build: linux-gnu
+          - build: windows-gnu
             os: ubuntu-latest
             rust: stable
             target: x86_64-pc-windows-gnu
@@ -104,7 +104,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-multilib xz-utils liblz4-tool libc6-dev libssl-dev musl-tools pkg-config patchelf
+          sudo apt-get install -y gcc-multilib xz-utils liblz4-tool libc6-dev libssl-dev musl-tools pkg-config patchelf gcc-mingw-w64-x86-64 mingw-w64
           sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
           sed -i -e "s/^version = .*/version = \"`date +'%-Y.%-m.%-d'`\"/" observer_ward/Cargo.toml
           sed -i -e "s/\"observer_ward version\"/\"observer_ward v`date +'%-Y.%-m.%-d'`\"/" observer_ward/src/cli.rs
@@ -153,17 +153,19 @@ jobs:
           cp {README.md,LICENSE} "$staging/"
           if [ "${{ matrix.os }}" = "windows-latest" ] || [[ "${{ matrix.target }}" == *"windows"* ]]; then
             bin_file="target/${{ matrix.target }}/release/${{ env.BIN_NAME }}.exe"
-            cp "$bin_file" "$staging/"
+            cp "$bin_file" "$staging/${{ matrix.target }}.exe"
+            bin_file="$staging/${{ matrix.target }}.exe"
             cd "$staging"
             7z a "../$staging.zip" .
             echo "ASSET=$staging.zip" >> $GITHUB_ENV
             echo "BIN_FILE=$bin_file" >> $GITHUB_ENV
           else
             bin_file="target/${{ matrix.target }}/release/${{ env.BIN_NAME }}"
-            cp "$bin_file" "$staging/"
+            cp "$bin_file" "$staging/${{ matrix.target }}"
+            bin_file="$staging/${{ matrix.target }}"
             echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
             echo "BIN_FILE=$bin_file" >> $GITHUB_ENV
-            tar czf "$staging.tar.gz" -C "$staging" ${{ env.BIN_NAME }} README.md LICENSE
+            tar czf "$staging.tar.gz" -C "$staging" ${{ matrix.target }} README.md LICENSE
           fi
       - name: Upload release archive
         uses: softprops/action-gh-release@v2
