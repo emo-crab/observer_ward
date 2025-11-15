@@ -8,7 +8,7 @@ COPY .cargo .cargo
 COPY observer_ward/Cargo.toml Cargo.toml
 COPY engine/ /engine
 RUN cargo fetch
-COPY prompt.txt /app/prompt.txt
+COPY prompt.txt /prompt.txt
 COPY observer_ward/src src
 # `ARG`/`ENV` pair is a workaround for `docker build` backward-compatibility.
 #
