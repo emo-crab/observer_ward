@@ -5,6 +5,7 @@ use futures::StreamExt;
 use futures::channel::mpsc::unbounded;
 use log::{error, info, warn};
 use observer_ward::ObserverWard;
+use observer_ward::ExecuteResult;
 use observer_ward::api::api_server;
 #[cfg(not(target_os = "windows"))]
 use observer_ward::api::background;
@@ -61,6 +62,29 @@ async fn main() {
   info!("{}probes loaded: {}", Emoji("📇", ""), templates.len());
   let cl = cluster_templates(&templates);
   info!("{}optimized probes: {}", Emoji("🚀", ""), cl.count());
+  
+  #[cfg(feature = "mitm")]
+  if let Some(address) = &config.mitm {
+    #[cfg(not(target_os = "windows"))]
+    if config.daemon {
+      background();
+    }
+    let (tx, mut rx) = unbounded::<ExecuteResult>();
+    let output_config = config.clone();
+    tokio::task::spawn(async move {
+      let mut output = Output::new(&output_config);
+      while let Some(execute_result) = rx.next().await {
+        output.save_and_print(&execute_result.matched);
+        output.webhook_results(vec![execute_result.matched]).await;
+      }
+    });
+    observer_ward::mitm::mitm_proxy_server(address, config.clone(), cl, tx)
+      .await
+      .map_err(|err| error!("start mitm proxy server err:{err}"))
+      .unwrap_or_default();
+    std::process::exit(0);
+  }
+  
   if config.mcp {
     mcp(config, cl).await
   } else {

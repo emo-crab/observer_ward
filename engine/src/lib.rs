@@ -9,6 +9,8 @@ pub mod serde_format;
 pub mod template;
 
 pub use slinger;
+#[cfg(feature = "mitm")]
+pub use slinger_mitm;
 use std::path::{Path, PathBuf};
 
 fn is_hidden(entry: &std::fs::DirEntry) -> bool {

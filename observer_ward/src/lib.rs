@@ -37,6 +37,7 @@ pub mod helper;
 pub mod input;
 #[cfg(feature = "mcp")]
 pub mod mcp;
+pub mod mitm;
 mod nuclei;
 pub mod output;
 
@@ -163,7 +164,7 @@ impl MatchedResult {
     &self.nuclei
   }
 
-  fn update_matched(&mut self, result: &FingerprintResult) {
+  pub fn update_matched(&mut self, result: &FingerprintResult) {
     let response = result.response().unwrap_or_default();
     let text = response.text().unwrap_or_default();
     let title = extract_title(&text);

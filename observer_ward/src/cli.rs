@@ -221,6 +221,11 @@ pub struct ObserverWardConfig {
   #[argh(option)]
   #[serde(skip)]
   pub api_server: Option<UnixSocketAddr>,
+  #[cfg(feature = "mitm")]
+  /// start a MITM proxy server (ex:127.0.0.1:8081)
+  #[argh(option)]
+  #[serde(skip)]
+  pub mitm: Option<UnixSocketAddr>,
   /// enable stdio mcp server
   #[argh(switch)]
   #[serde(skip)]
