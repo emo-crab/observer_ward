@@ -9,12 +9,12 @@ use slinger::record::HTTPRecord;
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 
-// 指纹匹配结果
+// 指纹/匹配结果 (更通用的命名)
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
-pub struct FingerprintResult {
+pub struct MatchEvent {
   // 当前请求所命中的全面规则
   /// Collection of all matched fingerprint rules
   #[cfg_attr(
@@ -49,7 +49,7 @@ pub struct MatcherResult {
   pub extractor: BTreeMap<String, HashSet<String>>,
 }
 
-impl FingerprintResult {
+impl MatchEvent {
   pub fn push(&mut self, template: &Arc<str>, info: &Arc<Info>, ops: OperatorResult) {
     self.matcher_results.push(MatcherResult {
       template: template.to_string(),

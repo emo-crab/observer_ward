@@ -1,4 +1,4 @@
-from .observer_ward_py import ObserverWard
+from .observer_ward import ObserverWard
 
 __all__ = ["ObserverWard"]
 

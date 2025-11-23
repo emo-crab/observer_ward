@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Python bindings for observer-ward"
 readme = "README.md"
 requires-python = ">=3.8"
-license = { file = "../LICENSE" }
+license = { file = "LICENSE" }
 keywords = ["web", "fingerprint", "technology", "detection"]
 authors = [
     { name = "Observer Ward Contributors" }
@@ -34,5 +34,5 @@ Repository = "https://github.com/emo-crab/observer_ward"
 
 [tool.maturin]
 python-source = "python"
-module-name = "observer_ward.observer_ward_py"
+module-name = "observer_ward.observer_ward_python"
 features = ["pyo3/extension-module"]

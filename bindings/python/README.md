@@ -3,6 +3,9 @@
 Python绑定库，用于web技术指纹识别。这是[ObserverWard](https://github.com/emo-crab/observer_ward)项目中observer-ward库的Python接口。
 
 ## 安装
+```bash,no-run
+pip install observer-ward
+```
 
 - 请看 [BUILDING.md](BUILDING.md)文件
 

@@ -1,10 +1,11 @@
 [package]
-name = "observer_ward_py"
+name = "observer_ward-python"
 version = "0.1.0"
 edition = "2024"
-
+license.workspace = true
+authors.workspace = true
 [lib]
-name = "observer_ward_py"
+name = "observer_ward"
 crate-type = ["cdylib"]
 
 [dependencies.pyo3]
@@ -12,7 +13,7 @@ version = "0.26.0"
 features = ["extension-module"]
 
 [dependencies]
-engine = { path = "../engine" }
+engine = { path = "../../engine" }
 pythonize = "0.26.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1"

@@ -1,7 +1,8 @@
-use crate::error::{Error, Result, new_regex_error};
+use crate::error::{Result, new_regex_error};
 use crate::info::Version;
 use crate::operators::extractors::{Extractor, ExtractorType};
 use crate::operators::matchers::{Condition, FaviconMap, Matcher, MatcherType};
+use crate::operators::target::OperatorTarget;
 use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
 use slinger::Response;
@@ -11,6 +12,7 @@ use std::sync::Arc;
 pub mod extractors;
 pub mod matchers;
 pub mod regex;
+pub mod target;
 
 /// Operators for the current request go here.
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
@@ -84,15 +86,17 @@ impl Operators {
     }
     Ok(())
   }
-  pub fn extractor(
+
+  /// Generic extractor that works with any OperatorTarget (Response or Request)
+  pub fn extractor_generic<T: OperatorTarget>(
     &self,
     version: Option<Version>,
-    response: &Response,
+    target: &T,
     result: &mut OperatorResult,
   ) {
     for (index, extractor) in self.extractors.iter().enumerate() {
       let (words, body) =
-        if let Ok((words, body)) = extractor.part.get_matcher_word_from_part(response) {
+        if let Ok((words, body)) = extractor.part.get_matcher_word_from_part(target) {
           (words, body)
         } else {
           continue;
@@ -117,51 +121,76 @@ impl Operators {
       }
     }
   }
-  pub fn matcher(&self, response: &Response, result: &mut OperatorResult) -> Result<()> {
+
+  pub fn extractor(
+    &self,
+    version: Option<Version>,
+    response: &Response,
+    result: &mut OperatorResult,
+  ) {
+    self.extractor_generic(version, response, result)
+  }
+
+  /// Generic matcher that works with any OperatorTarget (Response or Request)
+  /// For Response, it can access extensions for favicon and status code
+  /// For Request, status code matching will be skipped
+  pub fn matcher_generic<T: OperatorTarget>(
+    &self,
+    target: &T,
+    response_for_extensions: Option<&Response>,
+    result: &mut OperatorResult,
+  ) -> Result<()> {
     let mut matchers = Vec::new();
     if self.matchers.is_empty() {
       return Ok(());
     }
     for matcher in self.matchers.iter() {
-      let (words, body) = matcher.part.get_matcher_word_from_part(response)?;
+      // extract matcher word from target parts
+      let (words, body) = matcher.part.get_matcher_word_from_part(target)?;
       let (is_match, mw) = match &matcher.matcher_type {
         MatcherType::Word(word) => matcher.match_word(word, words),
         MatcherType::Favicon(fav) => {
-          let hm = response
-            .extensions()
-            .get::<BTreeMap<String, FaviconMap>>()
-            .ok_or(Error::IO(std::io::Error::new(
-              std::io::ErrorKind::InvalidData,
-              "not found favicon",
-            )))?;
-          matcher.match_favicon(fav, hm)
+          // Favicon matching requires response extensions
+          if let Some(response) = response_for_extensions {
+            let hm = response.extensions().get::<BTreeMap<String, FaviconMap>>();
+            if let Some(hm) = hm {
+              matcher.match_favicon(fav, hm)
+            } else {
+              (false, Vec::new())
+            }
+          } else {
+            (false, Vec::new())
+          }
         }
-        MatcherType::Status(status) => (
-          matcher.match_status_code(status, response.status_code().as_u16()),
-          vec![response.status_code().as_u16().to_string()],
-        ),
+        MatcherType::Status(status) => {
+          // Status code matching only works for Response
+          if let Some(response) = response_for_extensions {
+            (
+              matcher.match_status_code(status, response.status_code().as_u16()),
+              vec![response.status_code().as_u16().to_string()],
+            )
+          } else {
+            (false, Vec::new())
+          }
+        }
         MatcherType::Regex(re) => matcher.match_regex(re, words, body),
         MatcherType::None
         | MatcherType::DSL(..)
         | MatcherType::Binary(..)
         | MatcherType::XPath(..) => (false, Vec::new()),
       };
-      // 结果反取
+      // normalize negative match
       let is_match = matcher.negative(is_match);
       matchers.push(is_match);
       if !is_match {
-        // 没有匹配到的
         match self.matchers_condition {
-          Condition::Or => {
-            continue;
-          }
+          Condition::Or => continue,
           Condition::And => {
             result.matched = false;
             break;
           }
         }
       } else {
-        // 匹配到的
         if let Some(name) = &matcher.name {
           result.name.insert(name.clone());
         }
@@ -174,11 +203,15 @@ impl Operators {
         }
       }
     }
-    // 全部匹配到
     if matches!(self.matchers_condition, Condition::And) && matchers.iter().all(|x| *x) {
       result.matched = true;
     }
     Ok(())
+  }
+
+  /// 匹配接口统一为只接收 &Response，request 可通过 response.extensions().get::<Request>() 访问
+  pub fn matcher(&self, response: &Response, result: &mut OperatorResult) -> Result<()> {
+    self.matcher_generic(response, Some(response), result)
   }
 }
 

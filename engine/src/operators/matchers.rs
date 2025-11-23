@@ -1,10 +1,11 @@
 use crate::error::{Error, Result};
 use crate::operators::regex::RegexPattern;
+use crate::operators::target::OperatorTarget;
 use crate::serde_format::is_default;
 use log::error;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de, ser};
-use slinger::{Body, Response};
+use slinger::Body;
 use std::collections::{BTreeMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
@@ -456,16 +457,13 @@ pub enum Part {
 }
 
 impl Part {
-  pub(crate) fn get_matcher_word_from_part(&self, response: &Response) -> Result<(String, Body)> {
-    let body = response.body().clone().unwrap_or_default();
+  pub(crate) fn get_matcher_word_from_part<T: OperatorTarget>(&self, target: &T) -> Result<(String, Body)> {
+    let body = target.get_body().unwrap_or_default();
     let body_string = match String::from_utf8(body.as_ref().to_vec()) {
       Ok(s) => s,
       Err(_) => format!("{}", body.escape_ascii()),
     };
-    let mut header_string = String::new();
-    for (k, v) in response.headers() {
-      header_string.push_str(&format!("{}: {}\r\n", k, v.to_str().unwrap_or_default()));
-    }
+    let header_string = target.get_headers();
     let result = match &self {
       Part::Body => body_string,
       Part::Header => header_string,
@@ -473,14 +471,12 @@ impl Part {
         format!("{header_string}\r\n\r\n{body_string}")
       }
       Part::Name(name) => {
-        if let Some(v) = response.headers().get(name) {
-          v.to_str().unwrap_or_default().to_string()
-        } else {
-          return Err(Error::IO(std::io::Error::new(
+        target.get_header(name).ok_or_else(|| {
+          Error::IO(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             "not found part name",
-          )));
-        }
+          ))
+        })?
       }
     };
     Ok((result, body))

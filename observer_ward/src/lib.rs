@@ -8,7 +8,7 @@ use engine::common::http::HttpRecord;
 use engine::execute::{ClusterExecute, ClusterType};
 use engine::operators::matchers::FaviconMap;
 use engine::request::RequestGenerator;
-use engine::results::{FingerprintResult, NucleiResult};
+use engine::results::{MatchEvent, NucleiResult};
 use engine::slinger::http::StatusCode;
 use engine::slinger::http::header::HeaderValue;
 use engine::slinger::http::uri::{PathAndQuery, Uri};
@@ -131,7 +131,7 @@ pub struct MatchedResult {
         }]"#
     )
   )]
-  fingerprints: Vec<FingerprintResult>,
+  fingerprints: Vec<MatchEvent>,
   // 漏洞信息
   /// Vulnerability detection results from Nuclei scans
   #[cfg_attr(
@@ -157,14 +157,18 @@ impl MatchedResult {
   pub fn status(&self) -> &Option<StatusCode> {
     &self.status
   }
-  pub fn fingerprint(&self) -> &Vec<FingerprintResult> {
+  pub fn fingerprint(&self) -> &Vec<MatchEvent> {
     &self.fingerprints
   }
   pub fn nuclei_result(&self) -> &BTreeMap<String, Vec<Arc<NucleiResult>>> {
     &self.nuclei
   }
+  // Return the simplified fingerprint name set
+  pub fn names(&self) -> &HashSet<String> {
+    &self.name
+  }
 
-  pub fn update_matched(&mut self, result: &FingerprintResult) {
+  pub fn update_matched(&mut self, result: &MatchEvent) {
     let response = result.response().unwrap_or_default();
     let text = response.text().unwrap_or_default();
     let title = extract_title(&text);
@@ -258,7 +262,7 @@ impl ClusterExecuteRunner {
       cache: Cache::builder().max_capacity(100).build(),
     }
   }
-  fn update_result(&mut self, result: FingerprintResult, key: Option<String>) {
+  fn update_result(&mut self, result: MatchEvent, key: Option<String>) {
     let key = if let Some(key) = key {
       key
     } else {
@@ -339,21 +343,25 @@ impl ClusterExecuteRunner {
       // 请求全部路径
       for request in generator {
         debug!("{}{:#?}", Emoji("📤", ""), request);
-        let mut response = self
-          .cache
-          .entry(self.get_request_hash(&request))
-          .or_insert(client.execute(request.clone()).await?)
-          .await
-          .into_value();
+        let key = self.get_request_hash(&request);
+        let mut response = if let Some(response) = self.cache.get(&key).await {
+          // cache hit
+          response
+        } else {
+          // cache miss
+          let response = client.execute(request.clone()).await?;
+          self.cache.insert(key, response.clone()).await;
+          response
+        };
         debug!("{}{:#?}", Emoji("📥", ""), response);
         // 提取icon
         http_record.find_favicon_tag(&mut response).await;
         let mut flag = false;
-        let mut result = FingerprintResult::new(&response);
+        let mut result = MatchEvent::new(&response);
         cluster
           .operators
           .iter()
-          .for_each(|operator| operator.matcher(&mut result));
+          .for_each(|operator| operator.matcher(&mut result,false));
         // Also run operators from extra clusters (eg. web_default) if provided, so homepage
         // rules are also attempted against this subpath response.
         if let Some(extras) = extra_clusters {
@@ -361,7 +369,26 @@ impl ClusterExecuteRunner {
             extra
               .operators
               .iter()
-              .for_each(|operator| operator.matcher(&mut result));
+              .for_each(|operator| operator.matcher(&mut result,false));
+          }
+          if !result.matcher_result().is_empty() {
+            let u = result.matched_at().clone();
+            let ub = Uri::builder()
+              .scheme(u.scheme_str().unwrap_or_default())
+              .authority(
+                u.authority()
+                  .map_or(u.host().unwrap_or_default(), |a| a.as_str()),
+              )
+              .path_and_query("/");
+            if let Ok(home) = ub.build() {
+              let home_key = home.to_string();
+              if let Some(existing) = self.matched_result.get(&home_key) {
+                let existing_templates = existing.names();
+                result
+                  .matcher_result_mut()
+                  .retain(|mr| !existing_templates.contains(&mr.template));
+              }
+            }
           }
         }
         if !result.matcher_result().is_empty() {
@@ -437,11 +464,11 @@ impl ClusterExecuteRunner {
         if response.body().is_none() {
           continue;
         }
-        let mut result = FingerprintResult::new(&response);
+        let mut result = MatchEvent::new(&response);
         cluster
           .operators
           .iter()
-          .for_each(|operator| operator.matcher(&mut result));
+          .for_each(|operator| operator.matcher(&mut result,false));
         if !result.matcher_result().is_empty() {
           flag = true;
           self.update_result(result, Some(request.uri().to_string()));
@@ -546,7 +573,7 @@ impl ObserverWard {
       }
     }
     if let Some(resp) = http_record.fav_response() {
-      let mut result = FingerprintResult::new(&resp);
+      let mut result = MatchEvent::new(&resp);
       for clusters in self.cluster_type.web_favicon.iter() {
         // 匹配favicon的，要等index的全部跑完
         if http_record.has_favicon() {
@@ -557,7 +584,7 @@ impl ObserverWard {
           );
           let now = Instant::now();
           clusters.operators.iter().for_each(|operator| {
-            operator.matcher(&mut result);
+            operator.matcher(&mut result,false);
           });
           debug!(
             "{}: {} secs",

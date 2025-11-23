@@ -50,8 +50,7 @@ def main():
     print("开始测试observer_ward Python绑定...")
     
     # 加载指纹库
-    fingerprint_path = Path(__file__) / "examples" / "test_fingerprints.json"
-    
+    fingerprint_path = Path(__file__).parent / "examples" / "test_fingerprints.json"
     try:
         if not fingerprint_path.exists():
             print(f"找不到指纹库文件: {fingerprint_path}")
@@ -83,7 +82,22 @@ def main():
                 print("\n提取的数据:")
                 for key, values in result['extractor'].items():
                     print(f"  {key}: {values}")
-            
+
+            # 打印 response 字段（status, headers, body）
+            if result.get('response'):
+                print("\n响应信息:")
+                resp = result['response']
+                print(f"  状态: {resp.get('status')}")
+                hdrs = resp.get('headers') or []
+                if hdrs:
+                    print("  Headers:")
+                    for h in hdrs:
+                        print(f"    {h.get('name')}: {h.get('value')}")
+                body = resp.get('body')
+                if body:
+                    print("\n  Body (首200字符或全部):")
+                    print(body if len(body) <= 200 else body[:200] + '... [truncated]')
+
             print("=" * 50)
     
     except Exception as e:
@@ -92,4 +106,4 @@ def main():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    main() 
+    main()

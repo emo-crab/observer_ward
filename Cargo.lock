@@ -1456,7 +1456,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "observer_ward_py"
+name = "observer_ward-python"
 version = "0.1.0"
 dependencies = [
  "engine",
