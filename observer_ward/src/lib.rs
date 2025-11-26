@@ -31,6 +31,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 pub mod api;
+#[cfg(feature = "asynq_task")]
+pub mod worker;
 pub mod cli;
 pub mod error;
 pub mod helper;
@@ -40,6 +42,7 @@ pub mod mcp;
 pub mod mitm;
 mod nuclei;
 pub mod output;
+pub mod runner;
 
 use engine::template::cluster::cluster_templates;
 
@@ -200,8 +203,63 @@ impl MatchedResult {
           }
         });
       }
+      // Merge template names into the overall name set
       self.name.extend(result.name());
-      self.fingerprints.push(result);
+
+      // For each incoming MatcherResult, try to merge into an existing MatchEvent
+      // keyed by template string. If no existing MatchEvent contains that template,
+      // keep it to create a new MatchEvent entry.
+      let mut remaining_matchers = Vec::new();
+      for mut incoming_mr in result.matcher_result_mut().drain(..) {
+        let mut merged = false;
+        for existing_fp in self.fingerprints.iter_mut() {
+          // find if existing fingerprint already has a matcher result for this template
+          if let Some(existing_mr) = existing_fp
+            .matcher_result_mut()
+            .iter_mut()
+            .find(|emr| emr.template == incoming_mr.template)
+          {
+            // merge matcher names (avoid duplicates)
+            let mut names_set: HashSet<String> = existing_mr
+              .matcher_name
+              .iter()
+              .cloned()
+              .collect();
+            let incoming_names = std::mem::take(&mut incoming_mr.matcher_name);
+            for n in incoming_names.into_iter() {
+              names_set.insert(n);
+            }
+            existing_mr.matcher_name = names_set.into_iter().collect();
+
+            // merge extractor maps by taking ownership of incoming extractors
+            let incoming_extractors = std::mem::take(&mut incoming_mr.extractor);
+            for (k, vset) in incoming_extractors.into_iter() {
+              if let Some(existing_set) = existing_mr.extractor.get_mut(&k) {
+                existing_set.extend(vset.into_iter());
+              } else {
+                existing_mr.extractor.insert(k, vset);
+              }
+            }
+
+            // we merged this matcher into an existing fingerprint
+            merged = true;
+            break;
+          }
+        }
+        if !merged {
+          remaining_matchers.push(incoming_mr);
+        }
+      }
+
+      // If there are remaining matcher results that did not match any existing
+      // fingerprint, create a new MatchEvent entry for them (preserve matched_at and record)
+      if !remaining_matchers.is_empty() {
+        // Build a new MatchEvent from the response and set its matcher_results
+        let response = result.response().unwrap_or_default();
+        let mut new_event = MatchEvent::new(&response);
+        *new_event.matcher_result_mut() = remaining_matchers;
+        self.fingerprints.push(new_event);
+      }
     }
   }
   fn merge_nuclei_args(&self, template_dir: &Path) -> BTreeMap<String, NucleiRunner> {

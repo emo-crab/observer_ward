@@ -1,19 +1,20 @@
 use crate::cli::{ObserverWardConfig, UnixSocketAddr};
 use crate::helper::Helper;
-use crate::output::Output;
-use crate::{MatchedResult, ObserverWard, cluster_templates};
+use crate::runner::ObserverWardRunner;
+use crate::{MatchedResult, cluster_templates};
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, middleware, post, rt, web};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
 use console::Emoji;
 #[cfg(not(target_os = "windows"))]
 use daemonize::Daemonize;
 use engine::execute::ClusterType;
-use futures::StreamExt;
-use futures::channel::mpsc::unbounded;
 use log::{error, info};
 use std::collections::BTreeMap;
 use std::ops::Deref;
 use std::sync::RwLock;
+
+#[cfg(feature = "asynq_task")]
+use crate::worker::AsynqClient;
 
 #[derive(Clone, Debug)]
 struct TokenAuth {
@@ -35,12 +36,13 @@ async fn what_web_api(
   config: web::Json<ObserverWardConfig>,
   cli_config: web::Data<ObserverWardConfig>,
   cl: web::Data<RwLock<ClusterType>>,
+  #[cfg(feature = "asynq_task")] asynq_client: web::Data<Option<AsynqClient>>,
 ) -> impl Responder {
   if !validator(token, auth) {
     return HttpResponse::Unauthorized().finish();
   }
   let mut config = config.clone();
-  if config.plugin.is_some(){
+  if config.plugin.is_some() {
     config.plugin = cli_config.plugin.clone();
   }
   config.config_dir = cli_config.config_dir.clone();
@@ -55,24 +57,21 @@ async fn what_web_api(
       ClusterType::default()
     }
   };
-  let output = Output::new(&config);
-  let (tx, mut rx) = unbounded();
-  tokio::task::spawn(async move {
-    ObserverWard::new(&config, cl).execute(tx).await;
-  });
+
+  // Create runner with unified interface
+  #[cfg(feature = "asynq_task")]
+  let runner = ObserverWardRunner::new(config, cl, asynq_client.get_ref().clone());
+  #[cfg(not(feature = "asynq_task"))]
+  let runner = ObserverWardRunner::new(config, cl);
+
   if webhook {
-    // 异步识别任务，通过webhook返回结果
+    // Async identification task, return results via webhook
     rt::spawn(async move {
-      while let Some(execute_result) = rx.next().await {
-        output.webhook_results(vec![execute_result.matched]).await;
-      }
+      runner.run_with_webhook().await;
     });
     HttpResponse::Ok().finish()
   } else {
-    let mut results: Vec<BTreeMap<String, MatchedResult>> = Vec::new();
-    while let Some(execute_result) = rx.next().await {
-      results.push(execute_result.matched)
-    }
+    let results: Vec<BTreeMap<String, MatchedResult>> = runner.run_and_collect().await;
     HttpResponse::Ok().json(results)
   }
 }
@@ -116,6 +115,51 @@ async fn get_config_api(
   HttpResponse::Ok().json(config.clone())
 }
 
+#[cfg(feature = "asynq_task")]
+pub async fn api_server(
+  listening_address: &UnixSocketAddr,
+  config: ObserverWardConfig,
+  asynq_client: Option<AsynqClient>,
+) -> std::io::Result<()> {
+  let templates = config.templates();
+  info!("{}probes loaded: {}", Emoji("📇", ""), templates.len());
+  let cl = cluster_templates(&templates);
+  info!("{}optimized probes: {}", Emoji("🚀", ""), cl.count());
+  let cluster_templates = web::Data::new(RwLock::new(cl));
+  let web_config = web::Data::new(config.clone());
+  let token_auth = web::Data::new(TokenAuth {
+    token: config.token.clone(),
+  });
+  let asynq_client_data = web::Data::new(asynq_client);
+  let token = config.token.clone();
+  let http_server = HttpServer::new(move || {
+    App::new()
+      .wrap(middleware::Logger::default())
+      .app_data(token_auth.clone())
+      .app_data(web_config.clone())
+      .app_data(web::JsonConfig::default().limit(40960))
+      .app_data(cluster_templates.clone())
+      .app_data(asynq_client_data.clone())
+      .service(what_web_api)
+      .service(get_config_api)
+      .service(set_config_api)
+  });
+  let (http_server, url) = match &listening_address {
+    #[cfg(unix)]
+    UnixSocketAddr::Unix(u) => (
+      http_server.bind_uds(u)?,
+      "http://localhost/v1/observer_ward".to_string(),
+    ),
+    UnixSocketAddr::SocketAddr(sa) => (
+      http_server.bind(sa)?,
+      format!("http://{listening_address}/v1/observer_ward"),
+    ),
+  };
+  print_help(&url, token, listening_address);
+  http_server.workers(config.thread).run().await
+}
+
+#[cfg(not(feature = "asynq_task"))]
 pub async fn api_server(
   listening_address: &UnixSocketAddr,
   config: ObserverWardConfig,

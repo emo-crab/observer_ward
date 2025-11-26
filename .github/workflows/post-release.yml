@@ -144,6 +144,7 @@ jobs:
         if: matrix.rust == 'nightly'
         run: |
           rustup component add rust-src --toolchain nightly-x86_64-pc-windows-msvc
+          cargo clean
           cargo +nightly build --target ${{ matrix.target }} -Zbuild-std --verbose --release --bin observer_ward
       - name: Build archive
         shell: bash
@@ -180,7 +181,7 @@ jobs:
             ${{ env.BIN_FILE }}
           tag_name: defaultv4
       - name: Install Cargo deb (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && matrix.target != 'x86_64-pc-windows-gnu'
         run: |
           cargo install cargo-deb
           cargo deb --target ${{ matrix.target }} --output target/${{ matrix.target }}/debian/observer-ward_${{ needs.create-release.outputs.release_version }}_${{ matrix.target }}.deb

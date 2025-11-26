@@ -137,14 +137,14 @@ brew install observer_ward
 
 ```bash,no-run
 ➜ ./observer_ward --help                                                                      
-Usage: observer_ward [-l <list>] [-t <target...>] [-p <probe-path>] [--probe-dir <probe-dir...>] [--ua <ua>] [--mode <mode>] [--timeout <timeout>] [--thread <thread>] [--proxy <proxy>] [--ir] [--ic] [--plugin <plugin>] [-o <output>] [--format <format>] [--no-color] [--nuclei-args <nuclei-args...>] [--silent] [--debug] [--config-dir <config-dir>] [--update-self] [-u] [--update-plugin] [--daemon] [--token <token>] [--webhook <webhook>] [--webhook-auth <webhook-auth>] [--api-server <api-server>]
+Usage: observer_ward [-l <list>] [-t <target...>] [-p <probe-path>] [--probe-dir <probe-dir...>] [--ua <ua>] [--mode <mode>] [--timeout <timeout>] [--thread <thread>] [--proxy <proxy>] [--ir] [--ic] [--plugin <plugin>] [-o <output>] [--format <format>] [--no-color] [--nuclei-args <nuclei-args...>] [--silent] [--debug] [--config-dir <config-dir>] [--update-self] [-u] [--update-plugin] [--daemon] [--token <token>] [--webhook <webhook>] [--webhook-auth <webhook-auth>] [--api-server <api-server>] [--mitm <mitm>] [--mcp] [--prompt-path <prompt-path>] [--asynq-redis <asynq-redis>] [--asynq-mode <asynq-mode>]
 
 observer_ward
 
 Options:
   -l, --list        multiple targets from file path
   -t, --target      the target (required)
-  -p, --probe-path  customized fingerprint json file path
+  -p, --probe-path  customized fingerprint file path
   --probe-dir       customized fingerprint yaml file dir
   --ua              customized ua
   --mode            mode probes option[tcp,http,all] default: all
@@ -173,7 +173,12 @@ Options:
   --webhook-auth    the auth will be set to the webhook request header
                     AUTHORIZATION
   --api-server      start a web API service (ex:127.0.0.1:8080)
-  --help            display usage information
+  --mitm            start a MITM proxy server (ex:127.0.0.1:1080)
+  --mcp             enable stdio mcp server
+  --prompt-path     read the path file and customize the LLM to generate prompt
+  --asynq-redis     redis URI for asynq task queue (ex:redis://127.0.0.1:6379)
+  --asynq-mode      asynq mode option[receive,send,both] default: receive
+  --help, help      display usage information
 ```
 
 | 参数名                     | 作用和描述                                                                    |
@@ -205,6 +210,11 @@ Options:
 | --webhook               | 要将识别结果通过webhook发送到指定url                                                  |
 | --webhook-auth          | webhook的`AUTHORIZATION`认证                                                |
 | --api-server            | api监听地址的端口                                                               |
+| --mitm                  | 启动 MITM 代理服务器（示例：127.0.0.1:1080）                             |
+| --mcp                   | 启用 stdio mcp 服务                                                            |
+| --prompt-path           | 读取路径文件并自定义 LLM 用于生成 prompt                                      |
+| --asynq-redis           | asynq 任务队列的 Redis URI（示例：redis://127.0.0.1:6379）                    |
+| --asynq-mode            | asynq 模式选项 [receive,send,both]，默认：receive                             |
 | --help                  | 打印帮助信息                                                                   |
 
 ### 更新指纹库
@@ -295,6 +305,100 @@ Options:
 ```
 
 </details>
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+### MITM（中间人代理）支持
+
+observer_ward 支持以 MITM（中间人代理）模式被动获取请求/响应并进行指纹识别，适合在代理场景下对真实流量进行被动指纹匹配。
+
+启用要点：
+
+- MITM 功能由 crate 特性 `mitm` 控制；默认特性包含 `mitm`，若使用自定义特性请确保启用该特性。
+- 启动程序时使用 `--mitm <addr>` 参数指定监听地址（例如 `127.0.0.1:1080`）。
+
+本地启动示例：
+
+```bash;no-run
+➜ ./observer_ward --mitm 127.0.0.1:1080
+ INFO 📇probes loaded: 3131
+ INFO 🚀optimized probes: 9
+ INFO 🔌Starting MITM proxy server on 127.0.0.1:1080
+ INFO 🌐MITM proxy service started: http://127.0.0.1:1080
+ INFO 📔Configure your browser or tool to use this proxy
+ INFO 🔑CA certificate path: .slinger-mitm/ca_cert.pem
+```
+
+使用说明：
+
+- 启动后会在日志中输出代理监听地址和 CA 证书路径`.slinger-mitm/ca_cert.pem`，导入 CA 证书以信任代理后即可拦截 HTTPS 流量。
+- der格式证书可以使用 `openssl x509 -in ca_cert.pem -outform DER -out cacert.der`进行转换
+- 被拦截的响应会异步提交给指纹引擎进行匹配，匹配到的结果会通过已有的输出方式（终端、文件、webhook 等）返回。
+- 如果设置`--proxy`会使用上游代理，也就是流量会先经过observer_ward的mitm代理再经过上游代理发送请求。
+- 若构建未启用 `mitm` 特性，启动时会提示特性未启用并返回错误。
+
+
+### Asynq（Redis 分布式任务队列）支持
+
+observer_ward 集成了基于 Redis 的任务队列（[asynq](https://github.com/emo-crab/asynq)），可以把指纹识别任务通过 Redis 入队，worker 会从队列取出任务并处理；worker 也可以把处理结果发送回结果队列。
+
+启用要点：
+
+- Asynq 功能由 crate 特性 `asynq_task` 控制；默认特性包含 `asynq_task`，若使用自定义特性请确保启用该特性。
+- 使用 `--asynq-redis <redis_uri>` 指定 Redis 连接（例如 `redis://127.0.0.1:6379`）。
+- 使用 `--asynq-mode <mode>` 指定模式：`receive`只从redis接受任务、`send`只发送识别结果到redis、`both`从redis接收任务并且将识别结果返回到redis。推荐 `both` 模式用于完整的收发流程。
+
+启动 worker 示例（本地 Redis，both 模式）：
+
+```bash;no-run
+➜ ./observer_ward --asynq-redis redis://127.0.0.1:6379 --asynq-mode both
+```
+
+发送任务示例：项目中包含示例程序 `observer_ward/examples/send_asynq_task.rs`，用于把示例任务入队。
+
+```bash;no-run
+cargo run --manifest-path observer_ward/Cargo.toml --example send_asynq_task
+```
+
+任务载荷示例：
+
+- Uri（主动请求）任务示例：
+
+```json
+{
+  "task_id": "example-123456",
+  "input": {
+    "type": "uri",
+    "target": ["http://example.com"]
+  }
+}
+```
+
+- HttpData（被动匹配）任务示例：
+
+```json
+{
+  "task_id": "example-123456",
+  "input": {
+    "type": "http_data",
+    "request": {
+      "uri": "http://example.com/",
+      "method": "GET",
+      "headers": null,
+      "body": null
+    },
+    "response": {
+      "uri": "http://example.com/",
+      "status_code": 200,
+      "headers": null,
+      "body": "<!doctype html>...</html>"
+    }
+  }
+}
+```
+
+说明：`HttpData` 中的 `request` / `response` 采用 `slinger` 的序列化格式；如果需要更精确的序列化形式，请参考 `slinger` 的定义。
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -592,6 +696,7 @@ Project Link: [https://github.com/emo-crab/observer_ward](https://github.com/emo
 ## Acknowledgments
 
 - [slinger](https://github.com/emo-crab/slinger)
+- [asynq](https://github.com/emo-crab/asynq)
 - [nuclei](https://github.com/projectdiscovery/nuclei)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

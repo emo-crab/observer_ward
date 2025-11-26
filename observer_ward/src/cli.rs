@@ -72,6 +72,53 @@ impl FromStr for Mode {
   }
 }
 
+/// Asynq working mode
+/// - receive: Only receive tasks from observer_ward:task queue
+/// - send: Only send results to observer_ward:result queue
+/// - both: Receive tasks and send results
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub enum AsynqMode {
+  /// Only receive tasks from observer_ward:task queue
+  #[default]
+  Receive,
+  /// Only send results to observer_ward:result queue
+  Send,
+  /// Receive tasks and send results
+  Both,
+}
+
+impl FromStr for AsynqMode {
+  type Err = std::io::Error;
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    let mode = match s.to_lowercase().as_str() {
+      "receive" => AsynqMode::Receive,
+      "send" => AsynqMode::Send,
+      "both" => AsynqMode::Both,
+      _ => {
+        return Err(std::io::Error::new(
+          std::io::ErrorKind::InvalidInput,
+          format!(
+            "invalid asynq mode '{}', valid options: receive, send, both",
+            s
+          ),
+        ));
+      }
+    };
+    Ok(mode)
+  }
+}
+
+impl Display for AsynqMode {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    let s = match self {
+      AsynqMode::Receive => "receive",
+      AsynqMode::Send => "send",
+      AsynqMode::Both => "both",
+    };
+    write!(f, "{}", s)
+  }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum UnixSocketAddr {
   #[cfg(unix)]
@@ -222,7 +269,7 @@ pub struct ObserverWardConfig {
   #[serde(skip)]
   pub api_server: Option<UnixSocketAddr>,
   #[cfg(feature = "mitm")]
-  /// start a MITM proxy server (ex:127.0.0.1:8081)
+  /// start a MITM proxy server (ex:127.0.0.1:1080)
   #[argh(option)]
   #[serde(skip)]
   pub mitm: Option<UnixSocketAddr>,
@@ -235,6 +282,16 @@ pub struct ObserverWardConfig {
   #[argh(option)]
   #[serde(skip)]
   pub prompt_path: Option<PathBuf>,
+  #[cfg(feature = "asynq_task")]
+  /// redis URI for asynq task queue (ex:redis://127.0.0.1:6379)
+  #[argh(option)]
+  #[serde(skip)]
+  pub asynq_redis: Option<String>,
+  #[cfg(feature = "asynq_task")]
+  /// asynq mode option[receive,send,both] default: receive
+  #[argh(option)]
+  #[serde(skip)]
+  pub asynq_mode: Option<AsynqMode>,
 }
 
 fn default_token() -> Option<String> {
