@@ -30,6 +30,7 @@ pub const RESULT_QUEUE: &str = "observer_ward:result";
 /// Input type for fingerprint identification task
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(clippy::large_enum_variant)]
 pub enum TaskInput {
   /// URI target(s) - will actively send request(s) for fingerprint identification
   /// Accepts a set of target strings so a single task can contain multiple targets.
