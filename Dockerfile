@@ -3,7 +3,7 @@ FROM --platform=${BUILDPLATFORM:-linux/amd64} rust:latest AS builder
 WORKDIR /app
 #为了命中docker构建缓存，先拷贝这几个文件进去
 RUN apt-get update &&\
-    apt-get install -y --no-install-recommends xz-utils lz4 libc6-dev libssl-dev pkg-config musl-tools patchelf build-essential zlib1g-dev ca-certificates
+    apt-get install -y --no-install-recommends xz-utils lz4 libc6-dev libssl-dev pkg-config musl-tools patchelf build-essential zlib1g-dev ca-certificates protobuf-compiler
 COPY .cargo .cargo
 COPY observer_ward/Cargo.toml Cargo.toml
 COPY engine/ /engine
