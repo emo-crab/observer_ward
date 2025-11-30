@@ -39,6 +39,7 @@ pub mod helper;
 pub mod input;
 #[cfg(feature = "mcp")]
 pub mod mcp;
+#[cfg(feature = "mitm")]
 pub mod mitm;
 mod nuclei;
 pub mod output;

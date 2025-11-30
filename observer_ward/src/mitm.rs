@@ -6,10 +6,11 @@ use log::{debug, info};
 use std::sync::Arc;
 
 use crate::cli::ObserverWardConfig;
-#[cfg(feature = "mitm")]
-use async_trait::async_trait;
 
-#[cfg(feature = "mitm")]
+use async_trait::async_trait;
+use engine::slinger_mitm::MitmResponse;
+
+
 pub async fn mitm_proxy_server(
   address: &crate::cli::UnixSocketAddr,
   config: ObserverWardConfig,
@@ -74,20 +75,17 @@ pub async fn mitm_proxy_server(
   Ok(())
 }
 
-#[cfg(feature = "mitm")]
+
 struct FingerprintInterceptor {
   cluster_type: ClusterType,
   tx: UnboundedSender<crate::ExecuteResult>,
   _config: ObserverWardConfig,
 }
 
-#[cfg(feature = "mitm")]
+
 #[async_trait]
 impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
-  async fn intercept_response(
-    &self,
-    response: engine::slinger::Response,
-  ) -> engine::slinger_mitm::Result<Option<engine::slinger::Response>> {
+  async fn intercept_response(&self, response: MitmResponse) -> engine::slinger_mitm::Result<Option<MitmResponse>>{
     use crate::MatchedResult;
     use std::collections::BTreeMap;
 
@@ -97,14 +95,14 @@ impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
     let tx = self.tx.clone();
 
     // Get request from response extensions
-    if let Some(request) = response.extensions().get::<engine::slinger::Request>() {
+    if let Some(request) = response.response.extensions().get::<engine::slinger::Request>() {
       let target = request.uri().clone();
       debug!("{}Intercepted response for: {}", Emoji("📥", ""), target);
 
       // Spawn async task for fingerprinting - don't block proxy speed
       tokio::spawn(async move {
         // Match against fingerprints
-        let mut result = MatchEvent::new(&response_clone);
+        let mut result = MatchEvent::new(&response_clone.response);
         // Find matching clusters based on scheme
         if target.scheme_str() == Some("https") || target.scheme_str() == Some("http") {
           // Match against web_default clusters
