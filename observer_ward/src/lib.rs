@@ -8,7 +8,7 @@ use engine::common::http::HttpRecord;
 use engine::execute::{ClusterExecute, ClusterType};
 use engine::operators::matchers::FaviconMap;
 use engine::request::RequestGenerator;
-use engine::results::{MatchEvent, NucleiResult};
+use engine::results::{MatchEvent, NucleiResult, RuleSource};
 use engine::slinger::http::StatusCode;
 use engine::slinger::http::header::HeaderValue;
 use engine::slinger::http::uri::{PathAndQuery, Uri};
@@ -383,6 +383,7 @@ impl ClusterExecuteRunner {
     cluster: &ClusterExecute,
     http_record: &mut HttpRecord,
     extra_clusters: Option<&[Arc<ClusterExecute>]>,
+    current_rule_source: RuleSource,
   ) -> Result<()> {
     // 可能会有多个http，一般只有一个，多个会有flow控制
     for http in cluster.requests.http.iter() {
@@ -420,34 +421,29 @@ impl ClusterExecuteRunner {
         cluster
           .operators
           .iter()
-          .for_each(|operator| operator.matcher(&mut result,false));
+          .for_each(|operator| operator.matcher(&mut result, false));
+        
+        // 标记当前 cluster 的匹配结果来源
+        for mr in result.matcher_result_mut().iter_mut() {
+          mr.rule_source = current_rule_source;
+        }
+        
         // Also run operators from extra clusters (eg. web_default) if provided, so homepage
         // rules are also attempted against this subpath response.
         if let Some(extras) = extra_clusters {
+          // 保存现有结果的数量，用于区分新添加的结果
+          let existing_count = result.matcher_result().len();
+          
           for extra in extras.iter() {
             extra
               .operators
               .iter()
-              .for_each(|operator| operator.matcher(&mut result,false));
+              .for_each(|operator| operator.matcher(&mut result, false));
           }
-          if !result.matcher_result().is_empty() {
-            let u = result.matched_at().clone();
-            let ub = Uri::builder()
-              .scheme(u.scheme_str().unwrap_or_default())
-              .authority(
-                u.authority()
-                  .map_or(u.host().unwrap_or_default(), |a| a.as_str()),
-              )
-              .path_and_query("/");
-            if let Ok(home) = ub.build() {
-              let home_key = home.to_string();
-              if let Some(existing) = self.matched_result.get(&home_key) {
-                let existing_templates = existing.names();
-                result
-                  .matcher_result_mut()
-                  .retain(|mr| !existing_templates.contains(&mr.template));
-              }
-            }
+          
+          // 标记新添加的结果（来自 web_default 规则）
+          for mr in result.matcher_result_mut().iter_mut().skip(existing_count) {
+            mr.rule_source = RuleSource::WebDefault;
           }
         }
         if !result.matcher_result().is_empty() {
@@ -614,7 +610,7 @@ impl ObserverWard {
     // TODO： 可以考虑加个多线程
     let mut http_record = HttpRecord::new(self.config.http_client_builder());
     for (index, clusters) in self.cluster_type.web_default.iter().enumerate() {
-      if let Err(err) = runner.http(&self.config, clusters, &mut http_record, None).await {
+      if let Err(err) = runner.http(&self.config, clusters, &mut http_record, None, RuleSource::WebDefault).await {
         debug!("{}:{}", Emoji("💢", ""), err);
         // 首页访问失败
         if index == 0 {
@@ -623,7 +619,7 @@ impl ObserverWard {
       }
     }
     for (index, clusters) in self.cluster_type.web_other.iter().enumerate() {
-      if let Err(err) = runner.http(&self.config, clusters, &mut http_record, Some(&self.cluster_type.web_default[..])).await {
+      if let Err(err) = runner.http(&self.config, clusters, &mut http_record, Some(&self.cluster_type.web_default[..]), RuleSource::WebOther).await {
         debug!("{}:{}", Emoji("💢", ""), err);
         // 第一次访问失败
         if index == 0 {

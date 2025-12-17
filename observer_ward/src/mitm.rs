@@ -1,6 +1,6 @@
 use console::Emoji;
 use engine::execute::ClusterType;
-use engine::results::MatchEvent;
+use engine::results::{MatchEvent, RuleSource};
 use futures::channel::mpsc::UnboundedSender;
 use log::{debug, info};
 use std::sync::Arc;
@@ -112,6 +112,13 @@ impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
               .iter()
               .for_each(|operator| operator.matcher(&mut result, true));
           }
+          // 标记 web_default 规则的匹配结果
+          for mr in result.matcher_result_mut().iter_mut() {
+            mr.rule_source = RuleSource::WebDefault;
+          }
+          
+          // 保存现有结果数量
+          let after_default_count = result.matcher_result().len();
 
           // Match favicon-specific clusters (ensure favicon matchers run)
           for cluster in cluster_type.web_favicon.iter() {
@@ -120,6 +127,13 @@ impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
               .iter()
               .for_each(|operator| operator.matcher(&mut result, false));
           }
+          // favicon 规则也标记为 WebDefault（因为 favicon 通常在首页）
+          for mr in result.matcher_result_mut().iter_mut().skip(after_default_count) {
+            mr.rule_source = RuleSource::WebDefault;
+          }
+          
+          // 保存现有结果数量，用于区分 web_other 的结果
+          let before_other_count = result.matcher_result().len();
 
           // Match against web_other clusters
           for cluster in cluster_type.web_other.iter() {
@@ -127,6 +141,10 @@ impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
               .operators
               .iter()
               .for_each(|operator| operator.matcher(&mut result, true));
+          }
+          // 标记 web_other 规则的匹配结果
+          for mr in result.matcher_result_mut().iter_mut().skip(before_other_count) {
+            mr.rule_source = RuleSource::WebOther;
           }
         }
 

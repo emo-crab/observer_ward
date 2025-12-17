@@ -9,6 +9,17 @@ use slinger::record::HTTPRecord;
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 
+/// 指纹规则的来源：web_default（首页规则）或 web_other（路由规则）
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RuleSource {
+  /// 首页规则（仅在首页 {{BaseURL}}/ 运行）
+  WebDefault,
+  /// 路由规则（在特定子路径运行）
+  WebOther,
+}
+
 // 指纹/匹配结果 (更通用的命名)
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,6 +58,14 @@ pub struct MatcherResult {
   pub info: Arc<Info>,
   pub matcher_name: Vec<String>,
   pub extractor: BTreeMap<String, HashSet<String>>,
+  /// 规则来源：web_default 或 web_other（默认为 web_other）
+  #[serde(default = "default_rule_source")]
+  pub rule_source: RuleSource,
+}
+
+/// 默认规则来源为 web_other
+fn default_rule_source() -> RuleSource {
+  RuleSource::WebOther
 }
 
 impl MatchEvent {
@@ -56,6 +75,7 @@ impl MatchEvent {
       info: info.clone(),
       matcher_name: ops.matcher_word(),
       extractor: ops.extract_result(),
+      rule_source: RuleSource::WebOther,
     });
   }
   pub fn new(response: &Response) -> Self {
