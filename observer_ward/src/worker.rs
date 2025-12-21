@@ -13,7 +13,7 @@ use asynq::server::{Handler, Server, ServerConfig};
 use asynq::task::Task;
 use console::Emoji;
 use engine::execute::ClusterType;
-use engine::results::{MatchEvent, RuleSource};
+use engine::results::MatchEvent;
 use engine::slinger::http::Uri;
 use engine::slinger::{Request, Response};
 use log::{debug, error, info};
@@ -224,24 +224,12 @@ impl FingerprintHandler {
         .iter()
         .for_each(|operator| operator.matcher(&mut result, true));
     }
-    // 标记 web_default 规则的匹配结果
-    for mr in result.matcher_result_mut().iter_mut() {
-      mr.rule_source = RuleSource::WebDefault;
-    }
-
-    // 保存现有结果数量，用于区分后续添加的结果
-    let existing_count = result.matcher_result().len();
-
     // Match against web_other clusters
     for cluster in self.cluster_type.web_other.iter() {
       cluster
         .operators
         .iter()
         .for_each(|operator| operator.matcher(&mut result, true));
-    }
-    // 标记 web_other 规则的匹配结果
-    for mr in result.matcher_result_mut().iter_mut().skip(existing_count) {
-      mr.rule_source = RuleSource::WebOther;
     }
 
     // Build result

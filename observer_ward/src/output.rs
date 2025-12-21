@@ -1,7 +1,6 @@
 use crate::MatchedResult;
 use crate::cli::{ObserverWardConfig, OutputFormat};
 use console::{Emoji, style};
-use engine::results::RuleSource;
 use engine::slinger::http::header;
 use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
@@ -171,30 +170,17 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &BTreeMap<String, Mat
       }
     });
     // 打印指纹
-    // 使用 (template, rule_source) 作为去重键，而不是简单的超集判断
-    let mut shown_fingerprints: HashSet<(String, RuleSource)> = HashSet::new();
+    let mut all_app: HashSet<String> = HashSet::new();
     for fp in mr.fingerprint() {
-      // 检查这个 MatchEvent 中是否有需要跳过的内容
-      let mut should_skip_this_fp = true;
-      for mr_item in fp.matcher_result() {
-        let dedup_key = (mr_item.template.clone(), mr_item.rule_source);
-        if !shown_fingerprints.contains(&dedup_key) {
-          should_skip_this_fp = false;
-          shown_fingerprints.insert(dedup_key);
-        }
-      }
-
-      // 如果这个 MatchEvent 中所有项都已经显示过，则跳过
-      if should_skip_this_fp && !fp.matcher_result().is_empty() {
-        continue;
-      }
-
       let apps: HashSet<String> = fp
         .matcher_result()
         .iter()
         .map(|x| x.info.name.clone())
         .collect();
-
+      // 当前app是全集的子集,跳过打印
+      if apps.is_superset(&all_app) && !all_app.is_empty() {
+        continue;
+      }
       write!(writer, "{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
       write!(writer, " [{}] ", style(set_to_string(&apps)).green()).unwrap_or_default();
       write!(writer, " <{}>", set_to_string(mr.title())).unwrap_or_default();
@@ -251,6 +237,7 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &BTreeMap<String, Mat
           }
         }
       }
+      all_app.extend(apps);
     }
     if mr.fingerprint().is_empty() {
       write!(writer, "{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
