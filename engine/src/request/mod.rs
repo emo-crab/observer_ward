@@ -107,10 +107,10 @@ impl Requests {
       if self_http.payload_attack.is_some() || other_http.payload_attack.is_some() {
         return false;
       }
-      if let (HttpRaw::Path(sp), HttpRaw::Path(op)) = (&self_http.http_raw, &other_http.http_raw) {
-        if sp == op {
-          return true;
-        }
+      if let (HttpRaw::Path(sp), HttpRaw::Path(op)) = (&self_http.http_raw, &other_http.http_raw)
+        && sp == op
+      {
+        return true;
       }
     }
     if self.tcp.len() == 1 && other.tcp.len() == 1 {
@@ -124,13 +124,13 @@ impl Requests {
     false
   }
   pub fn is_web_default(&self) -> bool {
-    if self.http.len() == 1 {
-      if let HttpRaw::Path(path) = &self.http[0].http_raw {
-        if path.path.len() == 1 && path.method.is_safe() {
-          return path.path[0] == "{{BaseURL}}/";
-        }
-      };
-    }
+    if self.http.len() == 1
+      && let HttpRaw::Path(path) = &self.http[0].http_raw
+      && path.path.len() == 1
+      && path.method.is_safe()
+    {
+      return path.path[0] == "{{BaseURL}}/";
+    };
     false
   }
   pub fn is_web(&self) -> Option<&Arc<HTTPRequest>> {

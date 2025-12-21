@@ -10,7 +10,6 @@ use crate::cli::ObserverWardConfig;
 use async_trait::async_trait;
 use engine::slinger_mitm::MitmResponse;
 
-
 pub async fn mitm_proxy_server(
   address: &crate::cli::UnixSocketAddr,
   config: ObserverWardConfig,
@@ -75,17 +74,18 @@ pub async fn mitm_proxy_server(
   Ok(())
 }
 
-
 struct FingerprintInterceptor {
   cluster_type: ClusterType,
   tx: UnboundedSender<crate::ExecuteResult>,
   _config: ObserverWardConfig,
 }
 
-
 #[async_trait]
 impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
-  async fn intercept_response(&self, response: MitmResponse) -> engine::slinger_mitm::Result<Option<MitmResponse>>{
+  async fn intercept_response(
+    &self,
+    response: MitmResponse,
+  ) -> engine::slinger_mitm::Result<Option<MitmResponse>> {
     use crate::MatchedResult;
     use std::collections::BTreeMap;
 
@@ -95,7 +95,11 @@ impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
     let tx = self.tx.clone();
 
     // Get request from response extensions
-    if let Some(request) = response.response.extensions().get::<engine::slinger::Request>() {
+    if let Some(request) = response
+      .response
+      .extensions()
+      .get::<engine::slinger::Request>()
+    {
       let target = request.uri().clone();
       debug!("{}Intercepted response for: {}", Emoji("📥", ""), target);
 
@@ -116,7 +120,7 @@ impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
           for mr in result.matcher_result_mut().iter_mut() {
             mr.rule_source = RuleSource::WebDefault;
           }
-          
+
           // 保存现有结果数量
           let after_default_count = result.matcher_result().len();
 
@@ -128,10 +132,14 @@ impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
               .for_each(|operator| operator.matcher(&mut result, false));
           }
           // favicon 规则也标记为 WebDefault（因为 favicon 通常在首页）
-          for mr in result.matcher_result_mut().iter_mut().skip(after_default_count) {
+          for mr in result
+            .matcher_result_mut()
+            .iter_mut()
+            .skip(after_default_count)
+          {
             mr.rule_source = RuleSource::WebDefault;
           }
-          
+
           // 保存现有结果数量，用于区分 web_other 的结果
           let before_other_count = result.matcher_result().len();
 
@@ -143,7 +151,11 @@ impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
               .for_each(|operator| operator.matcher(&mut result, true));
           }
           // 标记 web_other 规则的匹配结果
-          for mr in result.matcher_result_mut().iter_mut().skip(before_other_count) {
+          for mr in result
+            .matcher_result_mut()
+            .iter_mut()
+            .skip(before_other_count)
+          {
             mr.rule_source = RuleSource::WebOther;
           }
         }

@@ -19,9 +19,9 @@ use error::Result;
 use futures::StreamExt;
 use futures::channel::mpsc::UnboundedSender;
 use futures::stream::FuturesUnordered;
-use rustc_hash::FxHasher;
 use log::{debug, info};
 use moka::future::Cache;
+use rustc_hash::FxHasher;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
@@ -31,8 +31,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 pub mod api;
-#[cfg(feature = "asynq_task")]
-pub mod worker;
 pub mod cli;
 pub mod error;
 pub mod helper;
@@ -44,6 +42,8 @@ pub mod mitm;
 mod nuclei;
 pub mod output;
 pub mod runner;
+#[cfg(feature = "asynq_task")]
+pub mod worker;
 
 use engine::template::cluster::cluster_templates;
 
@@ -221,11 +221,7 @@ impl MatchedResult {
             .find(|emr| emr.template == incoming_mr.template)
           {
             // merge matcher names (avoid duplicates)
-            let mut names_set: HashSet<String> = existing_mr
-              .matcher_name
-              .iter()
-              .cloned()
-              .collect();
+            let mut names_set: HashSet<String> = existing_mr.matcher_name.iter().cloned().collect();
             let incoming_names = std::mem::take(&mut incoming_mr.matcher_name);
             for n in incoming_names.into_iter() {
               names_set.insert(n);
@@ -422,25 +418,25 @@ impl ClusterExecuteRunner {
           .operators
           .iter()
           .for_each(|operator| operator.matcher(&mut result, false));
-        
+
         // 标记当前 cluster 的匹配结果来源
         for mr in result.matcher_result_mut().iter_mut() {
           mr.rule_source = current_rule_source;
         }
-        
+
         // Also run operators from extra clusters (eg. web_default) if provided, so homepage
         // rules are also attempted against this subpath response.
         if let Some(extras) = extra_clusters {
           // 保存现有结果的数量，用于区分新添加的结果
           let existing_count = result.matcher_result().len();
-          
+
           for extra in extras.iter() {
             extra
               .operators
               .iter()
               .for_each(|operator| operator.matcher(&mut result, false));
           }
-          
+
           // 标记新添加的结果（来自 web_default 规则）
           for mr in result.matcher_result_mut().iter_mut().skip(existing_count) {
             mr.rule_source = RuleSource::WebDefault;
@@ -523,7 +519,7 @@ impl ClusterExecuteRunner {
         cluster
           .operators
           .iter()
-          .for_each(|operator| operator.matcher(&mut result,false));
+          .for_each(|operator| operator.matcher(&mut result, false));
         if !result.matcher_result().is_empty() {
           flag = true;
           self.update_result(result, Some(request.uri().to_string()));
@@ -610,7 +606,16 @@ impl ObserverWard {
     // TODO： 可以考虑加个多线程
     let mut http_record = HttpRecord::new(self.config.http_client_builder());
     for (index, clusters) in self.cluster_type.web_default.iter().enumerate() {
-      if let Err(err) = runner.http(&self.config, clusters, &mut http_record, None, RuleSource::WebDefault).await {
+      if let Err(err) = runner
+        .http(
+          &self.config,
+          clusters,
+          &mut http_record,
+          None,
+          RuleSource::WebDefault,
+        )
+        .await
+      {
         debug!("{}:{}", Emoji("💢", ""), err);
         // 首页访问失败
         if index == 0 {
@@ -619,7 +624,16 @@ impl ObserverWard {
       }
     }
     for (index, clusters) in self.cluster_type.web_other.iter().enumerate() {
-      if let Err(err) = runner.http(&self.config, clusters, &mut http_record, Some(&self.cluster_type.web_default[..]), RuleSource::WebOther).await {
+      if let Err(err) = runner
+        .http(
+          &self.config,
+          clusters,
+          &mut http_record,
+          Some(&self.cluster_type.web_default[..]),
+          RuleSource::WebOther,
+        )
+        .await
+      {
         debug!("{}:{}", Emoji("💢", ""), err);
         // 第一次访问失败
         if index == 0 {
@@ -639,7 +653,7 @@ impl ObserverWard {
           );
           let now = Instant::now();
           clusters.operators.iter().for_each(|operator| {
-            operator.matcher(&mut result,false);
+            operator.matcher(&mut result, false);
           });
           debug!(
             "{}: {} secs",
@@ -693,10 +707,10 @@ impl ObserverWard {
     // 先跑有匹配到端口的，如果有匹配到就不跑其他的冷门指纹
     // TODO： 可以考虑加个多线程
     for clusters in include {
-      if let Ok(flag) = runner.tcp(&self.config, clusters).await {
-        if flag {
-          break;
-        }
+      if let Ok(flag) = runner.tcp(&self.config, clusters).await
+        && flag
+      {
+        break;
       }
     }
     for clusters in exclude {
@@ -724,13 +738,13 @@ impl ObserverWard {
       }
       // 只跑服务指纹
       Some("tcp") | Some("tls") => {
-        if let Some(tcp) = &self.cluster_type.tcp_default {
-          if let Err(_err) = runner.tcp(&self.config, tcp).await {
-            return ExecuteResult {
-              matched: runner.matched_result,
-              record: runner.http_record,
-            };
-          }
+        if let Some(tcp) = &self.cluster_type.tcp_default
+          && let Err(_err) = runner.tcp(&self.config, tcp).await
+        {
+          return ExecuteResult {
+            matched: runner.matched_result,
+            record: runner.http_record,
+          };
         }
         self.tcp(&mut runner).await;
       }
@@ -770,10 +784,10 @@ impl ObserverWard {
   async fn handle_tcp_mode(&self, runner: &mut ClusterExecuteRunner, target: &Uri) {
     if let Ok(tcp_target) = set_uri_scheme("tcp", target) {
       runner.target = tcp_target;
-      if let Some(tcp) = &self.cluster_type.tcp_default {
-        if let Err(_err) = runner.tcp(&self.config, tcp).await {
-          return;
-        }
+      if let Some(tcp) = &self.cluster_type.tcp_default
+        && let Err(_err) = runner.tcp(&self.config, tcp).await
+      {
+        return;
       }
       self.tcp(runner).await;
     }

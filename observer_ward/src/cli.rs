@@ -333,16 +333,16 @@ fn default_timeout() -> u64 {
 impl Default for ObserverWardConfig {
   fn default() -> Self {
     let mut default: ObserverWardConfig = argh::from_env();
-    if let Some(_api) = &default.api_server {
-      if default.token.is_none() {
-        default.token = default_token();
-      }
+    if let Some(_api) = &default.api_server
+      && default.token.is_none()
+    {
+      default.token = default_token();
     }
     // 补充默认输出格式
-    if let Some(path) = &default.output {
-      if let Some(ext) = path.extension() {
-        default.format = Some(OutputFormat::from_str(&ext.to_string_lossy()).unwrap_or_default());
-      }
+    if let Some(path) = &default.output
+      && let Some(ext) = path.extension()
+    {
+      default.format = Some(OutputFormat::from_str(&ext.to_string_lossy()).unwrap_or_default());
     }
     if let Some(mut plugin) = default.plugin {
       if !has_nuclei_app() {

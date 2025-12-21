@@ -49,7 +49,9 @@ impl ObserverWard {
     let response = builder
       .status(StatusCode::OK)
       .body(html_content.into_bytes())
-      .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("构建 response 失败: {}", e)))?
+      .map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("构建 response 失败: {}", e))
+      })?
       .into();
 
     let mut result = MatchEvent::new(&response);
@@ -102,7 +104,10 @@ impl ObserverWard {
 pub fn create_operators_from_json(json: &str) -> PyResult<ClusterType> {
   // 使用 serde_json 解析 JSON 字符串为模板数组
   let templates: Vec<Template> = serde_json::from_str(json).map_err(|e| {
-    PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("解析 JSON 失败，请检查输入格式: {}", e))
+    PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+      "解析 JSON 失败，请检查输入格式: {}",
+      e
+    ))
   })?;
   let ct = cluster_templates(&templates[..]);
   Ok(ct)

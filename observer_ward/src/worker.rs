@@ -99,8 +99,7 @@ impl AsynqClient {
 
   /// Send fingerprint result to the result queue
   pub async fn send_result(&self, result: &FingerprintResult) -> AsynqResult<()> {
-    let task = Task::new_with_json("fingerprint:result", result)?
-      .with_queue(RESULT_QUEUE);
+    let task = Task::new_with_json("fingerprint:result", result)?.with_queue(RESULT_QUEUE);
     self.client.enqueue(task).await?;
     debug!(
       "{}Sent result for task {} to queue",
@@ -132,15 +131,10 @@ impl AsynqClient {
         error: None,
       };
 
-      let task = Task::new_with_json("fingerprint:result", &result)?
-        .with_queue(RESULT_QUEUE);
+      let task = Task::new_with_json("fingerprint:result", &result)?.with_queue(RESULT_QUEUE);
       self.client.enqueue(task).await?;
 
-      debug!(
-        "{}Sent result for {} to queue",
-        Emoji("📤", ""),
-        target
-      );
+      debug!("{}Sent result for {} to queue", Emoji("📤", ""), target);
     }
 
     Ok(())
@@ -234,10 +228,10 @@ impl FingerprintHandler {
     for mr in result.matcher_result_mut().iter_mut() {
       mr.rule_source = RuleSource::WebDefault;
     }
-    
+
     // 保存现有结果数量，用于区分后续添加的结果
     let existing_count = result.matcher_result().len();
-    
+
     // Match against web_other clusters
     for cluster in self.cluster_type.web_other.iter() {
       cluster
@@ -300,18 +294,19 @@ impl Handler for FingerprintHandler {
         }
       }
       TaskInput::HttpData { request, response } => {
-        self.process_http_data(&fingerprint_task, request, response).await
+        self
+          .process_http_data(&fingerprint_task, request, response)
+          .await
       }
     };
 
     // Send result to result queue only in Both mode (where we both receive and send)
     // In ReceiveOnly mode, we only process tasks without sending results
-    if matches!(self.mode, AsynqMode::Both) {
-      if let Some(client) = &self.client {
-        if let Err(e) = client.send_result(&result).await {
-          error!("{}Failed to send result: {}", Emoji("💢", ""), e);
-        }
-      }
+    if matches!(self.mode, AsynqMode::Both)
+      && let Some(client) = &self.client
+      && let Err(e) = client.send_result(&result).await
+    {
+      error!("{}Failed to send result: {}", Emoji("💢", ""), e);
     }
 
     // Log result
@@ -320,7 +315,11 @@ impl Handler for FingerprintHandler {
         "{}Task {} completed, found {} fingerprints",
         Emoji("✅", ""),
         result.task_id,
-        result.matched.values().map(|m| m.fingerprint().len()).sum::<usize>()
+        result
+          .matched
+          .values()
+          .map(|m| m.fingerprint().len())
+          .sum::<usize>()
       );
     } else {
       error!(
@@ -365,17 +364,15 @@ pub async fn start_asynq_worker(
     .add_queue(TASK_QUEUE, 10)?;
 
   // Create handler
-  let handler = FingerprintHandler::new(
-    config,
-    cluster_type,
-    asynq_client,
-    asynq_mode,
-  );
+  let handler = FingerprintHandler::new(config, cluster_type, asynq_client, asynq_mode);
 
   // Create and start server
   let mut server = Server::new(redis_config, server_config).await?;
 
-  info!("{}Asynq worker started, waiting for tasks...", Emoji("🔄", ""));
+  info!(
+    "{}Asynq worker started, waiting for tasks...",
+    Emoji("🔄", "")
+  );
 
   server.run(handler).await?;
 

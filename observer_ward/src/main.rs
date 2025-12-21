@@ -121,13 +121,8 @@ async fn main() {
         if config.daemon {
           background();
         }
-        if let Err(e) = observer_ward::worker::start_asynq_worker(
-          redis_uri,
-          config.clone(),
-          cl,
-          asynq_mode,
-        )
-        .await
+        if let Err(e) =
+          observer_ward::worker::start_asynq_worker(redis_uri, config.clone(), cl, asynq_mode).await
         {
           error!("{}Failed to start asynq worker: {}", Emoji("💢", ""), e);
           std::process::exit(1);

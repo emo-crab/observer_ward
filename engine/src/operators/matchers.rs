@@ -152,10 +152,10 @@ impl Matcher {
     if let MatcherType::Regex(regexps) = &mut self.matcher_type {
       regexps.compiled_regex = vec![OnceCell::new(); regexps.regex.len()]
     }
-    if let MatcherType::Word(word) = &mut self.matcher_type {
-      if self.case_insensitive {
-        word.words = word.words.iter().map(|x| x.to_ascii_lowercase()).collect();
-      }
+    if let MatcherType::Word(word) = &mut self.matcher_type
+      && self.case_insensitive
+    {
+      word.words = word.words.iter().map(|x| x.to_ascii_lowercase()).collect();
     }
     Ok(())
   }
@@ -457,7 +457,10 @@ pub enum Part {
 }
 
 impl Part {
-  pub(crate) fn get_matcher_word_from_part<T: OperatorTarget>(&self, target: &T) -> Result<(String, Body)> {
+  pub(crate) fn get_matcher_word_from_part<T: OperatorTarget>(
+    &self,
+    target: &T,
+  ) -> Result<(String, Body)> {
     let body = target.get_body().unwrap_or_default();
     let body_string = match String::from_utf8(body.as_ref().to_vec()) {
       Ok(s) => s,
@@ -470,14 +473,12 @@ impl Part {
       Part::Response => {
         format!("{header_string}\r\n\r\n{body_string}")
       }
-      Part::Name(name) => {
-        target.get_header(name).ok_or_else(|| {
-          Error::IO(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "not found part name",
-          ))
-        })?
-      }
+      Part::Name(name) => target.get_header(name).ok_or_else(|| {
+        Error::IO(std::io::Error::new(
+          std::io::ErrorKind::InvalidData,
+          "not found part name",
+        ))
+      })?,
     };
     Ok((result, body))
   }

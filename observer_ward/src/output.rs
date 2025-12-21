@@ -1,8 +1,8 @@
 use crate::MatchedResult;
 use crate::cli::{ObserverWardConfig, OutputFormat};
 use console::{Emoji, style};
-use engine::slinger::http::header;
 use engine::results::RuleSource;
+use engine::slinger::http::header;
 use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -183,18 +183,18 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &BTreeMap<String, Mat
           shown_fingerprints.insert(dedup_key);
         }
       }
-      
+
       // 如果这个 MatchEvent 中所有项都已经显示过，则跳过
       if should_skip_this_fp && !fp.matcher_result().is_empty() {
         continue;
       }
-      
+
       let apps: HashSet<String> = fp
         .matcher_result()
         .iter()
         .map(|x| x.info.name.clone())
         .collect();
-      
+
       write!(writer, "{}:[ {}", Emoji("🎯", "uri"), uri).unwrap_or_default();
       write!(writer, " [{}] ", style(set_to_string(&apps)).green()).unwrap_or_default();
       write!(writer, " <{}>", set_to_string(mr.title())).unwrap_or_default();

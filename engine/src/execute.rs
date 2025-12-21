@@ -41,7 +41,7 @@ impl ClusteredOperator {
           results.push(&self.template, &self.info, response_operator_result);
         }
       }
-      if !operator_request{
+      if !operator_request {
         return;
       }
       if let Some(req_ref) = response.extensions().get::<Request>() {
