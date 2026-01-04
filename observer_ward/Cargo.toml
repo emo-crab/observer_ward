@@ -29,7 +29,7 @@ thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "=0.3.22", features = ["env-filter", "fmt"] }
 log = "0.4.28"
-console = "0.16.1"
+console = "0.16.2"
 async-trait = { version = "0.1", optional = true }
 zip = { version = "7.0.0", default-features = false, features = ["deflate"] }
 actix-web-httpauth = "0.8.1"
