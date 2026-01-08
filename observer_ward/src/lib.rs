@@ -292,7 +292,7 @@ impl MatchedResult {
 }
 
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 pub struct ClusterExecuteRunner {
@@ -325,15 +325,8 @@ impl ClusterExecuteRunner {
     let key = if let Some(key) = key {
       key
     } else {
-      let u = result.matched_at().clone();
-      let ub = Uri::builder()
-        .scheme(u.scheme_str().unwrap_or_default())
-        .authority(
-          u.authority()
-            .map_or(u.host().unwrap_or_default(), |a| a.as_str()),
-        )
-        .path_and_query("/");
-      ub.build().map_or(u, |x| x).to_string()
+      // Use the exact matched request URI as the key so output shows the real path
+      result.matched_at().to_string()
     };
     if let Some(mr) = self.matched_result.get_mut(&key) {
       mr.update_matched(&result);
@@ -612,7 +605,12 @@ impl ObserverWard {
   }
   async fn http(&self, runner: &mut ClusterExecuteRunner) {
     // TODO： 可以考虑加个多线程
-    let mut http_record = HttpRecord::new(self.config.http_client_builder());
+    let client = self
+      .config
+      .http_client_builder()
+      .build()
+      .unwrap_or_default();
+    let mut http_record = HttpRecord::new(client);
     for (index, clusters) in self.cluster_type.web_default.iter().enumerate() {
       if let Err(err) = runner.http(&self.config, clusters, &mut http_record, None).await {
         debug!("{}:{}", Emoji("💢", ""), err);
@@ -697,11 +695,10 @@ impl ObserverWard {
     // 先跑有匹配到端口的，如果有匹配到就不跑其他的冷门指纹
     // TODO： 可以考虑加个多线程
     for clusters in include {
-      if let Ok(flag) = runner.tcp(&self.config, clusters).await {
-        if flag {
+      if let Ok(flag) = runner.tcp(&self.config, clusters).await
+        && flag {
           break;
         }
-      }
     }
     for clusters in exclude {
       runner.tcp(&self.config, clusters).await.unwrap_or_default();
@@ -728,14 +725,13 @@ impl ObserverWard {
       }
       // 只跑服务指纹
       Some("tcp") | Some("tls") => {
-        if let Some(tcp) = &self.cluster_type.tcp_default {
-          if let Err(_err) = runner.tcp(&self.config, tcp).await {
+        if let Some(tcp) = &self.cluster_type.tcp_default
+          && let Err(_err) = runner.tcp(&self.config, tcp).await {
             return ExecuteResult {
               matched: runner.matched_result,
               record: runner.http_record,
             };
           }
-        }
         self.tcp(&mut runner).await;
       }
       // 跳过
@@ -774,11 +770,10 @@ impl ObserverWard {
   async fn handle_tcp_mode(&self, runner: &mut ClusterExecuteRunner, target: &Uri) {
     if let Ok(tcp_target) = set_uri_scheme("tcp", target) {
       runner.target = tcp_target;
-      if let Some(tcp) = &self.cluster_type.tcp_default {
-        if let Err(_err) = runner.tcp(&self.config, tcp).await {
+      if let Some(tcp) = &self.cluster_type.tcp_default
+        && let Err(_err) = runner.tcp(&self.config, tcp).await {
           return;
         }
-      }
       self.tcp(runner).await;
     }
   }

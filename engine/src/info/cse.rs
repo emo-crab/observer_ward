@@ -150,7 +150,7 @@ impl From<CSE> for Vec<Arc<Matcher>> {
       let mut k: Vec<String> = keyword.iter().map(|x| x.to_string()).collect();
       k.sort();
       let m = Matcher {
-        matcher_type: MatcherType::Word(Word { words: k }),
+        matcher_type: MatcherType::Word(Word { words: k, automaton: None }),
         ..Matcher::default()
       };
       mt.push(m);

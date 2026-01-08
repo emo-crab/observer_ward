@@ -661,6 +661,9 @@ git checkout -b dev
 ```
 
 - 修改完成后，测试通过
+```bash，no-run
+cargo clippy --fix --allow-dirty --workspace --all-features --all-targets -- -D warnings --allow deprecated
+```
 - 跟踪修改和提交Pull-Requests。
 
 ```bash,no-run

@@ -62,11 +62,10 @@ impl ObserverWardRunner {
   /// Send results to asynq queue if client is available
   #[cfg(feature = "asynq_task")]
   pub async fn send_to_asynq(&self, matched: &BTreeMap<String, MatchedResult>) {
-    if let Some(client) = &self.asynq_client {
-      if let Err(e) = client.send_all_results(matched).await {
+    if let Some(client) = &self.asynq_client
+      && let Err(e) = client.send_all_results(matched).await {
         error!("{}Failed to send results to asynq: {}", Emoji("💢", ""), e);
       }
-    }
   }
 
   /// No-op for non-asynq builds

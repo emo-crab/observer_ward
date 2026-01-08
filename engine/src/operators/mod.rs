@@ -5,9 +5,10 @@ use crate::operators::matchers::{Condition, FaviconMap, Matcher, MatcherType};
 use crate::operators::target::OperatorTarget;
 use crate::serde_format::is_default;
 use serde::{Deserialize, Serialize};
-use slinger::Response;
+use slinger::{Response, Body};
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
+use rayon::prelude::*;
 
 pub mod extractors;
 pub mod matchers;
@@ -140,48 +141,54 @@ impl Operators {
     response_for_extensions: Option<&Response>,
     result: &mut OperatorResult,
   ) -> Result<()> {
-    let mut matchers = Vec::new();
     if self.matchers.is_empty() {
       return Ok(());
     }
+    let mut inputs: Vec<(Arc<Matcher>, String, Body, Option<u16>)> = Vec::with_capacity(self.matchers.len());
     for matcher in self.matchers.iter() {
-      // extract matcher word from target parts
-      let (words, body) = matcher.part.get_matcher_word_from_part(target)?;
-      let (is_match, mw) = match &matcher.matcher_type {
-        MatcherType::Word(word) => matcher.match_word(word, words),
-        MatcherType::Favicon(fav) => {
-          // Favicon matching requires response extensions
-          if let Some(response) = response_for_extensions {
-            let hm = response.extensions().get::<BTreeMap<String, FaviconMap>>();
-            if let Some(hm) = hm {
+      if let Ok((words, body)) = matcher.part.get_matcher_word_from_part(target) {
+        let status = response_for_extensions.map(|r| r.status_code().as_u16());
+        inputs.push((Arc::clone(matcher), words, body, status));
+      } else {
+        let status = response_for_extensions.map(|r| r.status_code().as_u16());
+        inputs.push((Arc::clone(matcher), String::new(), Body::default(), status));
+      }
+    }
+    let favicon_map: Option<BTreeMap<String, FaviconMap>> = response_for_extensions
+      .and_then(|r| r.extensions().get::<BTreeMap<String, FaviconMap>>().cloned());
+    let results: Vec<(bool, Vec<String>, Option<String>)> = inputs
+      .into_par_iter()
+      .map(|(matcher, words, body, status)| {
+        let (is_match, mw) = match &matcher.matcher_type {
+          MatcherType::Word(word) => matcher.match_word(word, words.clone()),
+          MatcherType::Favicon(fav) => {
+            if let Some(ref hm) = favicon_map {
               matcher.match_favicon(fav, hm)
             } else {
               (false, Vec::new())
             }
-          } else {
-            (false, Vec::new())
           }
-        }
-        MatcherType::Status(status) => {
-          // Status code matching only works for Response
-          if let Some(response) = response_for_extensions {
-            (
-              matcher.match_status_code(status, response.status_code().as_u16()),
-              vec![response.status_code().as_u16().to_string()],
-            )
-          } else {
-            (false, Vec::new())
+          MatcherType::Status(status_pat) => {
+            if let Some(code) = status {
+              (matcher.match_status_code(status_pat, code), vec![code.to_string()])
+            } else {
+              (false, Vec::new())
+            }
           }
-        }
-        MatcherType::Regex(re) => matcher.match_regex(re, words, body),
-        MatcherType::None
-        | MatcherType::DSL(..)
-        | MatcherType::Binary(..)
-        | MatcherType::XPath(..) => (false, Vec::new()),
-      };
-      // normalize negative match
-      let is_match = matcher.negative(is_match);
-      matchers.push(is_match);
+          MatcherType::Regex(re) => matcher.match_regex(re, words.clone(), body.clone()),
+          MatcherType::None
+          | MatcherType::DSL(..)
+          | MatcherType::Binary(..)
+          | MatcherType::XPath(..) => (false, Vec::new()),
+        };
+        let is_match = matcher.negative(is_match);
+        let name = matcher.name.clone();
+        (is_match, mw, name)
+      })
+      .collect();
+    let mut seen_any = Vec::new();
+    for  (is_match, mw, name) in results.into_iter() {
+      seen_any.push(is_match);
       if !is_match {
         match self.matchers_condition {
           Condition::Or => continue,
@@ -191,8 +198,8 @@ impl Operators {
           }
         }
       } else {
-        if let Some(name) = &matcher.name {
-          result.name.insert(name.clone());
+        if let Some(n) = name {
+          result.name.insert(n);
         }
         result.matcher_word.extend(mw);
         if matches!(self.matchers_condition, Condition::Or) {
@@ -203,7 +210,7 @@ impl Operators {
         }
       }
     }
-    if matches!(self.matchers_condition, Condition::And) && matchers.iter().all(|x| *x) {
+    if matches!(self.matchers_condition, Condition::And) && seen_any.iter().all(|x| *x) {
       result.matched = true;
     }
     Ok(())

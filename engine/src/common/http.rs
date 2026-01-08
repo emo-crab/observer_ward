@@ -10,13 +10,13 @@ use mime::Mime;
 use serde::{Deserialize, Serialize};
 use slinger::http::header;
 use slinger::http::header::HeaderMap;
-use slinger::{Body, ClientBuilder, Response};
+use slinger::{Body, Client, Response};
 use std::collections::{BTreeMap, HashSet};
 use std::str::FromStr;
 use std::sync::OnceLock;
 
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[serde(deny_unknown_fields)]
 pub struct HttpRecord {
@@ -25,21 +25,22 @@ pub struct HttpRecord {
   skip: HashSet<String>,
   favicon: BTreeMap<String, FaviconMap>,
   #[serde(skip)]
-  client_builder: ClientBuilder,
+  client: Client,
 }
 unsafe impl Send for HttpRecord {}
 impl HttpRecord {
-  pub fn new(client_builder: ClientBuilder) -> Self {
+  pub fn new(client: Client) -> Self {
     Self {
       response: Default::default(),
       skip: Default::default(),
       favicon: Default::default(),
-      client_builder,
+      client,
     }
   }
   async fn fetch_favicon_hash(&mut self, url: &String) -> Option<FaviconMap> {
     self.skip.insert(url.to_string());
-    let client = self.client_builder.clone().build().unwrap_or_default();
+    // use the shared built client instead of building per-request
+    let client = &self.client;
     if let Ok(resp) = client.get(url).send().await.map_err(Error::Http) {
       if resp.status_code().as_u16() != 200
         || (if let Some(b) = resp.body() {
@@ -121,11 +122,12 @@ pub fn js_redirect(attempt: slinger::redirect::Attempt) -> slinger::redirect::Ac
 }
 
 fn favicon_hash(content: &Body) -> FaviconMap {
+  let bytes = content.as_ref();
   let mut hasher = Md5::new();
-  hasher.update(content.to_vec());
+  hasher.update(bytes);
   let result = hasher.finalize();
   let favicon_md5: String = format!("{:x}", &result);
-  let bs64 = STANDARD.encode(content.to_vec());
+  let bs64 = STANDARD.encode(bytes);
   let mut buf = String::new();
   // # Insert newlines (\n) every 76 characters, and also at the end
   for (index, char) in bs64.chars().enumerate() {
@@ -147,9 +149,9 @@ fn is_image(headers: &HeaderMap, body: &Body) -> bool {
     .and_then(|value| Mime::from_str(value).ok())
     .map(|value| value.type_() == mime::IMAGE)
     .unwrap_or_default();
-  let encode_error = String::from_utf8(body.to_vec()).is_err();
+  let encode_error = String::from_utf8(body.as_ref().to_vec()).is_err();
   if encode_error {
-    let text = String::from_utf8_lossy(body).to_lowercase();
+    let text = String::from_utf8_lossy(body.as_ref()).to_lowercase();
     let is_html = vec!["html", "head", "script", "div", "title", "xml"]
       .into_iter()
       .any(|c| text.contains(c));

@@ -294,13 +294,11 @@ impl Handler for FingerprintHandler {
 
     // Send result to result queue only in Both mode (where we both receive and send)
     // In ReceiveOnly mode, we only process tasks without sending results
-    if matches!(self.mode, AsynqMode::Both) {
-      if let Some(client) = &self.client {
-        if let Err(e) = client.send_result(&result).await {
+    if matches!(self.mode, AsynqMode::Both)
+      && let Some(client) = &self.client
+        && let Err(e) = client.send_result(&result).await {
           error!("{}Failed to send result: {}", Emoji("💢", ""), e);
         }
-      }
-    }
 
     // Log result
     if result.success {

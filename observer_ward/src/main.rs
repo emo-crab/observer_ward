@@ -143,6 +143,17 @@ async fn main() {
     if config.daemon {
       background();
     }
+    
+    // Extract MITM rules from templates
+    let mitm_rules: Vec<std::sync::Arc<engine::request::MitmRequest>> = templates
+      .iter()
+      .flat_map(|t| t.requests.mitm.clone())
+      .collect();
+    
+    if !mitm_rules.is_empty() {
+      info!("{}MITM interception rules loaded: {}", Emoji("📋", ""), mitm_rules.len());
+    }
+    
     let (tx, mut rx) = unbounded::<ExecuteResult>();
     let output_config = config.clone();
     tokio::task::spawn(async move {
@@ -152,7 +163,7 @@ async fn main() {
         output.webhook_results(vec![execute_result.matched]).await;
       }
     });
-    observer_ward::mitm::mitm_proxy_server(address, config.clone(), cl, tx)
+    observer_ward::mitm::mitm_proxy_server(address, config.clone(), cl, mitm_rules, tx)
       .await
       .map_err(|err| error!("start mitm proxy server err:{err}"))
       .unwrap_or_default();

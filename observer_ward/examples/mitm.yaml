@@ -1,0 +1,105 @@
+# MITM interception rules example
+# This example demonstrates how to define MITM proxy interception rules
+# for matching and modifying HTTP/HTTPS traffic.
+
+id: mitm-example
+info:
+  name: MITM Interception Example
+  author: cn-kali-team
+  tags: mitm,proxy,intercept
+  severity: info
+  metadata:
+    product: mitm-proxy
+    vendor: observer_ward
+
+# MITM interception rules
+mitm:
+  # Rule 1: Block tracking domains
+  - name: block-tracking
+    matchers:
+      - target: domain
+        type: word
+        words:
+          - analytics.example.com
+          - tracking.
+          - telemetry.
+        condition: or
+    action: block
+
+  # Rule 2: Block requests to specific file extensions
+  - name: block-ads
+    matchers:
+      - target: extension
+        type: word
+        words:
+          - .gif
+          - .png
+        condition: or
+      - target: url
+        type: word
+        words:
+          - /ads/
+          - /banner/
+        condition: or
+    matchers-condition: and
+    action: block
+
+  # Rule 3: Modify User-Agent header for API requests
+  - name: modify-api-headers
+    matchers:
+      - target: url
+        type: regex
+        regex:
+          - ^https://api\.
+    action: modify
+    replacements:
+      - target:
+          request-header: User-Agent
+        replace-type: set
+        value: CustomClient/1.0
+
+  # Rule 4: Allow all other traffic (passthrough)
+  - name: allow-all
+    matchers:
+      - target: domain
+        type: word
+        words:
+          - "."
+        negative: true
+    action: allow
+
+  # Rule 5: Modify response body content
+  - name: modify-response
+    matchers:
+      - target: domain
+        type: exact
+        values:
+          - example.com
+      - target: statuscode
+        type: status
+        status:
+          - 200
+    matchers-condition: and
+    action: modify
+    replacements:
+      - target: responsebody
+        replace-type: string
+        find: "old-text"
+        replace: "new-text"
+        all: true
+
+  # Rule 6: Regex replacement in response
+  - name: regex-replace-example
+    matchers:
+      - target: path
+        type: word
+        words:
+          - /api/v1/
+        case-insensitive: true
+    action: modify
+    replacements:
+      - target: responsebody
+        replace-type: regex
+        pattern: '"version":\s*"(\d+\.\d+)"'
+        replace: '"version": "2.0"'
+        all: true

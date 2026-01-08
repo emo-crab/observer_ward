@@ -229,6 +229,7 @@ impl ServerHandler for ObserverWardHandler {
     _: RequestContext<RoleServer>,
   ) -> Result<ListPromptsResult, ErrorData> {
     Ok(ListPromptsResult {
+      meta: None,
       next_cursor: None,
       prompts: vec![Prompt::new(
         "fingerprint_prompt",
@@ -267,6 +268,7 @@ impl ServerHandler for ObserverWardHandler {
     _: RequestContext<RoleServer>,
   ) -> Result<ListResourceTemplatesResult, ErrorData> {
     Ok(ListResourceTemplatesResult {
+      meta: None,
       next_cursor: None,
       resource_templates: Vec::new(),
     })

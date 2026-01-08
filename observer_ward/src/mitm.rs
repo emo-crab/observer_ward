@@ -1,5 +1,6 @@
 use console::Emoji;
 use engine::execute::ClusterType;
+use engine::request::MitmRequest;
 use engine::results::MatchEvent;
 use futures::channel::mpsc::UnboundedSender;
 use log::{debug, info};
@@ -15,6 +16,7 @@ pub async fn mitm_proxy_server(
   address: &crate::cli::UnixSocketAddr,
   config: ObserverWardConfig,
   cluster_type: ClusterType,
+  mitm_rules: Vec<Arc<MitmRequest>>,
   tx: UnboundedSender<crate::ExecuteResult>,
 ) -> Result<(), Box<dyn std::error::Error>> {
   use engine::slinger_mitm::{MitmConfig, MitmProxy};
@@ -40,6 +42,18 @@ pub async fn mitm_proxy_server(
     _config: config.clone(),
   });
 
+  // Create rule-based interceptor if there are mitm rules
+  let rule_interceptor = if !mitm_rules.is_empty() {
+    info!(
+      "{}Loaded {} MITM interception rules",
+      Emoji("📋", ""),
+      mitm_rules.len()
+    );
+    Some(Arc::new(RuleBasedInterceptor::new(mitm_rules)))
+  } else {
+    None
+  };
+
   // Create MITM proxy with default config
   let mut mitm_config = MitmConfig::default();
   if let Some(proxy) = config.proxy {
@@ -62,11 +76,23 @@ pub async fn mitm_proxy_server(
     proxy.ca_cert_path().display()
   );
 
-  // Add the fingerprint interceptor
+  // Add interceptors
   {
     let handler = proxy.interceptor_handler();
     let mut handler_guard = handler.write().await;
+    
+    // Add rule-based request interceptor if available
+    if let Some(ref rule_int) = rule_interceptor {
+      handler_guard.add_request_interceptor(rule_int.clone());
+    }
+    
+    // Add fingerprint response interceptor
     handler_guard.add_response_interceptor(fingerprint_interceptor);
+    
+    // Add rule-based response interceptor if available
+    if let Some(rule_int) = rule_interceptor {
+      handler_guard.add_response_interceptor(rule_int);
+    }
   }
 
   // Start the proxy server
@@ -152,11 +178,116 @@ impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
   }
 }
 
+
+/// Rule-based interceptor that applies MitmRequest rules to traffic
+struct RuleBasedInterceptor {
+  matcher: engine::request::MitmRuleMatcher,
+}
+
+impl RuleBasedInterceptor {
+  fn new(rules: Vec<Arc<MitmRequest>>) -> Self {
+    Self {
+      matcher: engine::request::MitmRuleMatcher::new(rules),
+    }
+  }
+}
+
+
+#[async_trait]
+impl engine::slinger_mitm::RequestInterceptor for RuleBasedInterceptor {
+  async fn intercept_request(
+    &self,
+    request: engine::slinger_mitm::MitmRequest,
+  ) -> engine::slinger_mitm::Result<Option<engine::slinger_mitm::MitmRequest>> {
+    use engine::request::{MitmAction, MitmMatchResult};
+
+    let result = self.matcher.match_request(
+      &engine::request::MitmRequestContext::from_slinger_mitm_request(&request),
+    );
+
+    match result {
+      MitmMatchResult::NoMatch => Ok(Some(request)),
+      MitmMatchResult::Matched { rule_name, action, .. } => {
+        debug!(
+          "{}MITM rule '{}' matched request to {}",
+          Emoji("🎯", ""),
+          rule_name.as_deref().unwrap_or("unnamed"),
+          request.destination()
+        );
+
+        match action {
+          MitmAction::Block => {
+            info!(
+              "{}Blocking request to {} (rule: {})",
+              Emoji("🚫", ""),
+              request.destination(),
+              rule_name.as_deref().unwrap_or("unnamed")
+            );
+            Ok(None)
+          }
+          MitmAction::Allow => Ok(Some(request)),
+          MitmAction::Modify => {
+            // Request modification would require mutable request
+            // For now, just pass through
+            Ok(Some(request))
+          }
+        }
+      }
+    }
+  }
+}
+
+
+#[async_trait]
+impl engine::slinger_mitm::ResponseInterceptor for RuleBasedInterceptor {
+  async fn intercept_response(
+    &self,
+    response: MitmResponse,
+  ) -> engine::slinger_mitm::Result<Option<MitmResponse>> {
+    use engine::request::{MitmAction, MitmMatchResult};
+    let result = self.matcher.match_response(
+      &engine::request::MitmResponseContext::from_slinger_mitm_response(&response),
+    );
+
+    match result {
+      MitmMatchResult::NoMatch => Ok(Some(response)),
+      MitmMatchResult::Matched { rule_name, action, .. } => {
+        debug!(
+          "{}MITM rule '{}' matched response from {}",
+          Emoji("🎯", ""),
+          rule_name.as_deref().unwrap_or("unnamed"),
+          response.source()
+        );
+
+        match action {
+          MitmAction::Block => {
+            info!(
+              "{}Blocking response from {} (rule: {})",
+              Emoji("🚫", ""),
+              response.source(),
+              rule_name.as_deref().unwrap_or("unnamed")
+            );
+            Ok(None)
+          }
+          MitmAction::Allow => Ok(Some(response)),
+          MitmAction::Modify => {
+            // Response modification would require mutable response
+            // For now, just pass through
+            Ok(Some(response))
+          }
+        }
+      }
+    }
+  }
+}
+
+
 #[cfg(not(feature = "mitm"))]
 pub async fn mitm_proxy_server(
   _address: &crate::cli::UnixSocketAddr,
   _config: ObserverWardConfig,
   _cluster_type: ClusterType,
+  _mitm_rules: Vec<Arc<MitmRequest>>,
   _tx: UnboundedSender<crate::ExecuteResult>,
 ) -> Result<(), Box<dyn std::error::Error>> {
   use log::error;

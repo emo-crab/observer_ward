@@ -2,12 +2,20 @@ mod code;
 mod dns;
 mod headless;
 mod http;
+#[cfg(feature = "mitm")]
+pub mod mitm;
 mod tcp;
 
 use crate::operators::Operators;
 use crate::request::code::CodeRequest;
 use crate::request::headless::HeadlessRequest;
 pub use crate::request::http::{HTTPRequest, Http, HttpRaw, Raw, RequestGenerator};
+#[cfg(feature = "mitm")]
+pub use crate::request::mitm::{
+  MitmAction, MitmMatchConfig, MitmMatchResult, MitmMatchType, MitmMatcher, MitmRegexMatch,
+  MitmReplacement, MitmReplacementTarget, MitmReplacementType, MitmRequest, MitmRuleMatcher,
+  MitmTarget, MitmWordMatch, MitmRequestContext, MitmResponseContext,
+};
 pub use crate::request::tcp::{Input, PortRange, TCPRequest};
 use crate::serde_format::is_default;
 use rustc_lexer::unescape;
@@ -85,6 +93,21 @@ pub struct Requests {
     schemars(title = "code snippets to make", description = "Code snippets")
   )]
   pub code: Vec<CodeRequest>,
+  /// description: |
+  ///   MITM contains the man-in-the-middle interception rules for the template.
+  ///   These rules define how to intercept, match, and modify HTTP/HTTPS traffic.
+  /// examples:
+  ///   - value: exampleMitmRequest
+  #[cfg(feature = "mitm")]
+  #[serde(default, skip_serializing_if = "is_default")]
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "mitm interception rules",
+      description = "MITM interception rules for intercepting and modifying HTTP/HTTPS traffic"
+    )
+  )]
+  pub mitm: Vec<Arc<MitmRequest>>,
 }
 
 impl Requests {
@@ -107,11 +130,10 @@ impl Requests {
       if self_http.payload_attack.is_some() || other_http.payload_attack.is_some() {
         return false;
       }
-      if let (HttpRaw::Path(sp), HttpRaw::Path(op)) = (&self_http.http_raw, &other_http.http_raw) {
-        if sp == op {
+      if let (HttpRaw::Path(sp), HttpRaw::Path(op)) = (&self_http.http_raw, &other_http.http_raw)
+        && sp == op {
           return true;
         }
-      }
     }
     if self.tcp.len() == 1 && other.tcp.len() == 1 {
       let self_tcp = &self.tcp[0];
@@ -124,13 +146,11 @@ impl Requests {
     false
   }
   pub fn is_web_default(&self) -> bool {
-    if self.http.len() == 1 {
-      if let HttpRaw::Path(path) = &self.http[0].http_raw {
-        if path.path.len() == 1 && path.method.is_safe() {
+    if self.http.len() == 1
+      && let HttpRaw::Path(path) = &self.http[0].http_raw
+        && path.path.len() == 1 && path.method.is_safe() {
           return path.path[0] == "{{BaseURL}}/";
-        }
-      };
-    }
+        };
     false
   }
   pub fn is_web(&self) -> Option<&Arc<HTTPRequest>> {
@@ -164,6 +184,18 @@ impl Requests {
     all
   }
 
+  /// Get the first MITM rule if any
+  #[cfg(feature = "mitm")]
+  pub fn is_mitm(&self) -> Option<&Arc<MitmRequest>> {
+    self.mitm.first()
+  }
+
+  /// Get all MITM rules
+  #[cfg(feature = "mitm")]
+  pub fn mitm_rules(&self) -> &[Arc<MitmRequest>] {
+    &self.mitm
+  }
+
   pub fn default_web_index() -> Self {
     Self {
       http: vec![Arc::new(HTTPRequest {
@@ -184,6 +216,8 @@ impl Requests {
       tcp: vec![],
       headless: vec![],
       code: vec![],
+      #[cfg(feature = "mitm")]
+      mitm: vec![],
     }
   }
 }

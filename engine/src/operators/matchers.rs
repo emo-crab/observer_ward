@@ -2,6 +2,7 @@ use crate::error::{Error, Result};
 use crate::operators::regex::RegexPattern;
 use crate::operators::target::OperatorTarget;
 use crate::serde_format::is_default;
+use aho_corasick::AhoCorasick;
 use log::error;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de, ser};
@@ -152,11 +153,24 @@ impl Matcher {
     if let MatcherType::Regex(regexps) = &mut self.matcher_type {
       regexps.compiled_regex = vec![OnceCell::new(); regexps.regex.len()]
     }
-    if let MatcherType::Word(word) = &mut self.matcher_type {
-      if self.case_insensitive {
-        word.words = word.words.iter().map(|x| x.to_ascii_lowercase()).collect();
-      }
+    if let MatcherType::Word(word) = &mut self.matcher_type
+      && self.case_insensitive
+    {
+      word.words = word.words.iter().map(|x| x.to_ascii_lowercase()).collect();
     }
+    if let MatcherType::Word(word) = &mut self.matcher_type
+      && !word.words.is_empty() {
+        match AhoCorasick::builder()
+          .ascii_case_insensitive(self.case_insensitive)
+          .build(&word.words)
+        {
+          Ok(ac) => word.automaton = Some(ac),
+          Err(err) => {
+            error!("failed to build aho-corasick automaton: {err:?}");
+            word.automaton = None;
+          }
+        }
+      }
     Ok(())
   }
   pub(crate) fn match_favicon(
@@ -177,6 +191,37 @@ impl Matcher {
     (false, matched_words)
   }
   pub(crate) fn match_word(&self, word: &Word, corpus: String) -> (bool, Vec<String>) {
+    if let Some(ac) = &word.automaton {
+      let mut matched_words = Vec::new();
+      let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+      for mat in ac.find_iter(&corpus) {
+        let idx = mat.pattern().as_usize();
+        if let Some(matched) = word.words.get(idx)
+          && seen.insert(matched.clone()) {
+            matched_words.push(matched.clone());
+          }
+        if matches!(self.condition, Condition::Or) && !self.match_all {
+          return (true, matched_words);
+        }
+      }
+      if matches!(self.condition, Condition::And) {
+        return if self.match_all {
+          if matched_words.len() == word.words.len() {
+            (true, matched_words)
+          } else {
+            (false, matched_words)
+          }
+        } else if matched_words.len() == word.words.len() {
+          (true, matched_words)
+        } else {
+          (false, matched_words)
+        }
+      }
+      if !matched_words.is_empty() {
+        return (true, matched_words);
+      }
+      return (false, matched_words);
+    }
     let words = if self.case_insensitive {
       corpus.to_ascii_lowercase()
     } else {
@@ -318,9 +363,9 @@ pub struct Binary {
   pub binary: Vec<String>,
 }
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-#[serde(deny_unknown_fields)]
+#[derive(Default)]
 pub struct Word {
   #[cfg_attr(
     feature = "mcp",
@@ -331,6 +376,14 @@ pub struct Word {
     )
   )]
   pub words: Vec<String>,
+  /// Aho-Corasick automaton for efficient multi-pattern matching (not serialized)
+  #[serde(skip)]
+  pub automaton: Option<AhoCorasick>,
+}
+impl PartialEq for Word {
+  fn eq(&self, other: &Self) -> bool {
+    self.words == other.words
+  }
 }
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -457,7 +510,10 @@ pub enum Part {
 }
 
 impl Part {
-  pub(crate) fn get_matcher_word_from_part<T: OperatorTarget>(&self, target: &T) -> Result<(String, Body)> {
+  pub(crate) fn get_matcher_word_from_part<T: OperatorTarget>(
+    &self,
+    target: &T,
+  ) -> Result<(String, Body)> {
     let body = target.get_body().unwrap_or_default();
     let body_string = match String::from_utf8(body.as_ref().to_vec()) {
       Ok(s) => s,
@@ -470,14 +526,12 @@ impl Part {
       Part::Response => {
         format!("{header_string}\r\n\r\n{body_string}")
       }
-      Part::Name(name) => {
-        target.get_header(name).ok_or_else(|| {
-          Error::IO(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "not found part name",
-          ))
-        })?
-      }
+      Part::Name(name) => target.get_header(name).ok_or_else(|| {
+        Error::IO(std::io::Error::new(
+          std::io::ErrorKind::InvalidData,
+          "not found part name",
+        ))
+      })?,
     };
     Ok((result, body))
   }

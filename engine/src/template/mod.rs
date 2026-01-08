@@ -120,6 +120,11 @@ impl Template {
       let mutable_operators = Arc::make_mut(&mut mutable_tcp.operators);
       mutable_operators.compile().map_err(new_regex_error)?;
     }
+    #[cfg(feature = "mitm")]
+    for mitm in requests.mitm.iter_mut() {
+      let mutable_mitm = Arc::make_mut(mitm);
+      mutable_mitm.compile();
+    }
     Ok(())
   }
   pub fn find_favicon(&mut self) -> Option<Template> {
