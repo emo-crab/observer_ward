@@ -8,7 +8,7 @@ use engine::common::http::HttpRecord;
 use engine::execute::{ClusterExecute, ClusterType};
 use engine::operators::matchers::FaviconMap;
 use engine::request::RequestGenerator;
-use engine::results::{MatchEvent, NucleiResult};
+use engine::results::{MatchEvent, MatcherResult};
 use engine::slinger::http::StatusCode;
 use engine::slinger::http::header::HeaderValue;
 use engine::slinger::http::uri::{PathAndQuery, Uri};
@@ -19,9 +19,9 @@ use error::Result;
 use futures::StreamExt;
 use futures::channel::mpsc::UnboundedSender;
 use futures::stream::FuturesUnordered;
-use rustc_hash::FxHasher;
 use log::{debug, info};
 use moka::future::Cache;
+use rustc_hash::FxHasher;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
@@ -31,8 +31,6 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 pub mod api;
-#[cfg(feature = "asynq_task")]
-pub mod worker;
 pub mod cli;
 pub mod error;
 pub mod helper;
@@ -44,6 +42,8 @@ pub mod mitm;
 mod nuclei;
 pub mod output;
 pub mod runner;
+#[cfg(feature = "asynq_task")]
+pub mod worker;
 
 use engine::template::cluster::cluster_templates;
 
@@ -100,7 +100,7 @@ pub struct MatchedResult {
         }"#
     )
   )]
-  favicon: BTreeMap<String, FaviconMap>,
+  favicon: HashSet<FaviconMap>,
   #[serde(skip_serializing_if = "Option::is_none")]
   #[cfg_attr(
     feature = "mcp",
@@ -136,22 +136,6 @@ pub struct MatchedResult {
     )
   )]
   fingerprints: Vec<MatchEvent>,
-  // 漏洞信息
-  /// Vulnerability detection results from Nuclei scans
-  #[cfg_attr(
-    feature = "mcp",
-    schemars(
-      title = "vulnerability findings",
-      description = "Vulnerability detection results grouped by Nuclei template ID",
-      example = r#"{
-            "CVE-2021-44228": [{
-                "template": "log4j-rce",
-                "severity": "critical"
-            }]
-        }"#
-    )
-  )]
-  nuclei: BTreeMap<String, Vec<Arc<NucleiResult>>>,
 }
 
 impl MatchedResult {
@@ -163,9 +147,6 @@ impl MatchedResult {
   }
   pub fn fingerprint(&self) -> &Vec<MatchEvent> {
     &self.fingerprints
-  }
-  pub fn nuclei_result(&self) -> &BTreeMap<String, Vec<Arc<NucleiResult>>> {
-    &self.nuclei
   }
   // Return the simplified fingerprint name set
   pub fn names(&self) -> &HashSet<String> {
@@ -190,7 +171,7 @@ impl MatchedResult {
     // if self.certificate.is_none() {
     //   self.certificate = None;
     // }
-    if let Some(fav) = response.extensions().get::<BTreeMap<String, FaviconMap>>() {
+    if let Some(fav) = response.extensions().get::<HashSet<FaviconMap>>() {
       self.favicon.extend(fav.clone());
     }
     if !result.matcher_result().is_empty() {
@@ -221,11 +202,7 @@ impl MatchedResult {
             .find(|emr| emr.template == incoming_mr.template)
           {
             // merge matcher names (avoid duplicates)
-            let mut names_set: HashSet<String> = existing_mr
-              .matcher_name
-              .iter()
-              .cloned()
-              .collect();
+            let mut names_set: HashSet<String> = existing_mr.matcher_name.iter().cloned().collect();
             let incoming_names = std::mem::take(&mut incoming_mr.matcher_name);
             for n in incoming_names.into_iter() {
               names_set.insert(n);
@@ -262,32 +239,6 @@ impl MatchedResult {
         self.fingerprints.push(new_event);
       }
     }
-  }
-  fn merge_nuclei_args(&self, template_dir: &Path) -> BTreeMap<String, NucleiRunner> {
-    let mut nuclei_map: BTreeMap<String, NucleiRunner> = BTreeMap::new();
-    for result_event in self.fingerprints.iter() {
-      let all_matched_result = result_event.matcher_result();
-      for matcher_result in all_matched_result {
-        if let Some(vpf) = matcher_result.info.get_vpf() {
-          if let Some(nr) = nuclei_map.get_mut(&matcher_result.template) {
-            nr.targets.insert(result_event.matched_at().to_string());
-          } else {
-            let mut args = NucleiRunner::new(vpf.name());
-            args.targets.insert(result_event.matched_at().to_string());
-            let plugin_path = template_dir.join(&vpf.vendor).join(&vpf.product);
-            if vpf.verified && plugin_path.is_dir() {
-              args.plugins.insert(plugin_path);
-            } else {
-              args
-                .condition
-                .extend(gen_nuclei_tags(&vpf.product, &matcher_result.info.tags));
-            }
-            nuclei_map.insert(matcher_result.template.clone(), args);
-          }
-        }
-      }
-    }
-    nuclei_map
   }
 }
 
@@ -345,29 +296,48 @@ impl ClusterExecuteRunner {
     // 相同插件和url只跑一次
     let mut skip_target: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (base_url, matched_result) in self.matched_result.iter_mut() {
-      let mut key_args = matched_result.merge_nuclei_args(&template_dir);
-      for (key, args) in key_args.iter_mut() {
-        if args.plugins.is_empty() && args.condition.is_empty() {
-          continue;
+      for fingerprints in matched_result.fingerprints.iter_mut() {
+        let mut nuclei_results = Vec::new();
+        let matched_at = fingerprints.matched_at().to_string();
+        for matched in fingerprints.matcher_result_mut() {
+          if let Some(mut args) = merge_nuclei_args(&template_dir, matched) {
+            if args.plugins.is_empty() && args.condition.is_empty() {
+              continue;
+            }
+            args.targets.insert(matched_at.clone());
+            if let Some(targets) = skip_target.get_mut(&args.name) {
+              if !targets.contains(base_url) {
+                args.targets.insert(base_url.clone());
+              }
+            } else {
+              skip_target.insert(args.name.clone(), vec![base_url.clone()]);
+            }
+            let result = args.run(config);
+            if !result.nuclei.is_empty() {
+              nuclei_results.push(result);
+            }
+          };
         }
-        if let Some(targets) = skip_target.get_mut(&args.name) {
-          if !targets.contains(base_url) {
-            args.targets.insert(base_url.clone());
-          }
-        } else {
-          skip_target.insert(args.name.clone(), vec![base_url.clone()]);
-        }
-        let nuclei_results = args.run(config);
-        if let Some(nrs) = matched_result.nuclei.get_mut(key) {
-          nrs.extend(nuclei_results.clone());
-        } else {
-          matched_result.nuclei.insert(key.clone(), nuclei_results);
-        }
+        fingerprints.insert_nuclei(nuclei_results);
       }
     }
   }
 }
-
+fn merge_nuclei_args(template_dir: &Path, matcher_result: &MatcherResult) -> Option<NucleiRunner> {
+  if let Some(vpf) = matcher_result.info.get_vpf() {
+    let mut args = NucleiRunner::new(vpf.name());
+    let plugin_path = template_dir.join(&vpf.vendor).join(&vpf.product);
+    if vpf.verified && plugin_path.is_dir() {
+      args.plugins.insert(plugin_path);
+    } else {
+      args
+        .condition
+        .extend(gen_nuclei_tags(&vpf.product, &matcher_result.info.tags));
+    }
+    return Some(args);
+  }
+  None
+}
 // 处理http的探针
 impl ClusterExecuteRunner {
   async fn http(
@@ -413,7 +383,7 @@ impl ClusterExecuteRunner {
         cluster
           .operators
           .iter()
-          .for_each(|operator| operator.matcher(&mut result,false));
+          .for_each(|operator| operator.matcher(&mut result, false));
         // Also run operators from extra clusters (eg. web_default) if provided, so homepage
         // rules are also attempted against this subpath response.
         if let Some(extras) = extra_clusters {
@@ -421,25 +391,38 @@ impl ClusterExecuteRunner {
             extra
               .operators
               .iter()
-              .for_each(|operator| operator.matcher(&mut result,false));
+              .for_each(|operator| operator.matcher(&mut result, false));
           }
-          if !result.matcher_result().is_empty() {
-            let u = result.matched_at().clone();
-            let ub = Uri::builder()
-              .scheme(u.scheme_str().unwrap_or_default())
-              .authority(
-                u.authority()
-                  .map_or(u.host().unwrap_or_default(), |a| a.as_str()),
-              )
-              .path_and_query("/");
-            if let Ok(home) = ub.build() {
-              let home_key = home.to_string();
-              if let Some(existing) = self.matched_result.get(&home_key) {
-                let existing_templates = existing.names();
-                result
-                  .matcher_result_mut()
-                  .retain(|mr| !existing_templates.contains(&mr.template));
+        }
+        if !result.matcher_result().is_empty() {
+          let mut base_keys: Vec<String> = Vec::new();
+          base_keys.push(self.target.to_string());
+          if let Ok(home) = Uri::builder()
+            .scheme(self.target.scheme_str().unwrap_or_default())
+            .authority(
+              self
+                .target
+                .authority()
+                .map_or(self.target.host().unwrap_or_default(), |a| a.as_str()),
+            )
+            .path_and_query("/")
+            .build()
+          {
+            base_keys.push(home.to_string());
+          }
+          let matched_at_str = result.matched_at().to_string();
+          let is_base_request = base_keys.iter().any(|k| k == &matched_at_str);
+          if !is_base_request {
+            let mut existing_templates: HashSet<String> = HashSet::new();
+            for k in base_keys.iter() {
+              if let Some(existing) = self.matched_result.get(k) {
+                existing_templates.extend(existing.names().iter().cloned());
               }
+            }
+            if !existing_templates.is_empty() {
+              result
+                .matcher_result_mut()
+                .retain(|mr| !existing_templates.contains(&mr.template));
             }
           }
         }
@@ -520,7 +503,7 @@ impl ClusterExecuteRunner {
         cluster
           .operators
           .iter()
-          .for_each(|operator| operator.matcher(&mut result,false));
+          .for_each(|operator| operator.matcher(&mut result, false));
         if !result.matcher_result().is_empty() {
           flag = true;
           self.update_result(result, Some(request.uri().to_string()));
@@ -573,9 +556,30 @@ pub struct ObserverWard {
   config: ObserverWardConfig,
   cluster_type: ClusterType,
 }
-pub struct ExecuteResult {
-  pub matched: BTreeMap<String, MatchedResult>,
+/// Fingerprint identification result
+#[derive(Serialize, Deserialize)]
+pub struct FingerprintResult {
+  /// Task ID that produced this result
+  pub task_id: Option<String>,
+  /// Target that was scanned
+  pub target: String,
+  /// Matched fingerprint results as a list of MatchedEntry
+  pub matched: Vec<MatchedEntry>,
+  /// http record
+  #[serde(skip_serializing_if = "Option::is_none")]
   pub record: Option<Arc<HttpRecord>>,
+  /// Whether the scan was successful
+  pub success: bool,
+  /// Error message if scan failed
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub error: Option<String>,
+}
+#[derive(Clone, Serialize, Deserialize)]
+pub struct MatchedEntry {
+  /// The base URL or key that identifies this MatchedResult (e.g., base path like https://example.com/ui)
+  pub base_url: String,
+  /// The matched result for that base URL
+  pub result: MatchedResult,
 }
 impl ObserverWard {
   pub fn new(config: &ObserverWardConfig, cluster_type: ClusterType) -> Arc<Self> {
@@ -584,7 +588,7 @@ impl ObserverWard {
       cluster_type,
     })
   }
-  pub async fn execute(self: Arc<Self>, tx: UnboundedSender<ExecuteResult>) {
+  pub async fn execute(self: Arc<Self>, tx: UnboundedSender<FingerprintResult>) {
     let input = self.config.input();
     info!("{}target loaded: {}", Emoji("🎯", ""), input.len());
     let mut worker = FuturesUnordered::new();
@@ -612,7 +616,10 @@ impl ObserverWard {
       .unwrap_or_default();
     let mut http_record = HttpRecord::new(client);
     for (index, clusters) in self.cluster_type.web_default.iter().enumerate() {
-      if let Err(err) = runner.http(&self.config, clusters, &mut http_record, None).await {
+      if let Err(err) = runner
+        .http(&self.config, clusters, &mut http_record, None)
+        .await
+      {
         debug!("{}:{}", Emoji("💢", ""), err);
         // 首页访问失败
         if index == 0 {
@@ -621,7 +628,15 @@ impl ObserverWard {
       }
     }
     for (index, clusters) in self.cluster_type.web_other.iter().enumerate() {
-      if let Err(err) = runner.http(&self.config, clusters, &mut http_record, Some(&self.cluster_type.web_default[..])).await {
+      if let Err(err) = runner
+        .http(
+          &self.config,
+          clusters,
+          &mut http_record,
+          Some(&self.cluster_type.web_default[..]),
+        )
+        .await
+      {
         debug!("{}:{}", Emoji("💢", ""), err);
         // 第一次访问失败
         if index == 0 {
@@ -641,7 +656,7 @@ impl ObserverWard {
           );
           let now = Instant::now();
           clusters.operators.iter().for_each(|operator| {
-            operator.matcher(&mut result,false);
+            operator.matcher(&mut result, false);
           });
           debug!(
             "{}: {} secs",
@@ -696,15 +711,16 @@ impl ObserverWard {
     // TODO： 可以考虑加个多线程
     for clusters in include {
       if let Ok(flag) = runner.tcp(&self.config, clusters).await
-        && flag {
-          break;
-        }
+        && flag
+      {
+        break;
+      }
     }
     for clusters in exclude {
       runner.tcp(&self.config, clusters).await.unwrap_or_default();
     }
   }
-  pub async fn run(&self, target: Uri) -> ExecuteResult {
+  pub async fn run(&self, target: Uri) -> FingerprintResult {
     debug!("{}: {}", Emoji("🚦", "start"), target);
     let mut runner = ClusterExecuteRunner::new(&target);
     match target.scheme_str() {
@@ -726,12 +742,24 @@ impl ObserverWard {
       // 只跑服务指纹
       Some("tcp") | Some("tls") => {
         if let Some(tcp) = &self.cluster_type.tcp_default
-          && let Err(_err) = runner.tcp(&self.config, tcp).await {
-            return ExecuteResult {
-              matched: runner.matched_result,
-              record: runner.http_record,
-            };
-          }
+          && let Err(_err) = runner.tcp(&self.config, tcp).await
+        {
+          return FingerprintResult {
+            task_id: None,
+            target: target.to_string(),
+            matched: runner
+              .matched_result
+              .into_iter()
+              .map(|(k, v)| MatchedEntry {
+                base_url: k,
+                result: v,
+              })
+              .collect(),
+            success: true,
+            record: None,
+            error: None,
+          };
+        }
         self.tcp(&mut runner).await;
       }
       // 跳过
@@ -749,9 +777,24 @@ impl ObserverWard {
       })
     });
     debug!("{}: {}", Emoji("🔚", "end"), target);
-    ExecuteResult {
-      matched: runner.matched_result,
-      record: runner.http_record,
+    FingerprintResult {
+      task_id: None,
+      target: target.to_string(),
+      matched: runner
+        .matched_result
+        .into_iter()
+        .map(|(k, v)| MatchedEntry {
+          base_url: k,
+          result: v,
+        })
+        .collect(),
+      success: true,
+      record: if self.config.ir {
+        runner.http_record
+      } else {
+        None
+      },
+      error: None,
     }
   }
   async fn handle_http_mode(&self, runner: &mut ClusterExecuteRunner, target: &Uri) {
@@ -771,9 +814,10 @@ impl ObserverWard {
     if let Ok(tcp_target) = set_uri_scheme("tcp", target) {
       runner.target = tcp_target;
       if let Some(tcp) = &self.cluster_type.tcp_default
-        && let Err(_err) = runner.tcp(&self.config, tcp).await {
-          return;
-        }
+        && let Err(_err) = runner.tcp(&self.config, tcp).await
+      {
+        return;
+      }
       self.tcp(runner).await;
     }
   }

@@ -4,11 +4,11 @@ use crate::operators::extractors::{Extractor, ExtractorType};
 use crate::operators::matchers::{Condition, FaviconMap, Matcher, MatcherType};
 use crate::operators::target::OperatorTarget;
 use crate::serde_format::is_default;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use slinger::{Response, Body};
+use slinger::{Body, Response};
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
-use rayon::prelude::*;
 
 pub mod extractors;
 pub mod matchers;
@@ -144,7 +144,8 @@ impl Operators {
     if self.matchers.is_empty() {
       return Ok(());
     }
-    let mut inputs: Vec<(Arc<Matcher>, String, Body, Option<u16>)> = Vec::with_capacity(self.matchers.len());
+    let mut inputs: Vec<(Arc<Matcher>, String, Body, Option<u16>)> =
+      Vec::with_capacity(self.matchers.len());
     for matcher in self.matchers.iter() {
       if let Ok((words, body)) = matcher.part.get_matcher_word_from_part(target) {
         let status = response_for_extensions.map(|r| r.status_code().as_u16());
@@ -154,8 +155,8 @@ impl Operators {
         inputs.push((Arc::clone(matcher), String::new(), Body::default(), status));
       }
     }
-    let favicon_map: Option<BTreeMap<String, FaviconMap>> = response_for_extensions
-      .and_then(|r| r.extensions().get::<BTreeMap<String, FaviconMap>>().cloned());
+    let favicon_map: Option<HashSet<FaviconMap>> =
+      response_for_extensions.and_then(|r| r.extensions().get::<HashSet<FaviconMap>>().cloned());
     let results: Vec<(bool, Vec<String>, Option<String>)> = inputs
       .into_par_iter()
       .map(|(matcher, words, body, status)| {
@@ -170,7 +171,10 @@ impl Operators {
           }
           MatcherType::Status(status_pat) => {
             if let Some(code) = status {
-              (matcher.match_status_code(status_pat, code), vec![code.to_string()])
+              (
+                matcher.match_status_code(status_pat, code),
+                vec![code.to_string()],
+              )
             } else {
               (false, Vec::new())
             }
@@ -187,7 +191,7 @@ impl Operators {
       })
       .collect();
     let mut seen_any = Vec::new();
-    for  (is_match, mw, name) in results.into_iter() {
+    for (is_match, mw, name) in results.into_iter() {
       seen_any.push(is_match);
       if !is_match {
         match self.matchers_condition {

@@ -20,7 +20,7 @@ impl ClusteredOperator {
     let template = Arc::<str>::from(name.to_string().into_boxed_str());
     Arc::new(Self {
       template,
-      info: t.info.clone(),
+      info: Arc::clone(&t.info),
       operators: t.requests.operators(),
     })
   }
@@ -41,7 +41,7 @@ impl ClusteredOperator {
           results.push(&self.template, &self.info, response_operator_result);
         }
       }
-      if !operator_request{
+      if !operator_request {
         return;
       }
       if let Some(req_ref) = response.extensions().get::<Request>() {

@@ -8,10 +8,10 @@ use fancy_regex::Regex;
 use md5::{Digest, Md5};
 use mime::Mime;
 use serde::{Deserialize, Serialize};
-use slinger::http::header;
 use slinger::http::header::HeaderMap;
+use slinger::http::{Uri, header};
 use slinger::{Body, Client, Response};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::OnceLock;
 
@@ -22,8 +22,8 @@ use std::sync::OnceLock;
 pub struct HttpRecord {
   response: Response,
   #[serde(skip)]
-  skip: HashSet<String>,
-  favicon: BTreeMap<String, FaviconMap>,
+  skip: HashSet<Uri>,
+  favicon: HashSet<FaviconMap>,
   #[serde(skip)]
   client: Client,
 }
@@ -37,8 +37,8 @@ impl HttpRecord {
       client,
     }
   }
-  async fn fetch_favicon_hash(&mut self, url: &String) -> Option<FaviconMap> {
-    self.skip.insert(url.to_string());
+  async fn fetch_favicon_hash(&mut self, url: &Uri) -> Option<FaviconMap> {
+    self.skip.insert(url.clone());
     // use the shared built client instead of building per-request
     let client = &self.client;
     if let Ok(resp) = client.get(url).send().await.map_err(Error::Http) {
@@ -52,7 +52,7 @@ impl HttpRecord {
         return None;
       }
       return if let Some(b) = resp.body() {
-        let hash = favicon_hash(b);
+        let hash = favicon_hash(url, b);
         Some(hash)
       } else {
         None
@@ -73,7 +73,7 @@ impl HttpRecord {
       }
       // 当图标404时，没有命中缓存，默认返回空字符串，需要判断一下
       if let Some(hash) = self.fetch_favicon_hash(&link).await {
-        self.favicon.insert(link, hash);
+        self.favicon.insert(hash);
       }
     }
     response.extensions_mut().insert(self.favicon.clone());
@@ -88,7 +88,7 @@ impl HttpRecord {
       None
     }
   }
-  pub fn favicon_hash(&self) -> &BTreeMap<String, FaviconMap> {
+  pub fn favicon_hash(&self) -> &HashSet<FaviconMap> {
     &self.favicon
   }
   pub fn has_favicon(&self) -> bool {
@@ -121,7 +121,7 @@ pub fn js_redirect(attempt: slinger::redirect::Attempt) -> slinger::redirect::Ac
   }
 }
 
-fn favicon_hash(content: &Body) -> FaviconMap {
+fn favicon_hash(uri: &Uri, content: &Body) -> FaviconMap {
   let bytes = content.as_ref();
   let mut hasher = Md5::new();
   hasher.update(bytes);
@@ -138,7 +138,7 @@ fn favicon_hash(content: &Body) -> FaviconMap {
   }
   buf.push('\n');
   let favicon_mmh3 = murmur3_32(buf.as_bytes(), 0).to_string();
-  FaviconMap::new(favicon_md5, favicon_mmh3)
+  FaviconMap::new(uri.to_string(), favicon_md5, favicon_mmh3)
 }
 
 // 判断是否为图片，如果是图片直接算hash就可以了
@@ -161,7 +161,7 @@ fn is_image(headers: &HeaderMap, body: &Body) -> bool {
   }
 }
 static RE: OnceLock<Regex> = OnceLock::new();
-fn get_favicon_link(response: &Response) -> HashSet<String> {
+fn get_favicon_link(response: &Response) -> HashSet<Uri> {
   let re = RE.get_or_init(|| Regex::new(r#"(?im)-\d{1,3}x\d{1,3}"#).expect("RE_COMPILE_ERROR"));
   let base_url = response.uri();
   let text = response.text().unwrap_or_default();
@@ -186,16 +186,16 @@ fn get_favicon_link(response: &Response) -> HashSet<String> {
             continue;
           }
           if path.starts_with("http://") || path.starts_with("https://") {
-            icon_links.insert(path.to_string());
+            icon_links.insert(path.parse().unwrap_or(base_url.clone()));
           } else {
             let favicon_url = join(base_url, path).unwrap_or(base_url.clone());
-            icon_links.insert(favicon_url.to_string());
+            icon_links.insert(favicon_url);
           }
         }
       };
     }
     if let Some(favicon_url) = join(base_url, "/favicon.ico") {
-      icon_links.insert(favicon_url.to_string());
+      icon_links.insert(favicon_url);
     }
   }
   icon_links

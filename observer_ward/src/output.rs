@@ -1,8 +1,8 @@
-use crate::MatchedResult;
 use crate::cli::{ObserverWardConfig, OutputFormat};
+use crate::{FingerprintResult, MatchedEntry};
 use console::{Emoji, style};
 use engine::slinger::http::header;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
@@ -52,22 +52,28 @@ impl Output {
     }
   }
 
-  pub fn save_and_print(&mut self, result: &BTreeMap<String, MatchedResult>) {
+  pub fn save_and_print(&mut self, result: &FingerprintResult) {
     match self.format {
       OutputFormat::STD => {
         // 保存到文件
         if self.output {
           console::set_colors_enabled(false);
-          write_to_buf(&mut self.writer, result);
+          write_to_buf(&mut self.writer, &result.matched);
         }
         if !self.config.silent {
           console::set_colors_enabled(true);
-          write_to_buf(&mut BufWriter::new(Box::new(std::io::stdout())), result);
+          write_to_buf(
+            &mut BufWriter::new(Box::new(std::io::stdout())),
+            &result.matched,
+          );
         }
       }
       OutputFormat::JSON => {
         if !self.config.silent {
-          write_to_buf(&mut BufWriter::new(Box::new(std::io::stdout())), result);
+          write_to_buf(
+            &mut BufWriter::new(Box::new(std::io::stdout())),
+            &result.matched,
+          );
         }
         writeln!(
           self.writer,
@@ -78,9 +84,14 @@ impl Output {
       }
       OutputFormat::CSV => {
         if !self.config.silent {
-          write_to_buf(&mut BufWriter::new(Box::new(std::io::stdout())), result);
+          write_to_buf(
+            &mut BufWriter::new(Box::new(std::io::stdout())),
+            &result.matched,
+          );
         }
-        for (uri, mr) in result {
+        for entry in result.matched.iter() {
+          let uri = &entry.base_url;
+          let mr = &entry.result;
           let app: Vec<String> = mr
             .fingerprint()
             .iter()
@@ -92,11 +103,12 @@ impl Output {
             })
             .collect();
           let nuclei: Vec<String> = mr
-            .nuclei_result()
+            .fingerprint()
             .iter()
-            .flat_map(|(_, nr)| {
-              nr.iter()
-                .map(|n| n.template_id.clone())
+            .flat_map(|nr| {
+              nr.nuclei_result()
+                .iter()
+                .map(|n| n.name.clone())
                 .collect::<Vec<String>>()
             })
             .collect();
@@ -109,7 +121,7 @@ impl Output {
             .join(";");
           writeln!(
             self.writer,
-            "{},\"{}\",\"{}\",{},{},\"{}\",\"{}\"",
+            "{ },\"{}\",\"{}\",{},{},\"{}\",\"{}\"",
             uri,
             app.join(";").trim(),
             set_to_string(&mr.title),
@@ -124,7 +136,8 @@ impl Output {
     }
     self.writer.flush().unwrap_or_default();
   }
-  pub async fn webhook_results(&self, result: Vec<BTreeMap<String, MatchedResult>>) {
+
+  pub async fn webhook_results(&self, results: &FingerprintResult) {
     if let Some(webhook_url) = &self.config.webhook {
       let mut headers = header::HeaderMap::new();
       headers.insert(
@@ -146,7 +159,7 @@ impl Output {
         .default_headers(headers)
         .build()
         .unwrap_or_default();
-      let what_web_result_json = serde_json::to_string(&result).unwrap_or("[]".to_string());
+      let what_web_result_json = serde_json::to_string(&results).unwrap_or("[]".to_string());
       let _: Result<_, _> = client
         .post(webhook_url)
         .body(what_web_result_json)
@@ -156,9 +169,10 @@ impl Output {
   }
 }
 
-fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &BTreeMap<String, MatchedResult>) {
-  for (uri, mr) in result {
-    let nr = mr.nuclei_result();
+fn write_to_buf(writer: &mut BufWriter<dyn Write>, results: &[MatchedEntry]) {
+  for entry in results.iter() {
+    let uri = &entry.base_url;
+    let mr = &entry.result;
     // 根据状态码显示颜色
     let osc = mr.status().as_ref().map(|sc| {
       if sc.is_success() {
@@ -203,37 +217,32 @@ fn write_to_buf(writer: &mut BufWriter<dyn Write>, result: &BTreeMap<String, Mat
         writeln!(writer).unwrap_or_default();
       }
       // 指纹对应的nuclei结果
-      for app in apps.iter() {
-        if let Some(n) = nr.get(app) {
-          if n.is_empty() {
-            continue;
-          }
-          for v in n {
-            writeln!(
-              writer,
-              " |_{}: [{}] {}: {}",
-              Emoji("🐞", "exploitable"),
-              style(format!("{:?}", v.info.severity)).red(),
-              style(&v.template_id).green(),
-              style(&v.info.name).cyan()
-            )
-            .unwrap_or_default();
+      for nn in fp.nuclei_result() {
+        for v in nn.nuclei.iter() {
+          writeln!(
+            writer,
+            " |_{}: [{}] {}: {}",
+            Emoji("🐞", "exploitable"),
+            style(format!("{:?}", v.info.severity)).red(),
+            style(&v.template_id).green(),
+            style(&v.info.name).cyan()
+          )
+          .unwrap_or_default();
+          writeln!(
+            writer,
+            "  |_{}: {}",
+            Emoji("🔥", "matched_at"),
+            v.matched_at
+          )
+          .unwrap_or_default();
+          if !v.curl_command.is_empty() {
             writeln!(
               writer,
               "  |_{}: {}",
-              Emoji("🔥", "matched_at"),
-              v.matched_at
+              Emoji("🐚", "shell"),
+              style(&v.curl_command).yellow()
             )
             .unwrap_or_default();
-            if !v.curl_command.is_empty() {
-              writeln!(
-                writer,
-                "  |_{}: {}",
-                Emoji("🐚", "shell"),
-                style(&v.curl_command).yellow()
-              )
-              .unwrap_or_default();
-            }
           }
         }
       }

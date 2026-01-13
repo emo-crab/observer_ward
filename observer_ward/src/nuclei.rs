@@ -1,6 +1,6 @@
 use crate::cli::ObserverWardConfig;
 use console::Emoji;
-use engine::results::NucleiResult;
+use engine::results::{NameNuclei, NucleiResult};
 use log::{debug, error};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -94,11 +94,14 @@ impl NucleiRunner {
     }
     command
   }
-  pub fn run(&self, config: &ObserverWardConfig) -> Vec<Arc<NucleiResult>> {
+  pub fn run(&self, config: &ObserverWardConfig) -> NameNuclei {
     let mut result = Vec::new();
     result.extend(self.run_with_plugin(config));
     result.extend(self.run_with_condition(config));
-    result
+    NameNuclei {
+      name: self.name.clone(),
+      nuclei: result,
+    }
   }
 }
 

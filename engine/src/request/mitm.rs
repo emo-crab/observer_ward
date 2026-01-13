@@ -290,7 +290,10 @@ impl MitmRegexMatch {
     self.compiled_regex[index]
       .get_or_try_init(|| {
         fancy_regex::Regex::new(&self.regex[index]).map_err(|e| {
-          error!("Failed to compile regex pattern '{}': {}", self.regex[index], e);
+          error!(
+            "Failed to compile regex pattern '{}': {}",
+            self.regex[index], e
+          );
           e
         })
       })
@@ -503,10 +506,14 @@ impl PartialEq for RegexReplacement {
 impl RegexReplacement {
   /// Get the compiled regex pattern
   pub fn get_compiled(&self) -> Option<&fancy_regex::Regex> {
-    self.compiled
+    self
+      .compiled
       .get_or_try_init(|| {
         fancy_regex::Regex::new(&self.pattern).map_err(|e| {
-          error!("Failed to compile replacement regex pattern '{}': {}", self.pattern, e);
+          error!(
+            "Failed to compile replacement regex pattern '{}': {}",
+            self.pattern, e
+          );
           e
         })
       })
@@ -538,7 +545,10 @@ pub struct AppendReplacement {
   /// Value to append
   #[cfg_attr(
     feature = "mcp",
-    schemars(title = "value to append", description = "Value to append to the target")
+    schemars(
+      title = "value to append",
+      description = "Value to append to the target"
+    )
   )]
   pub value: String,
 }
@@ -796,7 +806,12 @@ impl MitmRequestContext {
       uri: req.request().uri().to_string(),
       path,
       method: req.request().method().as_str().to_string(),
-      protocol: req.request().uri().scheme_str().unwrap_or("http").to_string(),
+      protocol: req
+        .request()
+        .uri()
+        .scheme_str()
+        .unwrap_or("http")
+        .to_string(),
       headers,
       body,
       headers_map,
@@ -847,7 +862,11 @@ impl MitmResponseContext {
     // Precompute extension from request_uri path if present
     let (uri_clone, path_clone, extension) = if let Some(ref u) = request_uri {
       let p = u.path().to_string();
-      let ext = p.rsplit('.').next().filter(|s| !s.is_empty()).map(|e| format!(".{}", e));
+      let ext = p
+        .rsplit('.')
+        .next()
+        .filter(|s| !s.is_empty())
+        .map(|e| format!(".{}", e));
       (Some(u.to_string()), Some(p), ext)
     } else {
       (None, None, None)
@@ -888,113 +907,119 @@ impl MitmRuleMatcher {
   }
 
   /// Match a request against all rules using a context struct
-  pub fn match_request(&self, ctx: &MitmRequestContext) -> MitmMatchResult
-   {
-     for rule in &self.rules {
-       let mut all_matched = true;
-       let mut any_matched = false;
+  pub fn match_request(&self, ctx: &MitmRequestContext) -> MitmMatchResult {
+    for rule in &self.rules {
+      let mut all_matched = true;
+      let mut any_matched = false;
 
-       for matcher in &rule.match_config.matchers {
-         let value_to_match: &str = match &matcher.target {
-           MitmTarget::Domain => ctx.destination.as_str(),
-           MitmTarget::Url => ctx.uri.as_str(),
-           MitmTarget::Path => ctx.path.as_str(),
-           MitmTarget::Method => ctx.method.as_str(),
-           MitmTarget::Protocol => ctx.protocol.as_str(),
-           MitmTarget::Extension => ctx.extension.as_deref().unwrap_or_default(),
-           MitmTarget::RequestHeader => ctx.headers.as_str(),
-           MitmTarget::RequestBody => ctx.body.as_str(),
-           MitmTarget::Header(name) => ctx.headers_map.get(name).map(|s| s.as_str()).unwrap_or_default(),
-           // Response-only targets don't apply to requests
-           _ => continue,
-         };
+      for matcher in &rule.match_config.matchers {
+        let value_to_match: &str = match &matcher.target {
+          MitmTarget::Domain => ctx.destination.as_str(),
+          MitmTarget::Url => ctx.uri.as_str(),
+          MitmTarget::Path => ctx.path.as_str(),
+          MitmTarget::Method => ctx.method.as_str(),
+          MitmTarget::Protocol => ctx.protocol.as_str(),
+          MitmTarget::Extension => ctx.extension.as_deref().unwrap_or_default(),
+          MitmTarget::RequestHeader => ctx.headers.as_str(),
+          MitmTarget::RequestBody => ctx.body.as_str(),
+          MitmTarget::Header(name) => ctx
+            .headers_map
+            .get(name)
+            .map(|s| s.as_str())
+            .unwrap_or_default(),
+          // Response-only targets don't apply to requests
+          _ => continue,
+        };
 
-         let matched = matcher.matches(value_to_match);
+        let matched = matcher.matches(value_to_match);
 
-         if matched {
-           any_matched = true;
-         } else {
-           all_matched = false;
-         }
-       }
+        if matched {
+          any_matched = true;
+        } else {
+          all_matched = false;
+        }
+      }
 
-       // Check condition
-       let rule_matched = match rule.match_config.matchers_condition {
-         crate::operators::matchers::Condition::And => all_matched,
-         crate::operators::matchers::Condition::Or => any_matched,
-       };
+      // Check condition
+      let rule_matched = match rule.match_config.matchers_condition {
+        crate::operators::matchers::Condition::And => all_matched,
+        crate::operators::matchers::Condition::Or => any_matched,
+      };
 
-       if rule_matched {
-         return MitmMatchResult::Matched {
-           rule_name: rule.name.clone(),
-           action: rule.action.clone(),
-           replacements: rule.replacements.clone(),
-         };
-       }
-     }
+      if rule_matched {
+        return MitmMatchResult::Matched {
+          rule_name: rule.name.clone(),
+          action: rule.action.clone(),
+          replacements: rule.replacements.clone(),
+        };
+      }
+    }
 
-     MitmMatchResult::NoMatch
-   }
+    MitmMatchResult::NoMatch
+  }
 
-   /// Match a response against all rules
-   pub fn match_response(&self, ctx: &MitmResponseContext) -> MitmMatchResult
-   {
-     for rule in &self.rules {
-       let mut all_matched = true;
-       let mut any_matched = false;
+  /// Match a response against all rules
+  pub fn match_response(&self, ctx: &MitmResponseContext) -> MitmMatchResult {
+    for rule in &self.rules {
+      let mut all_matched = true;
+      let mut any_matched = false;
 
-       for matcher in &rule.match_config.matchers {
-         let value_to_match: &str = match &matcher.target {
-           MitmTarget::Domain => ctx.source.as_str(),
-           MitmTarget::Url => ctx.uri.as_deref().unwrap_or_default(),
-           MitmTarget::Path => ctx.path.as_deref().unwrap_or_default(),
-           MitmTarget::StatusCode => {
-             // Status code matching is handled separately
-             if matcher.matches_status(ctx.status_code) {
-               any_matched = true;
-               if matches!(
-                 rule.match_config.matchers_condition,
-                 crate::operators::matchers::Condition::Or
-               ) {
-                 continue;
-               }
-             } else {
-               all_matched = false;
-             }
-             continue;
-           }
-           MitmTarget::ResponseHeader => ctx.headers.as_str(),
-           MitmTarget::ResponseBody => ctx.body.as_str(),
-           MitmTarget::Header(name) => ctx.headers_map.get(name).map(|s| s.as_str()).unwrap_or_default(),
-           // Request-only targets - skip for responses
-           _ => continue,
-         };
+      for matcher in &rule.match_config.matchers {
+        let value_to_match: &str = match &matcher.target {
+          MitmTarget::Domain => ctx.source.as_str(),
+          MitmTarget::Url => ctx.uri.as_deref().unwrap_or_default(),
+          MitmTarget::Path => ctx.path.as_deref().unwrap_or_default(),
+          MitmTarget::StatusCode => {
+            // Status code matching is handled separately
+            if matcher.matches_status(ctx.status_code) {
+              any_matched = true;
+              if matches!(
+                rule.match_config.matchers_condition,
+                crate::operators::matchers::Condition::Or
+              ) {
+                continue;
+              }
+            } else {
+              all_matched = false;
+            }
+            continue;
+          }
+          MitmTarget::ResponseHeader => ctx.headers.as_str(),
+          MitmTarget::ResponseBody => ctx.body.as_str(),
+          MitmTarget::Header(name) => ctx
+            .headers_map
+            .get(name)
+            .map(|s| s.as_str())
+            .unwrap_or_default(),
+          // Request-only targets - skip for responses
+          _ => continue,
+        };
 
-         let matched = matcher.matches(value_to_match);
+        let matched = matcher.matches(value_to_match);
 
-         if matched {
-           any_matched = true;
-         } else {
-           all_matched = false;
-         }
-       }
+        if matched {
+          any_matched = true;
+        } else {
+          all_matched = false;
+        }
+      }
 
-       let rule_matched = match rule.match_config.matchers_condition {
-         crate::operators::matchers::Condition::And => all_matched,
-         crate::operators::matchers::Condition::Or => any_matched,
-       };
+      let rule_matched = match rule.match_config.matchers_condition {
+        crate::operators::matchers::Condition::And => all_matched,
+        crate::operators::matchers::Condition::Or => any_matched,
+      };
 
-       if rule_matched {
-         return MitmMatchResult::Matched {
-           rule_name: rule.name.clone(),
-           action: rule.action.clone(),
-           replacements: rule.replacements.clone(),
-         };
-       }
-     }
+      if rule_matched {
+        return MitmMatchResult::Matched {
+          rule_name: rule.name.clone(),
+          action: rule.action.clone(),
+          replacements: rule.replacements.clone(),
+        };
+      }
+    }
 
-     MitmMatchResult::NoMatch
-   }
+    MitmMatchResult::NoMatch
+  }
 }
 
 /// Collection of MITM headers for matching/replacement
@@ -1025,7 +1050,11 @@ impl MitmHeaders {
   pub fn remove(&mut self, name: &str) {
     let name_lower = name.to_lowercase();
     // First, find the exact key to remove
-    let key_to_remove: Option<String> = self.0.keys().find(|k| k.to_lowercase() == name_lower).cloned();
+    let key_to_remove: Option<String> = self
+      .0
+      .keys()
+      .find(|k| k.to_lowercase() == name_lower)
+      .cloned();
     // Then remove it directly
     if let Some(key) = key_to_remove {
       self.0.remove(&key);
@@ -1180,10 +1209,7 @@ mod tests {
       }),
     };
 
-    assert_eq!(
-      replacement.apply("password=secret123"),
-      "password=***"
-    );
+    assert_eq!(replacement.apply("password=secret123"), "password=***");
   }
 
   #[test]
@@ -1195,9 +1221,6 @@ mod tests {
       }),
     };
 
-    assert_eq!(
-      replacement.apply("Mozilla/5.0"),
-      "Custom-Agent/1.0"
-    );
+    assert_eq!(replacement.apply("Mozilla/5.0"), "Custom-Agent/1.0");
   }
 }

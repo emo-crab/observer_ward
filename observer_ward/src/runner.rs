@@ -5,25 +5,24 @@
 
 use crate::cli::ObserverWardConfig;
 use crate::output::Output;
-use crate::{ExecuteResult, MatchedResult, ObserverWard};
+use crate::{FingerprintResult, ObserverWard};
 use async_trait::async_trait;
 use engine::execute::ClusterType;
 use futures::StreamExt;
 use futures::channel::mpsc::unbounded;
-use std::collections::BTreeMap;
 
+#[cfg(feature = "asynq_task")]
+use crate::worker::AsynqClient;
 #[cfg(feature = "asynq_task")]
 use console::Emoji;
 #[cfg(feature = "asynq_task")]
 use log::error;
-#[cfg(feature = "asynq_task")]
-use crate::worker::AsynqClient;
 
 /// Trait for handling fingerprint identification results
 #[async_trait]
 pub trait ResultHandler: Send + Sync {
   /// Process a single execution result
-  async fn handle_result(&self, result: &ExecuteResult);
+  async fn handle_result(&self, result: &FingerprintResult);
 }
 
 /// Common runner for fingerprint identification
@@ -61,16 +60,17 @@ impl ObserverWardRunner {
 
   /// Send results to asynq queue if client is available
   #[cfg(feature = "asynq_task")]
-  pub async fn send_to_asynq(&self, matched: &BTreeMap<String, MatchedResult>) {
+  pub async fn send_to_asynq(&self, result: &FingerprintResult) {
     if let Some(client) = &self.asynq_client
-      && let Err(e) = client.send_all_results(matched).await {
-        error!("{}Failed to send results to asynq: {}", Emoji("💢", ""), e);
-      }
+      && let Err(e) = client.send_all_results(&result.matched).await
+    {
+      error!("{}Failed to send results to asynq: {}", Emoji("💢", ""), e);
+    }
   }
 
   /// No-op for non-asynq builds
   #[cfg(not(feature = "asynq_task"))]
-  pub async fn send_to_asynq(&self, _matched: &BTreeMap<String, MatchedResult>) {
+  pub async fn send_to_asynq(&self, _matched: &Vec<MatchedEntry>) {
     // No-op when asynq_task feature is not enabled
   }
 
@@ -88,19 +88,17 @@ impl ObserverWardRunner {
     let mut output = Output::new(&self.config);
     while let Some(execute_result) = rx.next().await {
       // Save and print results
-      output.save_and_print(&execute_result.matched);
+      output.save_and_print(&execute_result);
       // Send to webhook if configured
-      output
-        .webhook_results(vec![execute_result.matched.clone()])
-        .await;
+      output.webhook_results(&execute_result).await;
       // Send to asynq if configured
-      self.send_to_asynq(&execute_result.matched).await;
+      self.send_to_asynq(&execute_result).await;
     }
   }
 
   /// Run fingerprint identification and collect results
   /// Used by API for returning results in response
-  pub async fn run_and_collect(&self) -> Vec<BTreeMap<String, MatchedResult>> {
+  pub async fn run_and_collect(&self) -> Vec<FingerprintResult> {
     let (tx, mut rx) = unbounded();
 
     let config = self.config.clone();
@@ -112,8 +110,8 @@ impl ObserverWardRunner {
     let mut results = Vec::new();
     while let Some(execute_result) = rx.next().await {
       // Send to asynq if configured
-      self.send_to_asynq(&execute_result.matched).await;
-      results.push(execute_result.matched);
+      self.send_to_asynq(&execute_result).await;
+      results.push(execute_result);
     }
     results
   }
@@ -132,11 +130,9 @@ impl ObserverWardRunner {
     let output = Output::new(&self.config);
     while let Some(execute_result) = rx.next().await {
       // Send to webhook
-      output
-        .webhook_results(vec![execute_result.matched.clone()])
-        .await;
+      output.webhook_results(&execute_result).await;
       // Send to asynq if configured
-      self.send_to_asynq(&execute_result.matched).await;
+      self.send_to_asynq(&execute_result).await;
     }
   }
 }

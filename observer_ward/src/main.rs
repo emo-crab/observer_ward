@@ -4,7 +4,6 @@ use engine::template::cluster::cluster_templates;
 use futures::StreamExt;
 use futures::channel::mpsc::unbounded;
 use log::{error, info, warn};
-use observer_ward::ExecuteResult;
 use observer_ward::api::api_server;
 #[cfg(not(target_os = "windows"))]
 use observer_ward::api::background;
@@ -14,6 +13,7 @@ use observer_ward::output::Output;
 use observer_ward::runner::ObserverWardRunner;
 use tracing_subscriber::prelude::*;
 
+use observer_ward::FingerprintResult;
 #[cfg(feature = "asynq_task")]
 use observer_ward::cli::AsynqMode;
 
@@ -121,13 +121,8 @@ async fn main() {
         if config.daemon {
           background();
         }
-        if let Err(e) = observer_ward::worker::start_asynq_worker(
-          redis_uri,
-          config.clone(),
-          cl,
-          asynq_mode,
-        )
-        .await
+        if let Err(e) =
+          observer_ward::worker::start_asynq_worker(redis_uri, config.clone(), cl, asynq_mode).await
         {
           error!("{}Failed to start asynq worker: {}", Emoji("💢", ""), e);
           std::process::exit(1);
@@ -143,24 +138,28 @@ async fn main() {
     if config.daemon {
       background();
     }
-    
+
     // Extract MITM rules from templates
     let mitm_rules: Vec<std::sync::Arc<engine::request::MitmRequest>> = templates
       .iter()
       .flat_map(|t| t.requests.mitm.clone())
       .collect();
-    
+
     if !mitm_rules.is_empty() {
-      info!("{}MITM interception rules loaded: {}", Emoji("📋", ""), mitm_rules.len());
+      info!(
+        "{}MITM interception rules loaded: {}",
+        Emoji("📋", ""),
+        mitm_rules.len()
+      );
     }
-    
-    let (tx, mut rx) = unbounded::<ExecuteResult>();
+
+    let (tx, mut rx) = unbounded::<FingerprintResult>();
     let output_config = config.clone();
     tokio::task::spawn(async move {
       let mut output = Output::new(&output_config);
       while let Some(execute_result) = rx.next().await {
-        output.save_and_print(&execute_result.matched);
-        output.webhook_results(vec![execute_result.matched]).await;
+        output.save_and_print(&execute_result);
+        output.webhook_results(&execute_result).await;
       }
     });
     observer_ward::mitm::mitm_proxy_server(address, config.clone(), cl, mitm_rules, tx)

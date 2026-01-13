@@ -7,6 +7,7 @@ use slinger::http::uri::Uri;
 use slinger::http_serde;
 use slinger::record::HTTPRecord;
 use std::collections::{BTreeMap, HashSet};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 // 指纹/匹配结果 (更通用的命名)
@@ -37,6 +38,22 @@ pub struct MatchEvent {
   // 当前请求和响应记录
   #[serde(skip_serializing_if = "Option::is_none")]
   record: Option<Arc<HTTPRecord>>,
+  // 漏洞信息
+  /// Vulnerability detection results from Nuclei scans
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "vulnerability findings",
+      description = "Vulnerability detection results grouped by Nuclei template ID",
+      example = r#"{
+            "CVE-2021-44228": [{
+                "template": "log4j-rce",
+                "severity": "critical"
+            }]
+        }"#
+    )
+  )]
+  nuclei: HashSet<NameNuclei>,
 }
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,8 +65,13 @@ pub struct MatcherResult {
   pub matcher_name: Vec<String>,
   pub extractor: BTreeMap<String, HashSet<String>>,
 }
-
 impl MatchEvent {
+  pub fn nuclei_result(&self) -> &HashSet<NameNuclei> {
+    &self.nuclei
+  }
+  pub fn insert_nuclei(&mut self, nuclei: Vec<NameNuclei>) {
+    self.nuclei.extend(nuclei);
+  }
   pub fn push(&mut self, template: &Arc<str>, info: &Arc<Info>, ops: OperatorResult) {
     self.matcher_results.push(MatcherResult {
       template: template.to_string(),
@@ -70,6 +92,7 @@ impl MatchEvent {
         response: response.clone(),
         raw_response: Default::default(),
       })),
+      nuclei: Default::default(),
     }
   }
   pub fn matched_at(&self) -> &Uri {
@@ -114,6 +137,13 @@ impl MatchEvent {
   }
 }
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, Eq, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+pub struct NameNuclei {
+  pub name: String,
+  pub nuclei: Vec<Arc<NucleiResult>>,
+}
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct NucleiResult {
@@ -133,6 +163,12 @@ pub struct NucleiResult {
       title = "match timestamp",
       description = "Timestamp indicating when the template matched the target"
     )
+  )]
+  pub timestamp: String,
+  /// Matched at URL
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(title = "match at", description = "Matched at URL")
   )]
   pub matched_at: String,
   /// Results extracted from the target using extractors
@@ -194,4 +230,17 @@ pub struct NucleiResult {
     )
   )]
   pub response: Option<String>,
+}
+
+impl PartialEq for NucleiResult {
+  fn eq(&self, other: &Self) -> bool {
+    self.template_id == other.template_id && self.matched_at == other.matched_at
+  }
+}
+impl Eq for NucleiResult {}
+impl Hash for NucleiResult {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.template_id.hash(state);
+    self.matched_at.hash(state);
+  }
 }

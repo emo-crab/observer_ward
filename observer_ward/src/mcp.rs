@@ -1,6 +1,6 @@
 use crate::cli::ObserverWardConfig;
 use crate::output::Output;
-use crate::{MatchedResult, ObserverWard};
+use crate::{MatchedEntry, ObserverWard};
 use engine::execute::ClusterType;
 use engine::info::Info;
 use engine::operators::{OperatorResult, Operators};
@@ -19,7 +19,6 @@ use rmcp::{
   tool, tool_handler, tool_router,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use std::ops::Deref;
 use std::sync::RwLock;
 
@@ -104,12 +103,12 @@ impl ObserverWardHandler {
     tokio::task::spawn(async move {
       ObserverWard::new(&config, cl).execute(tx).await;
     });
-    let mut results: Vec<BTreeMap<String, MatchedResult>> = Vec::new();
+    let mut results: Vec<Vec<MatchedEntry>> = Vec::new();
     if webhook {
       // 异步识别任务，通过webhook返回结果
       tokio::task::spawn(async move {
         while let Some(execute_result) = rx.next().await {
-          output.webhook_results(vec![execute_result.matched]).await;
+          output.webhook_results(&execute_result).await;
         }
       });
     } else {
@@ -132,7 +131,7 @@ impl ObserverWardHandler {
     tokio::task::spawn(async move {
       ObserverWard::new(&config, cl).execute(tx).await;
     });
-    let mut results: Vec<BTreeMap<String, MatchedResult>> = Vec::new();
+    let mut results: Vec<Vec<MatchedEntry>> = Vec::new();
     while let Some(execute_result) = rx.next().await {
       results.push(execute_result.matched);
     }

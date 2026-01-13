@@ -5,13 +5,13 @@ use slinger::{Body, Request, Response};
 pub trait OperatorTarget {
   /// Get headers as a formatted string
   fn get_headers(&self) -> String;
-  
+
   /// Get body if available
   fn get_body(&self) -> Option<Body>;
-  
+
   /// Get a specific header value by name
   fn get_header(&self, name: &str) -> Option<String>;
-  
+
   /// Get the full content (headers + body) for matching
   fn get_full_content(&self) -> String {
     let body = self.get_body();
@@ -26,7 +26,7 @@ pub trait OperatorTarget {
     let header_string = self.get_headers();
     format!("{header_string}\r\n\r\n{body_string}")
   }
-  
+
   /// Get body as string
   fn get_body_string(&self) -> String {
     if let Some(body) = self.get_body() {
@@ -49,13 +49,14 @@ impl OperatorTarget for Response {
     }
     header_string
   }
-  
+
   fn get_body(&self) -> Option<Body> {
     self.body().clone()
   }
-  
+
   fn get_header(&self, name: &str) -> Option<String> {
-    self.headers()
+    self
+      .headers()
       .get(name)
       .and_then(|v| v.to_str().ok())
       .map(|s| s.to_string())
@@ -71,13 +72,14 @@ impl OperatorTarget for Request {
     }
     header_string
   }
-  
+
   fn get_body(&self) -> Option<Body> {
     self.body.clone()
   }
-  
+
   fn get_header(&self, name: &str) -> Option<String> {
-    self.headers
+    self
+      .headers
       .get(name)
       .and_then(|v| v.to_str().ok())
       .map(|s| s.to_string())
@@ -97,20 +99,18 @@ impl TargetPart {
   /// Get the content from the target based on the part type
   pub fn get_content<T: OperatorTarget>(&self, target: &T) -> Result<(String, Option<Body>)> {
     use crate::error::Error;
-    
+
     let body = target.get_body();
     let result = match self {
       TargetPart::Body => target.get_body_string(),
       TargetPart::Header => target.get_headers(),
       TargetPart::Full => target.get_full_content(),
-      TargetPart::Name(name) => {
-        target.get_header(name).ok_or_else(|| {
-          Error::IO(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!("header '{}' not found", name),
-          ))
-        })?
-      }
+      TargetPart::Name(name) => target.get_header(name).ok_or_else(|| {
+        Error::IO(std::io::Error::new(
+          std::io::ErrorKind::InvalidData,
+          format!("header '{}' not found", name),
+        ))
+      })?,
     };
     Ok((result, body))
   }

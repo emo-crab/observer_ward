@@ -1,7 +1,7 @@
 use crate::cli::{ObserverWardConfig, UnixSocketAddr};
 use crate::helper::Helper;
 use crate::runner::ObserverWardRunner;
-use crate::{MatchedResult, cluster_templates};
+use crate::{FingerprintResult, cluster_templates};
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, middleware, post, rt, web};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
 use console::Emoji;
@@ -9,7 +9,6 @@ use console::Emoji;
 use daemonize::Daemonize;
 use engine::execute::ClusterType;
 use log::{error, info};
-use std::collections::BTreeMap;
 use std::ops::Deref;
 use std::sync::RwLock;
 
@@ -19,6 +18,10 @@ use crate::worker::AsynqClient;
 #[derive(Clone, Debug)]
 struct TokenAuth {
   token: Option<String>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+struct APIFingerprintResult {
+  pub results: Vec<FingerprintResult>,
 }
 
 fn validator(token_auth: web::Data<TokenAuth>, credentials: BearerAuth) -> bool {
@@ -71,8 +74,8 @@ async fn what_web_api(
     });
     HttpResponse::Ok().finish()
   } else {
-    let results: Vec<BTreeMap<String, MatchedResult>> = runner.run_and_collect().await;
-    HttpResponse::Ok().json(results)
+    let results: Vec<FingerprintResult> = runner.run_and_collect().await;
+    HttpResponse::Ok().json(APIFingerprintResult { results })
   }
 }
 

@@ -3,7 +3,6 @@ use asynq::redis::RedisConnectionType;
 use asynq::task::Task;
 use engine::slinger::http::{Method, StatusCode, Version};
 use engine::slinger::{Request, Response};
-use std::collections::HashSet;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -14,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   let payload = observer_ward::worker::FingerprintTask {
     task_id: "target_example".to_string(),
     input: observer_ward::worker::TaskInput::Uri {
-      target: HashSet::from_iter(vec!["http://example.com".to_string()]),
+      target: "https://example.com".to_string(),
     },
     config: None,
   };
@@ -28,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     input: observer_ward::worker::TaskInput::HttpData {
       request: Request {
         method: Method::GET,
-        uri: "http://example.com".parse().unwrap(),
+        uri: "https://example.com".parse()?,
         headers: Default::default(),
         body: None,
         version: Version::HTTP_11,
@@ -36,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
       },
       response: Response {
         version: Version::HTTP_11,
-        uri: "http://example.com".parse().unwrap(),
+        uri: "https://example.com".parse()?,
         status_code: StatusCode::OK,
         headers: Default::default(),
         extensions: Default::default(),

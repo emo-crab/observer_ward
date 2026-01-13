@@ -11,13 +11,12 @@ use crate::cli::ObserverWardConfig;
 use async_trait::async_trait;
 use engine::slinger_mitm::MitmResponse;
 
-
 pub async fn mitm_proxy_server(
   address: &crate::cli::UnixSocketAddr,
   config: ObserverWardConfig,
   cluster_type: ClusterType,
   mitm_rules: Vec<Arc<MitmRequest>>,
-  tx: UnboundedSender<crate::ExecuteResult>,
+  tx: UnboundedSender<crate::FingerprintResult>,
 ) -> Result<(), Box<dyn std::error::Error>> {
   use engine::slinger_mitm::{MitmConfig, MitmProxy};
 
@@ -80,15 +79,15 @@ pub async fn mitm_proxy_server(
   {
     let handler = proxy.interceptor_handler();
     let mut handler_guard = handler.write().await;
-    
+
     // Add rule-based request interceptor if available
     if let Some(ref rule_int) = rule_interceptor {
       handler_guard.add_request_interceptor(rule_int.clone());
     }
-    
+
     // Add fingerprint response interceptor
     handler_guard.add_response_interceptor(fingerprint_interceptor);
-    
+
     // Add rule-based response interceptor if available
     if let Some(rule_int) = rule_interceptor {
       handler_guard.add_response_interceptor(rule_int);
@@ -101,19 +100,19 @@ pub async fn mitm_proxy_server(
   Ok(())
 }
 
-
 struct FingerprintInterceptor {
   cluster_type: ClusterType,
-  tx: UnboundedSender<crate::ExecuteResult>,
+  tx: UnboundedSender<crate::FingerprintResult>,
   _config: ObserverWardConfig,
 }
 
-
 #[async_trait]
 impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
-  async fn intercept_response(&self, response: MitmResponse) -> engine::slinger_mitm::Result<Option<MitmResponse>>{
+  async fn intercept_response(
+    &self,
+    response: MitmResponse,
+  ) -> engine::slinger_mitm::Result<Option<MitmResponse>> {
     use crate::MatchedResult;
-    use std::collections::BTreeMap;
 
     // Clone data needed for async processing
     let response_clone = response.clone();
@@ -121,7 +120,11 @@ impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
     let tx = self.tx.clone();
 
     // Get request from response extensions
-    if let Some(request) = response.response.extensions().get::<engine::slinger::Request>() {
+    if let Some(request) = response
+      .response
+      .extensions()
+      .get::<engine::slinger::Request>()
+    {
       let target = request.uri().clone();
       debug!("{}Intercepted response for: {}", Emoji("📥", ""), target);
 
@@ -159,14 +162,19 @@ impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
         // Only send results if matches found
         if !result.matcher_result().is_empty() {
           debug!("{}Match found for: {}", Emoji("✅", ""), target);
-          let mut matched_map = BTreeMap::new();
           let mut matched_result = MatchedResult::default();
           matched_result.update_matched(&result);
-          matched_map.insert(target.to_string(), matched_result);
-          // Send result without HttpRecord (no active requests)
-          let execute_result = crate::ExecuteResult {
-            matched: matched_map,
+          let entry = crate::MatchedEntry {
+            base_url: target.to_string(),
+            result: matched_result,
+          };
+          let execute_result = crate::FingerprintResult {
+            task_id: None,
+            target: target.to_string(),
+            matched: vec![entry],
+            success: true,
             record: None,
+            error: None,
           };
           let _ = tx.unbounded_send(execute_result);
         }
@@ -177,7 +185,6 @@ impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
     Ok(Some(response))
   }
 }
-
 
 /// Rule-based interceptor that applies MitmRequest rules to traffic
 struct RuleBasedInterceptor {
@@ -192,7 +199,6 @@ impl RuleBasedInterceptor {
   }
 }
 
-
 #[async_trait]
 impl engine::slinger_mitm::RequestInterceptor for RuleBasedInterceptor {
   async fn intercept_request(
@@ -201,13 +207,15 @@ impl engine::slinger_mitm::RequestInterceptor for RuleBasedInterceptor {
   ) -> engine::slinger_mitm::Result<Option<engine::slinger_mitm::MitmRequest>> {
     use engine::request::{MitmAction, MitmMatchResult};
 
-    let result = self.matcher.match_request(
-      &engine::request::MitmRequestContext::from_slinger_mitm_request(&request),
-    );
+    let result = self
+      .matcher
+      .match_request(&engine::request::MitmRequestContext::from_slinger_mitm_request(&request));
 
     match result {
       MitmMatchResult::NoMatch => Ok(Some(request)),
-      MitmMatchResult::Matched { rule_name, action, .. } => {
+      MitmMatchResult::Matched {
+        rule_name, action, ..
+      } => {
         debug!(
           "{}MITM rule '{}' matched request to {}",
           Emoji("🎯", ""),
@@ -237,7 +245,6 @@ impl engine::slinger_mitm::RequestInterceptor for RuleBasedInterceptor {
   }
 }
 
-
 #[async_trait]
 impl engine::slinger_mitm::ResponseInterceptor for RuleBasedInterceptor {
   async fn intercept_response(
@@ -245,13 +252,15 @@ impl engine::slinger_mitm::ResponseInterceptor for RuleBasedInterceptor {
     response: MitmResponse,
   ) -> engine::slinger_mitm::Result<Option<MitmResponse>> {
     use engine::request::{MitmAction, MitmMatchResult};
-    let result = self.matcher.match_response(
-      &engine::request::MitmResponseContext::from_slinger_mitm_response(&response),
-    );
+    let result = self
+      .matcher
+      .match_response(&engine::request::MitmResponseContext::from_slinger_mitm_response(&response));
 
     match result {
       MitmMatchResult::NoMatch => Ok(Some(response)),
-      MitmMatchResult::Matched { rule_name, action, .. } => {
+      MitmMatchResult::Matched {
+        rule_name, action, ..
+      } => {
         debug!(
           "{}MITM rule '{}' matched response from {}",
           Emoji("🎯", ""),
@@ -280,7 +289,6 @@ impl engine::slinger_mitm::ResponseInterceptor for RuleBasedInterceptor {
     }
   }
 }
-
 
 #[cfg(not(feature = "mitm"))]
 pub async fn mitm_proxy_server(

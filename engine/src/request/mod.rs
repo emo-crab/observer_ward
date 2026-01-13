@@ -13,8 +13,8 @@ pub use crate::request::http::{HTTPRequest, Http, HttpRaw, Raw, RequestGenerator
 #[cfg(feature = "mitm")]
 pub use crate::request::mitm::{
   MitmAction, MitmMatchConfig, MitmMatchResult, MitmMatchType, MitmMatcher, MitmRegexMatch,
-  MitmReplacement, MitmReplacementTarget, MitmReplacementType, MitmRequest, MitmRuleMatcher,
-  MitmTarget, MitmWordMatch, MitmRequestContext, MitmResponseContext,
+  MitmReplacement, MitmReplacementTarget, MitmReplacementType, MitmRequest, MitmRequestContext,
+  MitmResponseContext, MitmRuleMatcher, MitmTarget, MitmWordMatch,
 };
 pub use crate::request::tcp::{Input, PortRange, TCPRequest};
 use crate::serde_format::is_default;
@@ -131,9 +131,10 @@ impl Requests {
         return false;
       }
       if let (HttpRaw::Path(sp), HttpRaw::Path(op)) = (&self_http.http_raw, &other_http.http_raw)
-        && sp == op {
-          return true;
-        }
+        && sp == op
+      {
+        return true;
+      }
     }
     if self.tcp.len() == 1 && other.tcp.len() == 1 {
       let self_tcp = &self.tcp[0];
@@ -148,9 +149,11 @@ impl Requests {
   pub fn is_web_default(&self) -> bool {
     if self.http.len() == 1
       && let HttpRaw::Path(path) = &self.http[0].http_raw
-        && path.path.len() == 1 && path.method.is_safe() {
-          return path.path[0] == "{{BaseURL}}/";
-        };
+      && path.path.len() == 1
+      && path.method.is_safe()
+    {
+      return path.path[0] == "{{BaseURL}}/";
+    };
     false
   }
   pub fn is_web(&self) -> Option<&Arc<HTTPRequest>> {

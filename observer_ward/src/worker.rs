@@ -4,7 +4,7 @@
 //! Supports receiving tasks from observer_ward:task queue and sending results to observer_ward:result queue.
 
 use crate::cli::{AsynqMode, ObserverWardConfig};
-use crate::{MatchedResult, ObserverWard};
+use crate::{FingerprintResult, MatchedResult, ObserverWard};
 use async_trait::async_trait;
 use asynq::client::Client;
 use asynq::error::Result as AsynqResult;
@@ -18,7 +18,6 @@ use engine::slinger::http::Uri;
 use engine::slinger::{Request, Response};
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashSet};
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -36,7 +35,7 @@ pub enum TaskInput {
   /// Accepts a set of target strings so a single task can contain multiple targets.
   Uri {
     /// Target URIs to scan
-    target: HashSet<String>,
+    target: String,
   },
   /// Request and Response data - will directly match rules without sending requests (like MITM mode)
   /// Uses engine::slinger::{Request, Response} which already implement serde serialization
@@ -65,22 +64,6 @@ fn default_task_id() -> String {
   uuid::Uuid::new_v4().to_string()
 }
 
-/// Fingerprint identification result
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FingerprintResult {
-  /// Task ID that produced this result
-  pub task_id: String,
-  /// Target that was scanned
-  pub target: String,
-  /// Matched fingerprint results
-  pub matched: BTreeMap<String, MatchedResult>,
-  /// Whether the scan was successful
-  pub success: bool,
-  /// Error message if scan failed
-  #[serde(skip_serializing_if = "Option::is_none")]
-  pub error: Option<String>,
-}
-
 /// Asynq client wrapper for sending results to the result queue
 #[derive(Clone)]
 pub struct AsynqClient {
@@ -99,13 +82,12 @@ impl AsynqClient {
 
   /// Send fingerprint result to the result queue
   pub async fn send_result(&self, result: &FingerprintResult) -> AsynqResult<()> {
-    let task = Task::new_with_json("fingerprint:result", result)?
-      .with_queue(RESULT_QUEUE);
+    let task = Task::new_with_json("fingerprint:result", result)?.with_queue(RESULT_QUEUE);
     self.client.enqueue(task).await?;
     debug!(
       "{}Sent result for task {} to queue",
       Emoji("📤", ""),
-      result.task_id
+      result.target
     );
     Ok(())
   }
@@ -113,33 +95,30 @@ impl AsynqClient {
   /// Send all results from a scan to the result queue
   pub async fn send_all_results(
     &self,
-    matched: &BTreeMap<String, MatchedResult>,
+    matched: &Vec<crate::MatchedEntry>,
   ) -> Result<(), Box<dyn std::error::Error>> {
     if matched.is_empty() {
       return Ok(());
     }
 
-    for (target, target_matched) in matched {
+    for entry in matched {
       let task_id = uuid::Uuid::new_v4().to_string();
-      let mut result_matched = BTreeMap::new();
-      result_matched.insert(target.clone(), target_matched.clone());
-
       let result = FingerprintResult {
-        task_id,
-        target: target.clone(),
-        matched: result_matched,
+        task_id: Some(task_id),
+        target: entry.base_url.clone(),
+        matched: vec![entry.clone()],
         success: true,
+        record: None,
         error: None,
       };
 
-      let task = Task::new_with_json("fingerprint:result", &result)?
-        .with_queue(RESULT_QUEUE);
+      let task = Task::new_with_json("fingerprint:result", &result)?.with_queue(RESULT_QUEUE);
       self.client.enqueue(task).await?;
 
       debug!(
         "{}Sent result for {} to queue",
         Emoji("📤", ""),
-        target
+        entry.base_url
       );
     }
 
@@ -180,10 +159,11 @@ impl FingerprintHandler {
       Ok(u) => u,
       Err(e) => {
         return FingerprintResult {
-          task_id: task.task_id.clone(),
+          task_id: Some(task.task_id.clone()),
           target: target.to_string(),
-          matched: BTreeMap::new(),
+          matched: Vec::new(),
           success: false,
+          record: None,
           error: Some(format!(
             "Invalid URI '{}': {}. Expected format: http(s)://host:port/path or host:port",
             target, e
@@ -194,15 +174,7 @@ impl FingerprintHandler {
 
     // Run fingerprint identification
     let observer_ward = ObserverWard::new(task_config, (*self.cluster_type).clone());
-    let result = observer_ward.run(uri).await;
-
-    FingerprintResult {
-      task_id: task.task_id.clone(),
-      target: target.to_string(),
-      matched: result.matched,
-      success: true,
-      error: None,
-    }
+    observer_ward.run(uri).await
   }
 
   /// Process HTTP data task (passive matching like MITM)
@@ -239,18 +211,22 @@ impl FingerprintHandler {
     }
 
     // Build result
-    let mut matched_map = BTreeMap::new();
+    let mut matched_vec = Vec::new();
     if !result.matcher_result().is_empty() {
       let mut matched_result = MatchedResult::default();
       matched_result.update_matched(&result);
-      matched_map.insert(target.clone(), matched_result);
+      matched_vec.push(crate::MatchedEntry {
+        base_url: target.clone(),
+        result: matched_result,
+      });
     }
 
     FingerprintResult {
-      task_id: task.task_id.clone(),
+      task_id: Some(task.task_id.clone()),
       target,
-      matched: matched_map,
+      matched: matched_vec,
       success: true,
+      record: None,
       error: None,
     }
   }
@@ -271,24 +247,12 @@ impl Handler for FingerprintHandler {
     let result = match &fingerprint_task.input {
       TaskInput::Uri { target } => {
         // When multiple targets are provided, process them all and aggregate matched results.
-        let mut aggregated = BTreeMap::new();
-        for t in target.iter() {
-          let r = self.process_uri_target(&fingerprint_task, t.as_str()).await;
-          for (k, v) in r.matched {
-            aggregated.insert(k, v);
-          }
-        }
-
-        FingerprintResult {
-          task_id: fingerprint_task.task_id.clone(),
-          target: target.iter().cloned().collect::<Vec<_>>().join(","),
-          matched: aggregated,
-          success: true,
-          error: None,
-        }
+        self.process_uri_target(&fingerprint_task, target).await
       }
       TaskInput::HttpData { request, response } => {
-        self.process_http_data(&fingerprint_task, request, response).await
+        self
+          .process_http_data(&fingerprint_task, request, response)
+          .await
       }
     };
 
@@ -296,23 +260,29 @@ impl Handler for FingerprintHandler {
     // In ReceiveOnly mode, we only process tasks without sending results
     if matches!(self.mode, AsynqMode::Both)
       && let Some(client) = &self.client
-        && let Err(e) = client.send_result(&result).await {
-          error!("{}Failed to send result: {}", Emoji("💢", ""), e);
-        }
+      && let Err(e) = client.send_result(&result).await
+    {
+      error!("{}Failed to send result: {}", Emoji("💢", ""), e);
+    }
 
     // Log result
     if result.success {
+      let total_fp: usize = result
+        .matched
+        .iter()
+        .map(|e| e.result.fingerprint().len())
+        .sum();
       info!(
         "{}Task {} completed, found {} fingerprints",
         Emoji("✅", ""),
-        result.task_id,
-        result.matched.values().map(|m| m.fingerprint().len()).sum::<usize>()
+        result.target,
+        total_fp
       );
     } else {
       error!(
         "{}Task {} failed: {}",
         Emoji("💢", ""),
-        result.task_id,
+        result.target,
         result.error.as_deref().unwrap_or("unknown error")
       );
     }
@@ -351,17 +321,15 @@ pub async fn start_asynq_worker(
     .add_queue(TASK_QUEUE, 10)?;
 
   // Create handler
-  let handler = FingerprintHandler::new(
-    config,
-    cluster_type,
-    asynq_client,
-    asynq_mode,
-  );
+  let handler = FingerprintHandler::new(config, cluster_type, asynq_client, asynq_mode);
 
   // Create and start server
   let mut server = Server::new(redis_config, server_config).await?;
 
-  info!("{}Asynq worker started, waiting for tasks...", Emoji("🔄", ""));
+  info!(
+    "{}Asynq worker started, waiting for tasks...",
+    Emoji("🔄", "")
+  );
 
   server.run(handler).await?;
 

@@ -7,8 +7,9 @@ use log::error;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de, ser};
 use slinger::Body;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
+use std::hash::Hash;
 use std::str::FromStr;
 
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
@@ -159,30 +160,31 @@ impl Matcher {
       word.words = word.words.iter().map(|x| x.to_ascii_lowercase()).collect();
     }
     if let MatcherType::Word(word) = &mut self.matcher_type
-      && !word.words.is_empty() {
-        match AhoCorasick::builder()
-          .ascii_case_insensitive(self.case_insensitive)
-          .build(&word.words)
-        {
-          Ok(ac) => word.automaton = Some(ac),
-          Err(err) => {
-            error!("failed to build aho-corasick automaton: {err:?}");
-            word.automaton = None;
-          }
+      && !word.words.is_empty()
+    {
+      match AhoCorasick::builder()
+        .ascii_case_insensitive(self.case_insensitive)
+        .build(&word.words)
+      {
+        Ok(ac) => word.automaton = Some(ac),
+        Err(err) => {
+          error!("failed to build aho-corasick automaton: {err:?}");
+          word.automaton = None;
         }
       }
+    }
     Ok(())
   }
   pub(crate) fn match_favicon(
     &self,
     fav: &Favicon,
-    corpus: &BTreeMap<String, FaviconMap>,
+    corpus: &HashSet<FaviconMap>,
   ) -> (bool, Vec<String>) {
     let mut matched_words = Vec::new();
-    for (u, map) in corpus.iter().map(|(k, v)| (k.to_string(), v.hash())) {
-      for w in fav.hash.clone().into_iter() {
-        if map.contains(&w) {
-          matched_words.push(w);
+    for (u, map) in corpus.iter().map(|h| (h.url.to_string(), h.hash())) {
+      for w in fav.hash.iter() {
+        if map.contains(w) {
+          matched_words.push(w.to_string());
           matched_words.push(u);
           return (true, matched_words);
         }
@@ -197,9 +199,10 @@ impl Matcher {
       for mat in ac.find_iter(&corpus) {
         let idx = mat.pattern().as_usize();
         if let Some(matched) = word.words.get(idx)
-          && seen.insert(matched.clone()) {
-            matched_words.push(matched.clone());
-          }
+          && seen.insert(matched.clone())
+        {
+          matched_words.push(matched.clone());
+        }
         if matches!(self.condition, Condition::Or) && !self.match_all {
           return (true, matched_words);
         }
@@ -215,7 +218,7 @@ impl Matcher {
           (true, matched_words)
         } else {
           (false, matched_words)
-        }
+        };
       }
       if !matched_words.is_empty() {
         return (true, matched_words);
@@ -388,7 +391,18 @@ impl PartialEq for Word {
 #[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
+#[derive(Hash, PartialEq, Eq)]
 pub struct FaviconMap {
+  /// URL path of the favicon
+  #[cfg_attr(
+    feature = "mcp",
+    schemars(
+      title = "favicon url",
+      description = "URL url of the favicon",
+      example = &"/favicon.ico"
+    )
+  )]
+  url: String,
   /// MD5 hash of the favicon in hexadecimal format
   ///
   /// This 128-bit hash is commonly used for favicon identification
@@ -419,8 +433,8 @@ pub struct FaviconMap {
 }
 
 impl FaviconMap {
-  pub fn new(md5: String, mmh3: String) -> Self {
-    Self { md5, mmh3 }
+  pub fn new(url: String, md5: String, mmh3: String) -> Self {
+    Self { url, md5, mmh3 }
   }
   pub fn hash(&self) -> Vec<String> {
     vec![self.md5.clone(), self.mmh3.clone()]
