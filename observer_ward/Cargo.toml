@@ -31,7 +31,7 @@ tracing-subscriber = { version = "=0.3.22", features = ["env-filter", "fmt"] }
 log = "0.4.29"
 console = "0.16.2"
 async-trait = { version = "0.1", optional = true }
-zip = { version = "7.0.0", default-features = false, features = ["deflate"] }
+zip = { version = "7.2.0", default-features = false, features = ["deflate"] }
 actix-web-httpauth = "0.8.1"
 actix-web = { version = "4.12.1", default-features = false, features = [
     "macros",
