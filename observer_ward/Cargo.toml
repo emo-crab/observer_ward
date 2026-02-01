@@ -39,7 +39,7 @@ actix-web = { version = "4.12.1", default-features = false, features = [
 ] }
 tokio = { version = "1.49.0", features = ["macros", "rt", "rt-multi-thread"], default-features = false }
 moka = { version = "0.12.13", features = ["future"] }
-asynq = { version = "0.1.4", features = ["json", "tls", "cluster", "sentinel"], optional = true }
+asynq = { version = "0.1.6", features = ["json", "tls", "cluster", "sentinel"], optional = true }
 [features]
 default = ["mcp", "mitm", "asynq_task"]
 mcp = ["rmcp", "engine/mcp", "schemars"]
