@@ -23,7 +23,7 @@ serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 serde_json = "1"
 dirs = "6.0.0"
-futures = { version = "0.3.31" }
+futures = { version = "0.3.32" }
 uuid = { version = "1.20.0", features = ["v4"] }
 thiserror = "2"
 tracing = "0.1"
