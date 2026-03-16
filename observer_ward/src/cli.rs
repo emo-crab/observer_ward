@@ -382,12 +382,14 @@ impl ObserverWardConfig {
       .write_timeout(Some(timeout))
   }
   pub fn http_client_builder(&self) -> ClientBuilder {
+    let timeout = Duration::from_secs(self.timeout);
     let mut client_builder = ClientBuilder::default()
+      .tls(Some(engine::common::tls::fallback_tls_connector()))
       .danger_accept_invalid_certs(true)
       .danger_accept_invalid_hostnames(true)
       .min_tls_version(Some(engine::slinger::tls::Version::TLS_1_0))
       .redirect(Policy::Custom(engine::common::http::js_redirect))
-      .timeout(Some(Duration::from_secs(self.timeout)));
+      .timeout(Some(timeout));
     if let Ok(ua) = HeaderValue::from_str(&self.ua) {
       client_builder = client_builder.user_agent(ua);
     }
