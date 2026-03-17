@@ -133,6 +133,7 @@ impl HttpOption {
       slinger::redirect::Policy::None
     };
     slinger::ClientBuilder::default()
+      .tls(Some(crate::common::tls::fallback_tls_connector()))
       .danger_accept_invalid_certs(true)
       .danger_accept_invalid_hostnames(true)
       .cookie_store(self.cookie_reuse)
