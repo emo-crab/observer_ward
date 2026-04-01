@@ -38,7 +38,7 @@ actix-web = { version = "4.13.0", default-features = false, features = [
     "compress-gzip",
 ] }
 tokio = { version = "1.49.0", features = ["macros", "rt", "rt-multi-thread"], default-features = false }
-moka = { version = "0.12.13", features = ["future"] }
+moka = { version = "0.12.15", features = ["future"] }
 asynq = { version = "0.1.4", features = ["json", "tls", "cluster", "sentinel"], optional = true }
 [features]
 default = ["mcp", "mitm", "asynq_task"]
