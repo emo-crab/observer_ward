@@ -34,7 +34,7 @@ slinger = { version = "0.2.12", features = [
     "http2"
 ] }
 slinger-mitm = { version = "0.0.3", optional = true }
-md-5 = "0.10.6"
+md-5 = "0.11.0"
 tl = "0.7.8"
 mime = "0.3.17"
 thiserror = "2"
