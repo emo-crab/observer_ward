@@ -18,7 +18,7 @@ rmcp = { version = "0.17.0", features = [
     "transport-io"
 ], optional = true }
 schemars = { version = "1.2.1", optional = true, features = ["chrono04", "url2"] }
-argh = "0.1.14"
+argh = "0.1.19"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 serde_json = "1"
