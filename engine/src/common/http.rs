@@ -126,7 +126,7 @@ fn favicon_hash(uri: &Uri, content: &Body) -> FaviconMap {
   let mut hasher = Md5::new();
   hasher.update(bytes);
   let result = hasher.finalize();
-  let favicon_md5: String = format!("{:x}", &result);
+  let favicon_md5: String = hex::encode(result);
   let bs64 = STANDARD.encode(bytes);
   let mut buf = String::new();
   // # Insert newlines (\n) every 76 characters, and also at the end

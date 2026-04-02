@@ -319,7 +319,7 @@ fn dsl_regex(
 fn dsl_md5(This(s): This<Arc<String>>) -> String {
   use md5::Digest;
   let hash = md5::Md5::digest(s.as_bytes());
-  format!("{:x}", hash)
+  hex::encode(hash)
 }
 
 fn dsl_sha1(This(s): This<Arc<String>>) -> String {
@@ -1060,7 +1060,7 @@ mod tests {
     vars.extra.insert("s".to_string(), body.to_string());
     let expected_md5 = {
       use md5::Digest;
-      format!("{:x}", md5::Md5::digest(body.as_bytes()))
+      hex::encode(md5::Md5::digest(body.as_bytes()))
     };
     let expr = format!("md5(body) == '{expected_md5}'");
     assert!(evaluate_dsl(&expr, &vars).unwrap());
