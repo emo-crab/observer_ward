@@ -1,5 +1,5 @@
+use asynq::backend::RedisConnectionType;
 use asynq::client::Client;
-use asynq::redis::RedisConnectionType;
 use asynq::task::Task;
 use engine::slinger::http::{Method, StatusCode, Version};
 use engine::slinger::{Request, Response};
