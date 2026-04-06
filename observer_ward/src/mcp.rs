@@ -205,27 +205,16 @@ impl ObserverWardHandler {
 
 #[tool_handler]
 impl ServerHandler for ObserverWardHandler {
-  fn get_info(&self) -> ServerInfo {
-    ServerInfo {
-      protocol_version: ProtocolVersion::V_2024_11_05,
-      capabilities: ServerCapabilities::builder()
-        .enable_prompts()
-        .enable_tools()
-        .build(),
-      server_info: Implementation {
-        title:None,
-        name: "observer_ward MCP Server".to_string(),
-        version: env!("CARGO_PKG_VERSION").to_string(),
-        description: Some("observer_ward MCP server. A set of MCP services for web application fingerprint identification based on FingerprintHub rules".to_string()),
-        icons: None,
-        website_url: None,
-      },
-      instructions: None,
-    }
+  async fn initialize(
+    &self,
+    _request: InitializeRequestParams,
+    _context: RequestContext<RoleServer> ,
+  ) -> Result<InitializeResult, ErrorData> {
+    Ok(self.get_info())
   }
   async fn list_prompts(
     &self,
-    _request: Option<PaginatedRequestParam>,
+    _request: Option<PaginatedRequestParams>,
     _: RequestContext<RoleServer>,
   ) -> Result<ListPromptsResult, ErrorData> {
     Ok(ListPromptsResult {
@@ -240,7 +229,7 @@ impl ServerHandler for ObserverWardHandler {
   }
   async fn get_prompt(
     &self,
-    GetPromptRequestParam { name, .. }: GetPromptRequestParam,
+    GetPromptRequestParams { name, .. }: GetPromptRequestParams,
     _: RequestContext<RoleServer>,
   ) -> Result<GetPromptResult, ErrorData> {
     match name.as_str() {
@@ -264,7 +253,7 @@ impl ServerHandler for ObserverWardHandler {
   }
   async fn list_resource_templates(
     &self,
-    _request: Option<PaginatedRequestParam>,
+    _request: Option<PaginatedRequestParams>,
     _: RequestContext<RoleServer>,
   ) -> Result<ListResourceTemplatesResult, ErrorData> {
     Ok(ListResourceTemplatesResult {
@@ -272,13 +261,5 @@ impl ServerHandler for ObserverWardHandler {
       next_cursor: None,
       resource_templates: Vec::new(),
     })
-  }
-
-  async fn initialize(
-    &self,
-    _request: InitializeRequestParam,
-    _context: RequestContext<RoleServer>,
-  ) -> Result<InitializeResult, ErrorData> {
-    Ok(self.get_info())
   }
 }

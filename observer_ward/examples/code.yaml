@@ -1,0 +1,22 @@
+id: 0example
+info:
+  name: 0example
+  author: cn-kali-team
+  tags: detect,tech,0example
+  severity: info
+  metadata:
+    product: 0example
+    vendor: 00_unknown
+    verified: true
+code:
+  - engine:
+      - python
+    source: |
+      x = 2+2
+      print(x)
+      print(Hostname)
+
+    matchers:
+      - type: word
+        words:
+          - "4"     # Segmentation Fault Exit Code

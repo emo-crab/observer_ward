@@ -70,12 +70,16 @@ pub struct ClusterType {
   pub tcp_default: Option<Arc<ClusterExecute>>,
   pub tcp_other: BTreeMap<String, Arc<ClusterExecute>>,
   pub port_range: BTreeMap<String, Option<PortRange>>,
+  pub code: Vec<Arc<ClusterExecute>>,
 }
 
 impl ClusterType {
   pub fn count(&self) -> usize {
-    let mut count =
-      self.web_default.len() + self.web_other.len() + self.web_favicon.len() + self.tcp_other.len();
+    let mut count = self.web_default.len()
+      + self.web_other.len()
+      + self.web_favicon.len()
+      + self.tcp_other.len()
+      + self.code.len();
     if self.tcp_default.is_some() {
       count += 1;
     }
