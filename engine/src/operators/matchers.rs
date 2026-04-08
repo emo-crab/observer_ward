@@ -349,7 +349,8 @@ impl Matcher {
       }
     }
     if (!matched_expressions.is_empty() && !self.match_all)
-      || (matched_expressions.len() == dsl.dsl.len() && self.match_all)  {
+      || (matched_expressions.len() == dsl.dsl.len() && self.match_all)
+    {
       (true, matched_expressions)
     } else {
       (false, matched_expressions)

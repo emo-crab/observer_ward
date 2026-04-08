@@ -6,6 +6,7 @@
 use crate::cli::{AsynqMode, ObserverWardConfig};
 use crate::{FingerprintResult, MatchedResult, ObserverWard};
 use async_trait::async_trait;
+use asynq::backend::RedisConnectionType;
 use asynq::client::Client;
 use asynq::error::Result as AsynqResult;
 use asynq::server::{Handler, Server, ServerConfig};
@@ -19,7 +20,6 @@ use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::sync::Arc;
-use asynq::backend::RedisConnectionType;
 
 /// Task queue name for receiving fingerprint identification tasks
 pub const TASK_QUEUE: &str = "observer_ward:task";

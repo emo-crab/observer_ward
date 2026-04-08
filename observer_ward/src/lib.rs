@@ -542,7 +542,6 @@ impl ClusterExecuteRunner {
   }
 }
 
-
 fn set_uri_scheme(scheme: &str, target: &Uri) -> Result<Uri> {
   Uri::builder()
     .scheme(scheme)

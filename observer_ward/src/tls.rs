@@ -20,7 +20,13 @@ engine::slinger::impl_tls_stream!(NativeTlsStream, inner);
 
 impl CustomTlsStream for NativeTlsStream {
   fn peer_certificate(&self) -> Option<Vec<PeerCertificate>> {
-    let cert = self.inner.get_ref().peer_certificate().ok()??.to_der().ok()?;
+    let cert = self
+      .inner
+      .get_ref()
+      .peer_certificate()
+      .ok()??
+      .to_der()
+      .ok()?;
     Some(vec![PeerCertificate { inner: cert }])
   }
 
@@ -52,8 +58,9 @@ impl CustomTlsConnector for NativeTlsConnector {
     &'a self,
     domain: &'a str,
     stream: Socket,
-  ) -> std::pin::Pin<Box<dyn std::future::Future<Output = engine::slinger::Result<Socket>> + Send + 'a>>
-  {
+  ) -> std::pin::Pin<
+    Box<dyn std::future::Future<Output = engine::slinger::Result<Socket>> + Send + 'a>,
+  > {
     let connector = self.connector.clone();
     let domain = domain.to_string();
 
@@ -140,7 +147,10 @@ impl FallbackHttpClient {
   }
 
   pub async fn execute(&self, request: Request) -> engine::slinger::Result<Response> {
-    self.execute_with_backend(request).await.map(|(response, _)| response)
+    self
+      .execute_with_backend(request)
+      .await
+      .map(|(response, _)| response)
   }
 
   pub async fn execute_with_backend(
@@ -191,7 +201,8 @@ fn backend_cache_key(uri: &Uri) -> Option<String> {
   if uri.scheme_str() != Some("https") {
     return None;
   }
-  uri.authority()
+  uri
+    .authority()
     .map(|authority| authority.as_str().to_string())
     .or_else(|| uri.host().map(str::to_string))
 }

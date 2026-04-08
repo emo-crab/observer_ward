@@ -66,7 +66,10 @@ fn build_context(vars: &DslVariables) -> Context<'static> {
   ctx.add_variable_from_value("all_headers", vars.all_headers.clone());
   ctx.add_variable_from_value("header", vars.all_headers.clone());
   ctx.add_variable_from_value("raw", format!("{}\r\n\r\n{}", vars.all_headers, vars.body));
-  ctx.add_variable_from_value("response", format!("{}\r\n\r\n{}", vars.all_headers, vars.body));
+  ctx.add_variable_from_value(
+    "response",
+    format!("{}\r\n\r\n{}", vars.all_headers, vars.body),
+  );
   ctx.add_variable_from_value("status_code", vars.status_code as i64);
   ctx.add_variable_from_value("content_length", vars.content_length);
   ctx.add_variable_from_value("content_type", vars.content_type.clone());
@@ -164,7 +167,8 @@ fn dsl_trim(This(s): This<Arc<String>>, cutset: Arc<String>) -> String {
 }
 
 fn dsl_trim_left(This(s): This<Arc<String>>, cutset: Arc<String>) -> String {
-  s.trim_start_matches(|c: char| cutset.contains(c)).to_string()
+  s.trim_start_matches(|c: char| cutset.contains(c))
+    .to_string()
 }
 
 fn dsl_trim_right(This(s): This<Arc<String>>, cutset: Arc<String>) -> String {
@@ -176,15 +180,11 @@ fn dsl_trim_space(This(s): This<Arc<String>>) -> String {
 }
 
 fn dsl_trim_prefix(This(s): This<Arc<String>>, prefix: Arc<String>) -> String {
-  s.strip_prefix(prefix.as_str())
-    .unwrap_or(&s)
-    .to_string()
+  s.strip_prefix(prefix.as_str()).unwrap_or(&s).to_string()
 }
 
 fn dsl_trim_suffix(This(s): This<Arc<String>>, suffix: Arc<String>) -> String {
-  s.strip_suffix(suffix.as_str())
-    .unwrap_or(&s)
-    .to_string()
+  s.strip_suffix(suffix.as_str()).unwrap_or(&s).to_string()
 }
 
 fn dsl_reverse(This(s): This<Arc<String>>) -> String {
@@ -201,8 +201,8 @@ fn dsl_replace_regex(
   pattern: Arc<String>,
   replacement: Arc<String>,
 ) -> CelResult<Value> {
-  let re = regex::Regex::new(&pattern)
-    .map_err(|e| ftx.error(format!("invalid regex pattern: {e}")))?;
+  let re =
+    regex::Regex::new(&pattern).map_err(|e| ftx.error(format!("invalid regex pattern: {e}")))?;
   Ok(Value::String(Arc::new(
     re.replace_all(&s, replacement.as_str()).to_string(),
   )))
@@ -302,13 +302,9 @@ fn dsl_ends_with(This(s): This<Arc<String>>, suffix: Arc<String>) -> bool {
   s.ends_with(suffix.as_str())
 }
 
-fn dsl_regex(
-  ftx: &FunctionContext,
-  pattern: Arc<String>,
-  input: Arc<String>,
-) -> CelResult<Value> {
-  let re = regex::Regex::new(&pattern)
-    .map_err(|e| ftx.error(format!("invalid regex pattern: {e}")))?;
+fn dsl_regex(ftx: &FunctionContext, pattern: Arc<String>, input: Arc<String>) -> CelResult<Value> {
+  let re =
+    regex::Regex::new(&pattern).map_err(|e| ftx.error(format!("invalid regex pattern: {e}")))?;
   Ok(Value::Bool(re.is_match(&input)))
 }
 
@@ -473,15 +469,14 @@ fn dsl_url_decode(This(s): This<Arc<String>>) -> String {
   let bytes = s.as_bytes();
   let mut i = 0;
   while i < bytes.len() {
-    if bytes[i] == b'%' && i + 2 < bytes.len()
-      && let Ok(hex_val) = u8::from_str_radix(
-        &String::from_utf8_lossy(&bytes[i + 1..i + 3]),
-        16,
-      ) {
-        result.push(hex_val as char);
-        i += 3;
-        continue;
-      }
+    if bytes[i] == b'%'
+      && i + 2 < bytes.len()
+      && let Ok(hex_val) = u8::from_str_radix(&String::from_utf8_lossy(&bytes[i + 1..i + 3]), 16)
+    {
+      result.push(hex_val as char);
+      i += 3;
+      continue;
+    }
     result.push(bytes[i] as char);
     i += 1;
   }
@@ -712,16 +707,20 @@ mod tests {
   #[test]
   fn test_or_conditions() {
     let vars = make_vars("hello world", "", 200);
-    assert!(evaluate_dsl(
-      "contains(body, 'hello') || contains(body, 'missing')",
-      &vars
-    )
-    .unwrap());
-    assert!(!evaluate_dsl(
-      "contains(body, 'missing') || contains(body, 'also missing')",
-      &vars
-    )
-    .unwrap());
+    assert!(
+      evaluate_dsl(
+        "contains(body, 'hello') || contains(body, 'missing')",
+        &vars
+      )
+      .unwrap()
+    );
+    assert!(
+      !evaluate_dsl(
+        "contains(body, 'missing') || contains(body, 'also missing')",
+        &vars
+      )
+      .unwrap()
+    );
   }
 
   #[test]
@@ -759,7 +758,9 @@ mod tests {
   #[test]
   fn test_trim_prefix_suffix() {
     let mut vars = make_vars("", "", 200);
-    vars.extra.insert("s".to_string(), "hello_world".to_string());
+    vars
+      .extra
+      .insert("s".to_string(), "hello_world".to_string());
     assert!(evaluate_dsl("trim_prefix(s, 'hello_') == 'world'", &vars).unwrap());
     assert!(evaluate_dsl("trim_suffix(s, '_world') == 'hello'", &vars).unwrap());
   }
@@ -767,7 +768,9 @@ mod tests {
   #[test]
   fn test_replace() {
     let mut vars = make_vars("", "", 200);
-    vars.extra.insert("s".to_string(), "hello world".to_string());
+    vars
+      .extra
+      .insert("s".to_string(), "hello world".to_string());
     assert!(evaluate_dsl("replace(s, 'world', 'rust') == 'hello rust'", &vars).unwrap());
   }
 
@@ -778,7 +781,11 @@ mod tests {
       .extra
       .insert("s".to_string(), "hello 123 world".to_string());
     assert!(
-      evaluate_dsl("replace_regex(s, '[0-9]+', 'NUM') == 'hello NUM world'", &vars).unwrap()
+      evaluate_dsl(
+        "replace_regex(s, '[0-9]+', 'NUM') == 'hello NUM world'",
+        &vars
+      )
+      .unwrap()
     );
   }
 
@@ -863,9 +870,7 @@ mod tests {
   fn test_md5() {
     let mut vars = make_vars("", "", 200);
     vars.extra.insert("s".to_string(), "hello".to_string());
-    assert!(
-      evaluate_dsl("md5(s) == '5d41402abc4b2a76b9719d911017c592'", &vars).unwrap()
-    );
+    assert!(evaluate_dsl("md5(s) == '5d41402abc4b2a76b9719d911017c592'", &vars).unwrap());
   }
 
   #[test]
@@ -873,7 +878,11 @@ mod tests {
     let mut vars = make_vars("", "", 200);
     vars.extra.insert("s".to_string(), "hello".to_string());
     assert!(
-      evaluate_dsl("sha1(s) == 'aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d'", &vars).unwrap()
+      evaluate_dsl(
+        "sha1(s) == 'aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d'",
+        &vars
+      )
+      .unwrap()
     );
   }
 
@@ -881,11 +890,13 @@ mod tests {
   fn test_sha256() {
     let mut vars = make_vars("", "", 200);
     vars.extra.insert("s".to_string(), "hello".to_string());
-    assert!(evaluate_dsl(
-      "sha256(s) == '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'",
-      &vars
-    )
-    .unwrap());
+    assert!(
+      evaluate_dsl(
+        "sha256(s) == '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'",
+        &vars
+      )
+      .unwrap()
+    );
   }
 
   #[test]
@@ -918,16 +929,14 @@ mod tests {
     vars
       .extra
       .insert("s".to_string(), "hello world&foo=bar".to_string());
-    assert!(evaluate_dsl(
-      "url_encode(s) == 'hello%20world%26foo%3Dbar'",
-      &vars
-    )
-    .unwrap());
-    assert!(evaluate_dsl(
-      "url_decode('hello%20world%26foo%3Dbar') == 'hello world&foo=bar'",
-      &vars
-    )
-    .unwrap());
+    assert!(evaluate_dsl("url_encode(s) == 'hello%20world%26foo%3Dbar'", &vars).unwrap());
+    assert!(
+      evaluate_dsl(
+        "url_decode('hello%20world%26foo%3Dbar') == 'hello world&foo=bar'",
+        &vars
+      )
+      .unwrap()
+    );
   }
 
   #[test]
@@ -944,16 +953,20 @@ mod tests {
     vars
       .extra
       .insert("s".to_string(), "<script>alert('xss')</script>".to_string());
-    assert!(evaluate_dsl(
-      "html_escape(s) == '&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;'",
-      &vars
-    )
-    .unwrap());
-    assert!(evaluate_dsl(
-      "html_unescape('&lt;b&gt;hello&lt;/b&gt;') == '<b>hello</b>'",
-      &vars
-    )
-    .unwrap());
+    assert!(
+      evaluate_dsl(
+        "html_escape(s) == '&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;'",
+        &vars
+      )
+      .unwrap()
+    );
+    assert!(
+      evaluate_dsl(
+        "html_unescape('&lt;b&gt;hello&lt;/b&gt;') == '<b>hello</b>'",
+        &vars
+      )
+      .unwrap()
+    );
   }
 
   // -----------------------------------------------------------------------
@@ -979,11 +992,7 @@ mod tests {
       "content-type: text/html\r\nserver: nginx\r\n",
       200,
     );
-    assert!(evaluate_dsl(
-      "status_code == 200 && contains(body, 'WordPress')",
-      &vars
-    )
-    .unwrap());
+    assert!(evaluate_dsl("status_code == 200 && contains(body, 'WordPress')", &vars).unwrap());
   }
 
   #[test]
@@ -1034,7 +1043,8 @@ mod tests {
       "content-type: text/html\r\nset-cookie: phpMyAdmin=abc123\r\n",
       200,
     );
-    let expr = "status_code == 200 && contains(body, 'phpMyAdmin') && contains(all_headers, 'phpMyAdmin')";
+    let expr =
+      "status_code == 200 && contains(body, 'phpMyAdmin') && contains(all_headers, 'phpMyAdmin')";
     assert!(evaluate_dsl(expr, &vars).unwrap());
   }
 
@@ -1073,8 +1083,7 @@ mod tests {
       "Content-Type: TEXT/HTML\r\n",
       200,
     );
-    let expr =
-      "contains(tolower(body), '<title>test</title>') && contains(tolower(all_headers), 'text/html')";
+    let expr = "contains(tolower(body), '<title>test</title>') && contains(tolower(all_headers), 'text/html')";
     assert!(evaluate_dsl(expr, &vars).unwrap());
   }
 

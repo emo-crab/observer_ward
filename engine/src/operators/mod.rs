@@ -157,9 +157,7 @@ impl Operators {
       let status_code = response_for_extensions
         .map(|r| r.status_code().as_u16())
         .unwrap_or(0);
-      let content_type = target
-        .get_header("content-type")
-        .unwrap_or_default();
+      let content_type = target.get_header("content-type").unwrap_or_default();
       let content_length = target
         .get_body()
         .map(|b| b.as_ref().len() as i64)

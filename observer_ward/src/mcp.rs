@@ -208,7 +208,7 @@ impl ServerHandler for ObserverWardHandler {
   async fn initialize(
     &self,
     _request: InitializeRequestParams,
-    _context: RequestContext<RoleServer> ,
+    _context: RequestContext<RoleServer>,
   ) -> Result<InitializeResult, ErrorData> {
     Ok(self.get_info())
   }
