@@ -513,6 +513,36 @@ impl ClusterExecuteRunner {
   }
 }
 
+// 处理code的探针
+#[cfg(feature = "code")]
+impl ClusterExecuteRunner {
+  fn code(&mut self, cluster: &ClusterExecute) {
+    for code_req in cluster.requests.code.iter() {
+      debug!("{} executing code request", Emoji("💻", "code"));
+      let Some(output) = code_req.execute(&self.target) else {
+        continue;
+      };
+      debug!("{} code output: {}", Emoji("📥", ""), output);
+      // Build a synthetic request so MatchEvent gets the right URI.
+      let fake_request = Request::raw(self.target.clone(), vec![], false);
+      let mut response: Response = Response::builder()
+        .body(output.into_bytes())
+        .unwrap_or_default()
+        .into();
+      response.extensions_mut().insert(fake_request.clone());
+      let mut result = MatchEvent::new(&response);
+      cluster
+        .operators
+        .iter()
+        .for_each(|operator| operator.matcher(&mut result, false));
+      if !result.matcher_result().is_empty() {
+        self.update_result(result, Some(self.target.to_string()));
+      }
+    }
+  }
+}
+
+
 fn set_uri_scheme(scheme: &str, target: &Uri) -> Result<Uri> {
   Uri::builder()
     .scheme(scheme)
@@ -763,6 +793,9 @@ impl ObserverWard {
       // 跳过
       _ => {}
     }
+    // 执行code类型的模板
+    #[cfg(feature = "code")]
+    self.code_execute(&mut runner);
     runner.use_nuclei(&self.config);
     runner.matched_result.values_mut().for_each(|mr| {
       if !self.config.ic {
@@ -817,6 +850,13 @@ impl ObserverWard {
         return;
       }
       self.tcp(runner).await;
+    }
+  }
+
+  #[cfg(feature = "code")]
+  fn code_execute(&self, runner: &mut ClusterExecuteRunner) {
+    for cluster in self.cluster_type.code.iter() {
+      runner.code(cluster);
     }
   }
 }

@@ -7,7 +7,7 @@ pub mod mitm;
 mod tcp;
 
 use crate::operators::Operators;
-use crate::request::code::CodeRequest;
+pub use crate::request::code::CodeRequest;
 use crate::request::headless::HeadlessRequest;
 pub use crate::request::http::{HTTPRequest, Http, HttpRaw, Raw, RequestGenerator};
 #[cfg(feature = "mitm")]
@@ -162,6 +162,9 @@ impl Requests {
   pub fn is_tcp(&self) -> Option<&Arc<TCPRequest>> {
     self.tcp.first()
   }
+  pub fn is_code(&self) -> Option<&CodeRequest> {
+    self.code.first()
+  }
   pub fn is_tcp_default(&self) -> bool {
     if self.tcp.len() == 1 {
       return self.tcp[0].name == Some("null".to_string());
@@ -182,6 +185,13 @@ impl Requests {
         .tcp
         .iter()
         .map(|t| t.operators.clone())
+        .collect::<Vec<_>>(),
+    );
+    all.extend(
+      self
+        .code
+        .iter()
+        .map(|c| Arc::new(c.operators.clone()))
         .collect::<Vec<_>>(),
     );
     all

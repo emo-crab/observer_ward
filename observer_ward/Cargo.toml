@@ -18,35 +18,36 @@ rmcp = { version = "0.17.0", features = [
     "transport-io"
 ], optional = true }
 schemars = { version = "1.2.1", optional = true, features = ["chrono04", "url2"] }
-argh = "0.1.14"
+argh = "0.1.19"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 serde_json = "1"
 dirs = "6.0.0"
 futures = { version = "0.3.32" }
-uuid = { version = "1.21.0", features = ["v4"] }
+uuid = { version = "1.23.0", features = ["v4"] }
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "=0.3.22", features = ["env-filter", "fmt"] }
 log = "0.4.29"
-console = "0.16.2"
+console = "0.16.3"
 async-trait = { version = "0.1", optional = true }
-zip = { version = "8.1.0", default-features = false, features = ["deflate"] }
+zip = { version = "8.4.0", default-features = false, features = ["deflate"] }
 actix-web-httpauth = "0.8.1"
 actix-web = { version = "4.13.0", default-features = false, features = [
     "macros",
     "compress-gzip",
 ] }
-tokio = { version = "1.49.0", features = ["macros", "rt", "rt-multi-thread", "net"], default-features = false }
-moka = { version = "0.12.13", features = ["future"] }
-asynq = { version = "0.1.4", features = ["json", "tls", "cluster", "sentinel"], optional = true }
+tokio = { version = "1.50.0", features = ["macros", "rt", "rt-multi-thread"], default-features = false }
+moka = { version = "0.12.15", features = ["future"] }
+asynq = { version = "0.1.7", features = ["json", "tls", "cluster", "sentinel"], optional = true }
 native-tls = { version = "0.2", features = ["alpn", "vendored"] }
 tokio-native-tls = "0.3"
 [features]
-default = ["mcp", "mitm", "asynq_task"]
+default = ["mcp", "mitm", "asynq_task", "code"]
 mcp = ["rmcp", "engine/mcp", "schemars"]
 mitm = ["engine/mitm", "async-trait"]
 asynq_task = ["asynq", "async-trait"]
+code = ["engine/code"]
 [target.'cfg(target_os="windows")'.build-dependencies]
 winres = "0.1"
 [target.'cfg(not(target_os = "windows"))'.dependencies]

@@ -1,4 +1,5 @@
 use crate::error::{Error, Result};
+use crate::operators::dsl::{DslVariables, evaluate_dsl};
 use crate::operators::regex::RegexPattern;
 use crate::operators::target::OperatorTarget;
 use crate::serde_format::is_default;
@@ -314,6 +315,45 @@ impl Matcher {
       return true;
     }
     false
+  }
+
+  pub(crate) fn match_dsl(&self, dsl: &DSL, vars: &DslVariables) -> (bool, Vec<String>) {
+    let mut matched_expressions = Vec::new();
+    for expr in &dsl.dsl {
+      match evaluate_dsl(expr, vars) {
+        Ok(true) => {
+          matched_expressions.push(expr.clone());
+          if matches!(self.condition, Condition::Or) && !self.match_all {
+            return (true, matched_expressions);
+          }
+        }
+        Ok(false) => match self.condition {
+          Condition::And => {
+            return (false, matched_expressions);
+          }
+          Condition::Or => {
+            continue;
+          }
+        },
+        Err(err) => {
+          error!("DSL evaluation error for '{}': {}", expr, err);
+          match self.condition {
+            Condition::And => {
+              return (false, matched_expressions);
+            }
+            Condition::Or => {
+              continue;
+            }
+          }
+        }
+      }
+    }
+    if (!matched_expressions.is_empty() && !self.match_all)
+      || (matched_expressions.len() == dsl.dsl.len() && self.match_all)  {
+      (true, matched_expressions)
+    } else {
+      (false, matched_expressions)
+    }
   }
 
   pub(crate) fn negative(&self, is_match: bool) -> bool {

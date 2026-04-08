@@ -1,5 +1,6 @@
 use crate::error::{Result, new_regex_error};
 use crate::info::Version;
+use crate::operators::dsl::DslVariables;
 use crate::operators::extractors::{Extractor, ExtractorType};
 use crate::operators::matchers::{Condition, FaviconMap, Matcher, MatcherType};
 use crate::operators::target::OperatorTarget;
@@ -10,6 +11,7 @@ use slinger::{Body, Response};
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 
+pub mod dsl;
 pub mod extractors;
 pub mod matchers;
 pub mod regex;
@@ -144,6 +146,35 @@ impl Operators {
     if self.matchers.is_empty() {
       return Ok(());
     }
+    // Pre-extract DSL variables for DSL matchers (computed once, shared across matchers)
+    let has_dsl = self
+      .matchers
+      .iter()
+      .any(|m| matches!(m.matcher_type, MatcherType::DSL(..)));
+    let dsl_vars = if has_dsl {
+      let body_string = target.get_body_string();
+      let headers_string = target.get_headers();
+      let status_code = response_for_extensions
+        .map(|r| r.status_code().as_u16())
+        .unwrap_or(0);
+      let content_type = target
+        .get_header("content-type")
+        .unwrap_or_default();
+      let content_length = target
+        .get_body()
+        .map(|b| b.as_ref().len() as i64)
+        .unwrap_or(0);
+      Some(Arc::new(DslVariables {
+        body: body_string,
+        all_headers: headers_string,
+        status_code,
+        content_length,
+        content_type,
+        extra: Default::default(),
+      }))
+    } else {
+      None
+    };
     let mut inputs: Vec<(Arc<Matcher>, String, Body, Option<u16>)> =
       Vec::with_capacity(self.matchers.len());
     for matcher in self.matchers.iter() {
@@ -180,10 +211,16 @@ impl Operators {
             }
           }
           MatcherType::Regex(re) => matcher.match_regex(re, words.clone(), body.clone()),
-          MatcherType::None
-          | MatcherType::DSL(..)
-          | MatcherType::Binary(..)
-          | MatcherType::XPath(..) => (false, Vec::new()),
+          MatcherType::DSL(dsl_matcher) => {
+            if let Some(ref vars) = dsl_vars {
+              matcher.match_dsl(dsl_matcher, vars)
+            } else {
+              (false, Vec::new())
+            }
+          }
+          MatcherType::None | MatcherType::Binary(..) | MatcherType::XPath(..) => {
+            (false, Vec::new())
+          }
         };
         let is_match = matcher.negative(is_match);
         let name = matcher.name.clone();
