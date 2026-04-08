@@ -1,3 +1,4 @@
+use crate::tls::{FallbackHttpClient, TlsBackend, fallback_tls_connector};
 use crate::input::{read_file_to_target, read_from_stdio};
 use crate::parse_yaml;
 use argh::FromArgs;
@@ -14,10 +15,12 @@ use serde::{Deserialize, Serialize};
 use std::env::current_dir;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::str::FromStr;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 #[derive(Debug, Clone, Default)]
@@ -371,20 +374,9 @@ impl Default for ObserverWardConfig {
 }
 
 impl ObserverWardConfig {
-  pub fn tcp_client_builder(&self) -> ConnectorBuilder {
+  fn apply_http_client_config(&self, mut client_builder: ClientBuilder) -> ClientBuilder {
     let timeout = Duration::from_secs(self.timeout);
-
-    ConnectorBuilder::default()
-      .nodelay(true)
-      .proxy(self.proxy.clone())
-      .connect_timeout(Some(timeout))
-      .read_timeout(Some(timeout))
-      .write_timeout(Some(timeout))
-  }
-  pub fn http_client_builder(&self) -> ClientBuilder {
-    let timeout = Duration::from_secs(self.timeout);
-    let mut client_builder = ClientBuilder::default()
-      .tls(Some(engine::common::tls::fallback_tls_connector()))
+    client_builder = client_builder
       .danger_accept_invalid_certs(true)
       .danger_accept_invalid_hostnames(true)
       .min_tls_version(Some(engine::slinger::tls::Version::TLS_1_0))
@@ -397,6 +389,40 @@ impl ObserverWardConfig {
       client_builder = client_builder.proxy(proxy.clone());
     }
     client_builder
+  }
+  pub fn tcp_client_builder(&self) -> ConnectorBuilder {
+    let timeout = Duration::from_secs(self.timeout);
+
+    ConnectorBuilder::default()
+      .nodelay(true)
+      .proxy(self.proxy.clone())
+      .connect_timeout(Some(timeout))
+      .read_timeout(Some(timeout))
+      .write_timeout(Some(timeout))
+  }
+  pub fn http_client_builder(&self) -> ClientBuilder {
+    self.apply_http_client_config(ClientBuilder::default())
+  }
+  pub fn fallback_http_client(
+    &self,
+    backend_cache: Arc<RwLock<HashMap<String, TlsBackend>>>,
+  ) -> FallbackHttpClient {
+    self.fallback_http_client_from_builder(ClientBuilder::default(), backend_cache)
+  }
+  pub fn fallback_http_client_from_builder(
+    &self,
+    client_builder: ClientBuilder,
+    backend_cache: Arc<RwLock<HashMap<String, TlsBackend>>>,
+  ) -> FallbackHttpClient {
+    let rustls_client = self
+      .apply_http_client_config(client_builder.clone())
+      .build()
+      .unwrap_or_default();
+    let native_tls_client = self
+      .apply_http_client_config(client_builder.tls(Some(fallback_tls_connector())))
+      .build()
+      .unwrap_or_else(|_| rustls_client.clone());
+    FallbackHttpClient::with_cache(rustls_client, native_tls_client, backend_cache)
   }
   pub fn yaml_probes(&self) -> Option<Vec<Template>> {
     if self.probe_dir.is_empty() {

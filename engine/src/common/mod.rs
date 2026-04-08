@@ -2,7 +2,6 @@ pub mod cert;
 mod generator;
 pub mod html;
 pub mod http;
-pub mod tls;
 pub mod uri;
 // mod marker;
 

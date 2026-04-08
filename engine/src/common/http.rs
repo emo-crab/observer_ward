@@ -37,6 +37,9 @@ impl HttpRecord {
       client,
     }
   }
+  pub fn set_client(&mut self, client: Client) {
+    self.client = client;
+  }
   async fn fetch_favicon_hash(&mut self, url: &Uri) -> Option<FaviconMap> {
     self.skip.insert(url.clone());
     // use the shared built client instead of building per-request

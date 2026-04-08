@@ -123,6 +123,13 @@ pub struct HttpOption {
 
 impl HttpOption {
   pub fn builder_client(&self) -> slinger::ClientBuilder {
+    self.builder_client_with(|builder| builder)
+  }
+
+  pub fn builder_client_with<F>(&self, configure: F) -> slinger::ClientBuilder
+  where
+    F: FnOnce(slinger::ClientBuilder) -> slinger::ClientBuilder,
+  {
     let redirect = if self.redirects {
       if self.host_redirects {
         slinger::redirect::Policy::Custom(crate::common::http::js_redirect)
@@ -132,8 +139,8 @@ impl HttpOption {
     } else {
       slinger::redirect::Policy::None
     };
-    slinger::ClientBuilder::default()
-      .tls(Some(crate::common::tls::fallback_tls_connector()))
+    configure(
+      slinger::ClientBuilder::default()
       .danger_accept_invalid_certs(true)
       .danger_accept_invalid_hostnames(true)
       .cookie_store(self.cookie_reuse)
@@ -141,6 +148,7 @@ impl HttpOption {
       .min_tls_version(Some(slinger::tls::Version::TLS_1_0))
       .user_agent(HeaderValue::from_static(
         "Mozilla/5.0 (X11; Linux x86_64; rv:123.0) Gecko/20100101 Firefox/123.0",
-      ))
+      )),
+    )
   }
 }

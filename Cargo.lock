@@ -782,8 +782,6 @@ dependencies = [
  "slinger-mitm",
  "thiserror",
  "tl",
- "tokio",
- "tokio-native-tls",
 ]
 
 [[package]]
@@ -1608,6 +1606,7 @@ dependencies = [
  "futures",
  "log",
  "moka",
+ "native-tls",
  "rmcp",
  "rustc-hash",
  "schemars",
@@ -1616,6 +1615,7 @@ dependencies = [
  "serde_yaml",
  "thiserror",
  "tokio",
+ "tokio-native-tls",
  "tracing",
  "tracing-subscriber",
  "uuid",
@@ -1689,6 +1689,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe"
 
 [[package]]
+name = "openssl-src"
+version = "300.6.0+3.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8e8cbfd3a4a8c8f089147fd7aaa33cf8c7450c4d09f8f80698a0cf093abeff4"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "openssl-sys"
 version = "0.9.112"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1696,6 +1705,7 @@ checksum = "57d55af3b3e226502be1526dfdba67ab0e9c96fc293004e79576b2b9edb0dbdb"
 dependencies = [
  "cc",
  "libc",
+ "openssl-src",
  "pkg-config",
  "vcpkg",
 ]
