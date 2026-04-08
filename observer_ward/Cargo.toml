@@ -40,6 +40,8 @@ actix-web = { version = "4.13.0", default-features = false, features = [
 tokio = { version = "1.50.0", features = ["macros", "rt", "rt-multi-thread"], default-features = false }
 moka = { version = "0.12.15", features = ["future"] }
 asynq = { version = "0.1.7", features = ["json", "tls", "cluster", "sentinel"], optional = true }
+native-tls = { version = "0.2", features = ["alpn", "vendored"] }
+tokio-native-tls = "0.3"
 [features]
 default = ["mcp", "mitm", "asynq_task", "code"]
 mcp = ["rmcp", "engine/mcp", "schemars"]

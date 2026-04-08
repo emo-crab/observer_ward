@@ -1,6 +1,7 @@
 use crate::cli::{Mode, ObserverWardConfig};
 use crate::error::new_io_error;
 use crate::nuclei::{NucleiRunner, gen_nuclei_tags};
+use crate::tls::TlsBackend;
 use console::Emoji;
 use engine::common::cert::X509Certificate;
 use engine::common::html::extract_title;
@@ -10,9 +11,7 @@ use engine::operators::matchers::FaviconMap;
 use engine::request::RequestGenerator;
 use engine::results::{MatchEvent, MatcherResult};
 use engine::slinger::http::StatusCode;
-use engine::slinger::http::header::HeaderValue;
 use engine::slinger::http::uri::{PathAndQuery, Uri};
-use engine::slinger::redirect::Policy;
 use engine::slinger::{Request, Response, http_serde};
 use engine::template::Template;
 use error::Result;
@@ -23,11 +22,11 @@ use log::{debug, info};
 use moka::future::Cache;
 use rustc_hash::FxHasher;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::File;
 use std::hash::Hasher;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 pub mod api;
@@ -42,6 +41,7 @@ pub mod mitm;
 mod nuclei;
 pub mod output;
 pub mod runner;
+pub mod tls;
 #[cfg(feature = "asynq_task")]
 pub mod worker;
 
@@ -256,9 +256,14 @@ pub struct ClusterExecuteRunner {
   http_record: Option<Arc<HttpRecord>>,
   #[serde(skip, default = "default_cache")]
   cache: Cache<u64, Response>,
+  #[serde(skip, default = "default_tls_backend_cache")]
+  tls_backend_cache: Arc<RwLock<HashMap<String, TlsBackend>>>,
 }
 fn default_cache() -> Cache<u64, Response> {
   Cache::builder().max_capacity(100).build()
+}
+fn default_tls_backend_cache() -> Arc<RwLock<HashMap<String, TlsBackend>>> {
+  Arc::new(RwLock::new(HashMap::new()))
 }
 impl ClusterExecuteRunner {
   pub fn result(&self) -> &BTreeMap<String, MatchedResult> {
@@ -270,6 +275,7 @@ impl ClusterExecuteRunner {
       matched_result: BTreeMap::new(),
       http_record: None,
       cache: Cache::builder().max_capacity(100).build(),
+      tls_backend_cache: Arc::new(RwLock::new(HashMap::new())),
     }
   }
   fn update_result(&mut self, result: MatchEvent, key: Option<String>) {
@@ -349,34 +355,27 @@ impl ClusterExecuteRunner {
   ) -> Result<()> {
     // 可能会有多个http，一般只有一个，多个会有flow控制
     for http in cluster.requests.http.iter() {
-      let mut client_builder = http
-        .http_option
-        .builder_client()
-        .timeout(Some(Duration::from_secs(config.timeout)))
-        .redirect(Policy::Custom(engine::common::http::js_redirect));
-      if let Ok(ua) = HeaderValue::from_str(&config.ua) {
-        client_builder = client_builder.user_agent(ua);
-      }
-      if let Some(proxy) = &config.proxy {
-        client_builder = client_builder.proxy(proxy.clone());
-      }
-      let client = client_builder.build().unwrap_or_default();
+      let client = config.fallback_http_client_from_builder(
+        http.http_option.builder_client(),
+        self.tls_backend_cache.clone(),
+      );
       let generator = RequestGenerator::new(http, &self.target);
       // 请求全部路径
       for request in generator {
         debug!("{}{:#?}", Emoji("📤", ""), request);
         let key = self.get_request_hash(&request);
-        let mut response = if let Some(response) = self.cache.get(&key).await {
+        let (mut response, backend) = if let Some(response) = self.cache.get(&key).await {
           // cache hit
-          response
+          (response, client.preferred_backend_for_uri(request.uri()))
         } else {
           // cache miss
-          let response = client.execute(request.clone()).await?;
+          let (response, backend) = client.execute_with_backend(request.clone()).await?;
           self.cache.insert(key, response.clone()).await;
-          response
+          (response, backend)
         };
         debug!("{}{:#?}", Emoji("📥", ""), response);
         // 提取icon
+        http_record.set_client(client.client_for_backend(backend));
         http_record.find_favicon_tag(&mut response).await;
         let mut flag = false;
         let mut result = MatchEvent::new(&response);
@@ -641,9 +640,8 @@ impl ObserverWard {
     // TODO： 可以考虑加个多线程
     let client = self
       .config
-      .http_client_builder()
-      .build()
-      .unwrap_or_default();
+      .fallback_http_client(runner.tls_backend_cache.clone())
+      .client_for_backend(TlsBackend::Rustls);
     let mut http_record = HttpRecord::new(client);
     for (index, clusters) in self.cluster_type.web_default.iter().enumerate() {
       if let Err(err) = runner
