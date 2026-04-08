@@ -32,7 +32,7 @@ jobs:
             os: ubuntu-latest
             rust: stable
             target: x86_64-unknown-linux-musl
-          - build: linux-gnu
+          - build: windows-gnu
             os: ubuntu-latest
             rust: stable
             target: x86_64-pc-windows-gnu
@@ -51,7 +51,7 @@ jobs:
           - build: win7-msvc
             os: windows-latest
             rust: nightly
-            target: x86_64-pc-windows-msvc
+            target: x86_64-win7-windows-msvc
           - build: linux-arm-v7
             os: ubuntu-latest
             rust: stable
@@ -72,7 +72,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-multilib xz-utils liblz4-tool libc6-dev libssl-dev musl-tools pkg-config patchelf
+          sudo apt-get install -y gcc-multilib xz-utils liblz4-tool libc6-dev libssl-dev musl-tools pkg-config patchelf gcc-mingw-w64-x86-64 mingw-w64 protobuf-compiler
           sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
           sed -i -e "s/^version = .*/version = \"`date +'%-Y.%-m.%-d'`\"/" observer_ward/Cargo.toml
           sed -i -e "s/\"observer_ward version\"/\"observer_ward v`date +'%-Y.%-m.%-d'`\"/" observer_ward/src/cli.rs
@@ -86,17 +86,21 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: bash
         run: |
+          choco install llvm openssl
           choco config set cacheLocation "${{ github.workspace }}\choco-cache"
+          choco install -y --no-progress protoc
           export CARGO_PKG_VERSION=`date +'%-Y.%-m.%-d'`
           sed -i -e "s/^version = .*/version = \"`date +'%-Y.%-m.%-d'`\"/" observer_ward/Cargo.toml
           sed -i -e "s/\"observer_ward version\"/\"observer_ward v`date +'%-Y.%-m.%-d'`\"/" observer_ward/src/cli.rs
           echo "CARGO_PKG_VERSION=`date +'%Y.%m.%d'`" >>$GITHUB_ENV
+          echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" >>$GITHUB_ENV
           echo "RUSTFLAGS=-C target-feature=+crt-static" >>$GITHUB_ENV
       - name: Install packages (Macos)
         if: matrix.os == 'macos-latest'
         run: |
           sed -i -e "s/^version = .*/version = \"`date +'%-Y.%-m.%-d'`\"/" observer_ward/Cargo.toml
           sed -i -e "s/\"observer_ward version\"/\"observer_ward v`date +'%-Y.%-m.%-d'`\"/" observer_ward/src/cli.rs
+          brew install protobuf
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -109,10 +113,14 @@ jobs:
         run: |
           cargo build --target ${{ matrix.target }} --verbose --release --bin observer_ward
       - name: Build nightly release binary
-        if: matrix.rust == 'nightly'
+        if: matrix.target == 'x86_64-win7-windows-msvc'
         run: |
+          rustup toolchain install nightly
+          rustup component add rust-src --toolchain nightly
           rustup component add rust-src --toolchain nightly-${{ matrix.target }}
-          cargo +nightly build --target ${{ matrix.target }} --verbose --release --bin observer_ward
+          rustup target add ${{ matrix.target }}
+          cargo clean
+          cargo +nightly build --target ${{ matrix.target }} -Z build-std --verbose --release --bin observer_ward
       - name: Build archive
         shell: bash
         run: |

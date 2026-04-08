@@ -83,7 +83,7 @@ jobs:
           - build: win7-msvc
             os: windows-latest
             rust: nightly
-            target: x86_64-pc-windows-msvc
+            target: x86_64-win7-windows-msvc
           - build: linux-arm-v7
             os: ubuntu-latest
             rust: stable
@@ -145,11 +145,14 @@ jobs:
         run: |
           cargo build --target ${{ matrix.target }} --verbose --release --bin observer_ward
       - name: Build nightly release binary
-        if: matrix.rust == 'nightly'
+        if: matrix.target == 'x86_64-win7-windows-msvc'
         run: |
-          rustup component add rust-src --toolchain nightly-x86_64-pc-windows-msvc
+          rustup toolchain install nightly
+          rustup component add rust-src --toolchain nightly
+          rustup component add rust-src --toolchain nightly-${{ matrix.target }}
+          rustup target add ${{ matrix.target }}
           cargo clean
-          cargo +nightly build --target ${{ matrix.target }} -Zbuild-std --verbose --release --bin observer_ward
+          cargo +nightly build --target ${{ matrix.target }} -Z build-std --verbose --release --bin observer_ward
       - name: Build archive
         shell: bash
         run: |
