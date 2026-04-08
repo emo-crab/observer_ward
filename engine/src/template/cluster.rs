@@ -63,8 +63,11 @@ pub fn cluster_templates(templates_list: &[Template]) -> ClusterType {
           .port_range
           .insert(tcp.name.clone().unwrap_or_default(), tcp.port.clone());
       }
-    } else if requests.is_code().is_some() {
-      executes.code.push(cluster_execute);
+    } else {
+      #[cfg(feature = "code")]
+      if requests.is_code().is_some() {
+        executes.code.push(cluster_execute);
+      }
     }
   }
   // 确保favicon在最后，不用排序

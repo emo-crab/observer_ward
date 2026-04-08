@@ -120,8 +120,14 @@ impl Template {
       let mutable_operators = Arc::make_mut(&mut mutable_tcp.operators);
       mutable_operators.compile().map_err(new_regex_error)?;
     }
-    for code in requests.code.iter_mut() {
-      code.operators.compile().map_err(new_regex_error)?;
+    #[cfg(feature = "code")]
+    {
+      for code in requests.code.iter_mut() {
+        code
+          .operators
+          .compile()
+          .map_err(crate::error::new_regex_error)?;
+      }
     }
     #[cfg(feature = "mitm")]
     for mitm in requests.mitm.iter_mut() {

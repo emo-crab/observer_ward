@@ -43,7 +43,7 @@ asynq = { version = "0.1.7", features = ["json", "tls", "cluster", "sentinel"], 
 native-tls = { version = "0.2", features = ["alpn", "vendored"] }
 tokio-native-tls = "0.3"
 [features]
-default = ["mcp", "mitm", "asynq_task", "code"]
+default = ["mcp", "mitm", "asynq_task"]
 mcp = ["rmcp", "engine/mcp", "schemars"]
 mitm = ["engine/mitm", "async-trait"]
 asynq_task = ["asynq", "async-trait"]

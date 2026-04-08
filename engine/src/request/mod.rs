@@ -1,3 +1,4 @@
+#[cfg(feature = "code")]
 mod code;
 mod dns;
 mod headless;
@@ -7,6 +8,7 @@ pub mod mitm;
 mod tcp;
 
 use crate::operators::Operators;
+#[cfg(feature = "code")]
 pub use crate::request::code::CodeRequest;
 use crate::request::headless::HeadlessRequest;
 pub use crate::request::http::{HTTPRequest, Http, HttpRaw, Raw, RequestGenerator};
@@ -76,6 +78,7 @@ pub struct Requests {
     )
   )]
   pub headless: Vec<Arc<HeadlessRequest>>,
+  #[cfg(feature = "code")]
   ///description: |
   ///   SSL contains the SSL request to make in the template.
   ///SSL(),
@@ -162,6 +165,7 @@ impl Requests {
   pub fn is_tcp(&self) -> Option<&Arc<TCPRequest>> {
     self.tcp.first()
   }
+  #[cfg(feature = "code")]
   pub fn is_code(&self) -> Option<&CodeRequest> {
     self.code.first()
   }
@@ -187,13 +191,16 @@ impl Requests {
         .map(|t| t.operators.clone())
         .collect::<Vec<_>>(),
     );
-    all.extend(
-      self
-        .code
-        .iter()
-        .map(|c| Arc::new(c.operators.clone()))
-        .collect::<Vec<_>>(),
-    );
+    #[cfg(feature = "code")]
+    {
+      all.extend(
+        self
+          .code
+          .iter()
+          .map(|c| Arc::new(c.operators.clone()))
+          .collect::<Vec<_>>(),
+      );
+    }
     all
   }
 
@@ -228,6 +235,7 @@ impl Requests {
       })],
       tcp: vec![],
       headless: vec![],
+      #[cfg(feature = "code")]
       code: vec![],
       #[cfg(feature = "mitm")]
       mitm: vec![],

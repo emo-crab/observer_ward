@@ -31,7 +31,6 @@ impl CodeRequest {
   ///
   /// No standard library modules (os, sys, io, etc.) are available to the script.
   /// Returns `None` when the engine is not python or the code feature is disabled.
-  #[cfg(feature = "code")]
   pub fn execute(&self, target: &Uri) -> Option<String> {
     if !self.is_python() {
       return None;
@@ -44,7 +43,6 @@ impl CodeRequest {
 
 /// Build a Python preamble that injects template variables derived from `target`
 /// so that user code can reference `Hostname`, `Host`, `Port`, `Scheme`, `BaseURL`.
-#[cfg(feature = "code")]
 fn build_preamble(target: &Uri) -> String {
   let scheme = target.scheme_str().unwrap_or("http");
   let host = target.host().unwrap_or("");
@@ -63,7 +61,6 @@ fn build_preamble(target: &Uri) -> String {
   )
 }
 
-#[cfg(feature = "code")]
 fn default_port(scheme: &str) -> u16 {
   match scheme {
     "https" => 443,
@@ -76,7 +73,6 @@ fn default_port(scheme: &str) -> u16 {
 ///
 /// The built-in `print` function is overridden so that all output is captured and
 /// returned as a `String` instead of being written to the process stdout.
-#[cfg(feature = "code")]
 fn run_python(source: &str) -> Option<String> {
   use rustpython_vm as vm;
   use vm::function::FuncArgs;
