@@ -3793,9 +3793,9 @@ checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
 
 [[package]]
 name = "slinger"
-version = "0.2.12"
+version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91f3bcbea67b6b2d96ad4e44e63cdc5cd2b6c310f0d181b7b4173f2486e41970"
+checksum = "2277e76016af8c364fba2734423366c26cea8a58695f8c301bf8403319b8544a"
 dependencies = [
  "base64",
  "bytes",
@@ -3808,7 +3808,6 @@ dependencies = [
  "mime",
  "percent-encoding",
  "rustls-native-certs",
- "rustls-pemfile",
  "rustls-pki-types",
  "schemars",
  "serde",
