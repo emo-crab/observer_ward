@@ -321,19 +321,19 @@ fn dsl_md5(This(s): This<Arc<String>>) -> String {
 fn dsl_sha1(This(s): This<Arc<String>>) -> String {
   use sha1::Digest;
   let hash = sha1::Sha1::digest(s.as_bytes());
-  format!("{:x}", hash)
+  hex::encode(hash)
 }
 
 fn dsl_sha256(This(s): This<Arc<String>>) -> String {
   use sha2::Digest;
   let hash = sha2::Sha256::digest(s.as_bytes());
-  format!("{:x}", hash)
+  hex::encode(hash)
 }
 
 fn dsl_sha512(This(s): This<Arc<String>>) -> String {
   use sha2::Digest;
   let hash = sha2::Sha512::digest(s.as_bytes());
-  format!("{:x}", hash)
+  hex::encode(hash)
 }
 
 fn dsl_mmh3(This(s): This<Arc<String>>) -> String {

@@ -82,15 +82,15 @@ pub async fn mitm_proxy_server(
 
     // Add rule-based request interceptor if available
     if let Some(ref rule_int) = rule_interceptor {
-      handler_guard.add_request_interceptor(rule_int.clone());
+      handler_guard.add_interceptor(rule_int.clone());
     }
 
     // Add fingerprint response interceptor
-    handler_guard.add_response_interceptor(fingerprint_interceptor);
+    handler_guard.add_interceptor(fingerprint_interceptor);
 
     // Add rule-based response interceptor if available
     if let Some(rule_int) = rule_interceptor {
-      handler_guard.add_response_interceptor(rule_int);
+      handler_guard.add_interceptor(rule_int);
     }
   }
 
@@ -107,7 +107,7 @@ struct FingerprintInterceptor {
 }
 
 #[async_trait]
-impl engine::slinger_mitm::ResponseInterceptor for FingerprintInterceptor {
+impl engine::slinger_mitm::Interceptor for FingerprintInterceptor {
   async fn intercept_response(
     &self,
     response: MitmResponse,
@@ -200,7 +200,7 @@ impl RuleBasedInterceptor {
 }
 
 #[async_trait]
-impl engine::slinger_mitm::RequestInterceptor for RuleBasedInterceptor {
+impl engine::slinger_mitm::Interceptor for RuleBasedInterceptor {
   async fn intercept_request(
     &self,
     request: engine::slinger_mitm::MitmRequest,
@@ -243,10 +243,6 @@ impl engine::slinger_mitm::RequestInterceptor for RuleBasedInterceptor {
       }
     }
   }
-}
-
-#[async_trait]
-impl engine::slinger_mitm::ResponseInterceptor for RuleBasedInterceptor {
   async fn intercept_response(
     &self,
     response: MitmResponse,

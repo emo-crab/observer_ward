@@ -240,13 +240,7 @@ impl ServerHandler for ObserverWardHandler {
           .clone()
           .map(|p| std::fs::read_to_string(p).unwrap_or(DEFAULT_PROMPT.to_string()))
           .unwrap_or(DEFAULT_PROMPT.to_string());
-        Ok(GetPromptResult {
-          description: None,
-          messages: vec![PromptMessage {
-            role: PromptMessageRole::User,
-            content: PromptMessageContent::text(prompt),
-          }],
-        })
+        Ok(GetPromptResult::new(vec![PromptMessage::new(PromptMessageRole::User,PromptMessageContent::text(prompt))]))
       }
       _ => Err(ErrorData::invalid_params("prompt not found", None)),
     }
