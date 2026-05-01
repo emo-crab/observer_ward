@@ -12,22 +12,18 @@ use engine::template::cluster::cluster_templates;
 use futures::StreamExt;
 use futures::channel::mpsc::unbounded;
 use rmcp::{
-  ErrorData, RoleServer, ServerHandler,
-  handler::server::{router::tool::ToolRouter, wrapper::Parameters},
+  ErrorData,
+  handler::server::wrapper::Parameters,
   model::*,
-  service::RequestContext,
-  tool, tool_handler, tool_router,
+  tool, tool_router,
 };
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::sync::RwLock;
 
-const DEFAULT_PROMPT: &str = include_str!("../../prompt.txt");
-
 pub struct ObserverWardHandler {
   cluster_templates: RwLock<ClusterType>,
   config: ObserverWardConfig,
-  tool_router: ToolRouter<ObserverWardHandler>,
 }
 impl ObserverWardHandler {
   fn get_cluster_templates(&self) -> ClusterType {
@@ -79,14 +75,13 @@ struct VerifyExtractor {
   operators: Operators,
 }
 // Use tool_router macro to generate the tool router
-#[tool_router]
+#[tool_router(server_handler)]
 impl ObserverWardHandler {
   pub fn new(config: ObserverWardConfig, cl: ClusterType) -> Self {
     let cluster_templates = RwLock::new(cl);
     Self {
       cluster_templates,
       config,
-      tool_router: Self::tool_router(),
     }
   }
   #[tool(description = "Scan the application fingerprint of the URL target")]
@@ -200,60 +195,5 @@ impl ObserverWardHandler {
     };
     operators.extractor(info.get_version(), &response, &mut result);
     return Ok(CallToolResult::success(vec![Content::json(result)?]));
-  }
-}
-
-#[tool_handler]
-impl ServerHandler for ObserverWardHandler {
-  async fn initialize(
-    &self,
-    _request: InitializeRequestParams,
-    _context: RequestContext<RoleServer>,
-  ) -> Result<InitializeResult, ErrorData> {
-    Ok(self.get_info())
-  }
-  async fn list_prompts(
-    &self,
-    _request: Option<PaginatedRequestParams>,
-    _: RequestContext<RoleServer>,
-  ) -> Result<ListPromptsResult, ErrorData> {
-    Ok(ListPromptsResult {
-      meta: None,
-      next_cursor: None,
-      prompts: vec![Prompt::new(
-        "fingerprint_prompt",
-        Some("This prompt word is about how to generate fingerprint rules"),
-        None,
-      )],
-    })
-  }
-  async fn get_prompt(
-    &self,
-    GetPromptRequestParams { name, .. }: GetPromptRequestParams,
-    _: RequestContext<RoleServer>,
-  ) -> Result<GetPromptResult, ErrorData> {
-    match name.as_str() {
-      "fingerprint_prompt" => {
-        let prompt = self
-          .config
-          .prompt_path
-          .clone()
-          .map(|p| std::fs::read_to_string(p).unwrap_or(DEFAULT_PROMPT.to_string()))
-          .unwrap_or(DEFAULT_PROMPT.to_string());
-        Ok(GetPromptResult::new(vec![PromptMessage::new(PromptMessageRole::User,PromptMessageContent::text(prompt))]))
-      }
-      _ => Err(ErrorData::invalid_params("prompt not found", None)),
-    }
-  }
-  async fn list_resource_templates(
-    &self,
-    _request: Option<PaginatedRequestParams>,
-    _: RequestContext<RoleServer>,
-  ) -> Result<ListResourceTemplatesResult, ErrorData> {
-    Ok(ListResourceTemplatesResult {
-      meta: None,
-      next_cursor: None,
-      resource_templates: Vec::new(),
-    })
   }
 }
