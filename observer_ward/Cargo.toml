@@ -28,7 +28,7 @@ uuid = { version = "1.23.1", features = ["v4"] }
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "=0.3.23", features = ["env-filter", "fmt"] }
-log = "0.4.29"
+log = "0.4.30"
 console = "0.16.3"
 async-trait = { version = "0.1", optional = true }
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
