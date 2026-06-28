@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 // 根据优化生成请求和匹配组合
-pub fn cluster_templates(templates_list: &[Template]) -> ClusterType {
+pub fn cluster_templates(templates_list: &[Template], index_only: bool) -> ClusterType {
   let mut compile_templates_list = Vec::new();
   let mut favicon_cops = Vec::new();
   let mut executes = ClusterType::default();
@@ -50,7 +50,9 @@ pub fn cluster_templates(templates_list: &[Template]) -> ClusterType {
       if requests.is_web_default() {
         executes.web_default.push(cluster_execute);
       } else {
-        executes.web_other.push(cluster_execute);
+        if !index_only {
+          executes.web_other.push(cluster_execute);
+        }
       }
     } else if let Some(tcp) = requests.is_tcp() {
       if requests.is_tcp_default() {

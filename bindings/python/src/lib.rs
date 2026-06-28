@@ -109,7 +109,7 @@ pub fn create_operators_from_json(json: &str) -> PyResult<ClusterType> {
       e
     ))
   })?;
-  let ct = cluster_templates(&templates[..]);
+  let ct = cluster_templates(&templates[..], false);
   Ok(ct)
 }
 

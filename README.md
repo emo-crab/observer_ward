@@ -52,12 +52,12 @@
 
 - 郑重声明：文中所涉及的技术、思路和工具仅供以安全为目的的学习交流使用，任何人不得将其用于非法用途以及盈利等目的，否则后果自行承担。
 
-| 类别 | 说明                                                              |
-| ---- | ----------------------------------------------------------------- |
-| 作者 | [三米前有蕉皮](https://github.com/cn-kali-team)                   |
-| 团队 | [0x727](https://github.com/0x727) 未来一段时间将陆续开源工具      |
+| 类别 | 说明                                                     |
+|----|--------------------------------------------------------|
+| 作者 | [三米前有蕉皮](https://github.com/cn-kali-team)              |
+| 团队 | [0x727](https://github.com/0x727) 未来一段时间将陆续开源工具        |
 | 定位 | 社区化[指纹库](https://github.com/0x727/FingerprintHub)识别工具。 |
-| 语言 | Rust                                                              |
+| 语言 | Rust                                                   |
 | 功能 | 服务和Web应用指纹识别工具                                         |
 
 ![Product Name Screen Shot][product-screenshot]
@@ -178,6 +178,7 @@ Options:
   --prompt-path     read the path file and customize the LLM to generate prompt
   --asynq-redis     redis URI for asynq task queue (ex:redis://127.0.0.1:6379)
   --asynq-mode      asynq mode option[receive,send,both] default: receive
+  --index           load only index for web fingerprint
   --help, help      display usage information
 ```
 
@@ -210,11 +211,12 @@ Options:
 | --webhook               | 要将识别结果通过webhook发送到指定url                                                  |
 | --webhook-auth          | webhook的`AUTHORIZATION`认证                                                |
 | --api-server            | api监听地址的端口                                                               |
-| --mitm                  | 启动 MITM 代理服务器（示例：127.0.0.1:1080）                             |
-| --mcp                   | 启用 stdio mcp 服务                                                            |
-| --prompt-path           | 读取路径文件并自定义 LLM 用于生成 prompt                                      |
-| --asynq-redis           | asynq 任务队列的 Redis URI（示例：redis://127.0.0.1:6379）                    |
-| --asynq-mode            | asynq 模式选项 [receive,send,both]，默认：receive                             |
+| --mitm                  | 启动 MITM 代理服务器（示例：127.0.0.1:1080）                                         |
+| --mcp                   | 启用 stdio mcp 服务                                                          |
+| --prompt-path           | 读取路径文件并自定义 LLM 用于生成 prompt                                               |
+| --asynq-redis           | asynq 任务队列的 Redis URI（示例：redis://127.0.0.1:6379）                         |
+| --asynq-mode            | asynq 模式选项 [receive,send,both]，默认：receive                                |
+| --index                 | 只加载首页指纹，不会发送额外请求，默认：不开启                                                  |
 | --help                  | 打印帮助信息                                                                   |
 
 ### 更新指纹库
@@ -231,11 +233,11 @@ Options:
 - 默认的指纹文件名有两个`web_fingerprint_v4.json`和`service_fingerprint_v4.json`，如果在配置文件夹中存在将会自动加载。
 - 例如：`web_fingerprint_v4.json`文件在配置文件夹下的路径
 
-| 操作系统 | 保存路径                                                                       |
-| -------- | ------------------------------------------------------------------------------ |
-| Windows  | C:\Users\Alice\AppData\Roaming\observer_ward\web_fingerprint_v4.json           |
-| Linux    | /home/alice/.config/observer_ward/web_fingerprint_v4.json                      |
-| macOS    | /Users/Alice/Library/Application Support/observer_ward/web_fingerprint_v4.json |
+| 操作系统    | 保存路径                                                                           |
+|---------|--------------------------------------------------------------------------------|
+| Windows | C:\Users\Alice\AppData\Roaming\observer_ward\web_fingerprint_v4.json           |
+| Linux   | /home/alice/.config/observer_ward/web_fingerprint_v4.json                      |
+| macOS   | /Users/Alice/Library/Application Support/observer_ward/web_fingerprint_v4.json |
 
 - 指定yaml文件夹`--probe-dir`和单个json文件`--probe-path`参数将全部yaml文件转换为一个单json文件，方便携带
 - 然后将这个json文件复制到配置文件夹
@@ -337,7 +339,6 @@ observer_ward 支持以 MITM（中间人代理）模式被动获取请求/响应
 - 如果设置`--proxy`会使用上游代理，也就是流量会先经过observer_ward的mitm代理再经过上游代理发送请求。
 - 若构建未启用 `mitm` 特性，启动时会提示特性未启用并返回错误。
 
-
 ### Asynq（Redis 分布式任务队列）支持
 
 observer_ward 集成了基于 Redis 的任务队列（[asynq](https://github.com/emo-crab/asynq)），可以把指纹识别任务通过 Redis 入队，worker 会从队列取出任务并处理；worker 也可以把处理结果发送回结果队列。
@@ -369,7 +370,9 @@ cargo run --manifest-path observer_ward/Cargo.toml --example send_asynq_task
   "task_id": "example-123456",
   "input": {
     "type": "uri",
-    "target": ["http://example.com"]
+    "target": [
+      "http://example.com"
+    ]
   }
 }
 ```
@@ -661,9 +664,11 @@ git checkout -b dev
 ```
 
 - 修改完成后，测试通过
+
 ```bash，no-run
 cargo clippy --fix --allow-dirty --workspace --all-features --all-targets -- -D warnings --allow deprecated
 ```
+
 - 跟踪修改和提交Pull-Requests。
 
 ```bash,no-run
@@ -712,15 +717,27 @@ Project Link: [https://github.com/emo-crab/observer_ward](https://github.com/emo
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 
 [contributors-shield]: https://img.shields.io/github/contributors/emo-crab/observer_ward.svg?style=for-the-badge
+
 [contributors-url]: https://github.com/emo-crab/observer_ward/graphs/contributors
+
 [forks-shield]: https://img.shields.io/github/forks/emo-crab/observer_ward.svg?style=for-the-badge
+
 [forks-url]: https://github.com/emo-crab/observer_ward/network/members
+
 [stars-shield]: https://img.shields.io/github/stars/emo-crab/observer_ward.svg?style=for-the-badge
+
 [stars-url]: https://github.com/emo-crab/observer_ward/stargazers
+
 [issues-shield]: https://img.shields.io/github/issues/emo-crab/observer_ward.svg?style=for-the-badge
+
 [issues-url]: https://github.com/emo-crab/observer_ward/issues
+
 [license-shield]: https://img.shields.io/github/license/emo-crab/observer_ward.svg?style=for-the-badge
+
 [license-url]: https://github.com/emo-crab/observer_ward/blob/master/LICENSE.txt
+
 [product-screenshot]: images/screenshot.png
+
 [crates-shield]: https://img.shields.io/crates/v/observer_ward.svg?style=for-the-badge
+
 [crates-url]: https://crates.io/crates/observer_ward

@@ -103,7 +103,7 @@ async fn main() {
     templates = config.templates();
   }
   info!("{}probes loaded: {}", Emoji("📇", ""), templates.len());
-  let cl = cluster_templates(&templates);
+  let cl = cluster_templates(&templates,config.index);
   info!("{}optimized probes: {}", Emoji("🚀", ""), cl.count());
 
   // Check for asynq mode

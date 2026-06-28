@@ -11,12 +11,7 @@ use engine::template::Template;
 use engine::template::cluster::cluster_templates;
 use futures::StreamExt;
 use futures::channel::mpsc::unbounded;
-use rmcp::{
-  ErrorData,
-  handler::server::wrapper::Parameters,
-  model::*,
-  tool, tool_router,
-};
+use rmcp::{ErrorData, handler::server::wrapper::Parameters, model::*, tool, tool_router};
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 use std::sync::RwLock;
@@ -121,7 +116,7 @@ impl ObserverWardHandler {
   ) -> Result<CallToolResult, ErrorData> {
     let mut config = self.config.clone();
     config.target = vec![target.to_string()];
-    let cl = cluster_templates(&[template]);
+    let cl = cluster_templates(&[template], config.index);
     let (tx, mut rx) = unbounded();
     tokio::task::spawn(async move {
       ObserverWard::new(&config, cl).execute(tx).await;

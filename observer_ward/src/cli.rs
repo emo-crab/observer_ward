@@ -53,8 +53,8 @@ impl FromStr for OutputFormat {
 pub enum Mode {
   #[default]
   HTTP,
-  ALL,
   TCP,
+  ALL,
 }
 
 impl FromStr for Mode {
@@ -295,6 +295,10 @@ pub struct ObserverWardConfig {
   #[argh(option)]
   #[serde(skip)]
   pub asynq_mode: Option<AsynqMode>,
+  /// load only index for web fingerprint
+  #[argh(switch)]
+  #[serde(default)]
+  pub index: bool,
 }
 
 fn default_token() -> Option<String> {

@@ -99,7 +99,7 @@ async fn set_config_api(
   if let Ok(mut cl) = cl.write() {
     let templates = config.templates();
     info!("{}probes loaded: {}", Emoji("📇", ""), templates.len());
-    let new_cl = cluster_templates(&templates);
+    let new_cl = cluster_templates(&templates, config.index);
     info!("{}optimized probes: {}", Emoji("🚀", ""), new_cl.count());
     *cl = new_cl;
   }
@@ -126,7 +126,7 @@ pub async fn api_server(
 ) -> std::io::Result<()> {
   let templates = config.templates();
   info!("{}probes loaded: {}", Emoji("📇", ""), templates.len());
-  let cl = cluster_templates(&templates);
+  let cl = cluster_templates(&templates, config.index);
   info!("{}optimized probes: {}", Emoji("🚀", ""), cl.count());
   let cluster_templates = web::Data::new(RwLock::new(cl));
   let web_config = web::Data::new(config.clone());
