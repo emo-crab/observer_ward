@@ -7,7 +7,7 @@ edition = "2024"
 
 [dependencies]
 serde = { version = "1", features = ["derive", "rc"] }
-base64 = "0.22.1"
+base64 = "0.23.0"
 #临时使用，最好将正则表达式迁移到支持regex库，减少反向引用
 fancy-regex = { version = "0.19.0", default-features = false, features = [
     "std",
