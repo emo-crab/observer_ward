@@ -44,7 +44,7 @@ pub struct Regexp {
   bytes_regex: Option<regex::bytes::Regex>,
 }
 pub enum OneOfCaptures<'a> {
-  FancyCaptures(fancy_regex::Captures<'a>),
+  FancyCaptures(fancy_regex::Captures<'a,str>),
   BytesCaptures(regex::bytes::Captures<'a>),
 }
 impl OneOfCaptures<'_> {

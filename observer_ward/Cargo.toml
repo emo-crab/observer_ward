@@ -13,11 +13,11 @@ license = "GPL-3.0-only"
 [dependencies]
 engine = { path = "../engine" }
 rustc-hash = "2.1"
-rmcp = { version = "3.0.0", features = [
+rmcp = { version = "3.1.2", features = [
     "server",
     "transport-io"
 ], optional = true }
-schemars = { version = "1.2.1", optional = true, features = ["chrono04", "url2"] }
+schemars = { version = "1.2.2", optional = true, features = ["chrono04", "url2"] }
 argh = "0.1.19"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"

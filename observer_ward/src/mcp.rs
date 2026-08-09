@@ -106,7 +106,7 @@ impl ObserverWardHandler {
         results.push(execute_result.matched);
       }
     }
-    let result = Content::json(&results)?;
+    let result = ContentBlock::json(&results)?;
     Ok(CallToolResult::success(vec![result]))
   }
   #[tool(description = "Provide target and template calls to verify if the template is valid")]
@@ -125,13 +125,13 @@ impl ObserverWardHandler {
     while let Some(execute_result) = rx.next().await {
       results.push(execute_result.matched);
     }
-    let result = Content::json(&results)?;
+    let result = ContentBlock::json(&results)?;
     Ok(CallToolResult::success(vec![result]))
   }
   #[tool(description = "Get templates count")]
   async fn templates_count(&self) -> Result<CallToolResult, ErrorData> {
     match self.cluster_templates.read() {
-      Ok(ct) => Ok(CallToolResult::success(vec![Content::text(
+      Ok(ct) => Ok(CallToolResult::success(vec![ContentBlock::text(
         ct.count().to_string(),
       )])),
       Err(err) => Err(ErrorData::internal_error(err.to_string(), None)),
@@ -155,7 +155,7 @@ impl ObserverWardHandler {
     while let Some(execute_result) = rx.next().await {
       records = execute_result.record;
     }
-    let record = Content::json(&records)?;
+    let record = ContentBlock::json(&records)?;
     Ok(CallToolResult::success(vec![record]))
   }
   #[tool(description = "Verify response matcher (for fingerprint generation only)")]
@@ -173,7 +173,7 @@ impl ObserverWardHandler {
     if let Err(err) = operators.matcher(&response, &mut result) {
       return Err(ErrorData::internal_error(err.to_string(), None));
     };
-    return Ok(CallToolResult::success(vec![Content::json(result)?]));
+    return Ok(CallToolResult::success(vec![ContentBlock::json(result)?]));
   }
   #[tool(description = "Verify response extractor (for fingerprint generation only)")]
   async fn verify_extractor(
@@ -189,6 +189,6 @@ impl ObserverWardHandler {
       return Err(ErrorData::internal_error(err.to_string(), None));
     };
     operators.extractor(info.get_version(), &response, &mut result);
-    return Ok(CallToolResult::success(vec![Content::json(result)?]));
+    return Ok(CallToolResult::success(vec![ContentBlock::json(result)?]));
   }
 }
