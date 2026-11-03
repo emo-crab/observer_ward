@@ -213,7 +213,7 @@ impl MatchedResult {
             let incoming_extractors = std::mem::take(&mut incoming_mr.extractor);
             for (k, vset) in incoming_extractors.into_iter() {
               if let Some(existing_set) = existing_mr.extractor.get_mut(&k) {
-                existing_set.extend(vset.into_iter());
+                existing_set.extend(vset);
               } else {
                 existing_mr.extractor.insert(k, vset);
               }
@@ -732,8 +732,8 @@ impl ObserverWard {
         exclude.push(clusters);
       }
     }
-    include.sort_by(|x, y| x.rarity.cmp(&y.rarity));
-    exclude.sort_by(|x, y| x.rarity.cmp(&y.rarity));
+    include.sort_by_key(|x| x.rarity);
+    exclude.sort_by_key(|x| x.rarity);
     // 先跑有匹配到端口的，如果有匹配到就不跑其他的冷门指纹
     // TODO： 可以考虑加个多线程
     for clusters in include {

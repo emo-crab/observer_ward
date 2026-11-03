@@ -19,29 +19,32 @@ pub struct CodeRequest {
 }
 
 impl CodeRequest {
-  /// Returns true if this request uses the python engine.
-  pub fn is_python(&self) -> bool {
-    self.engine.iter().any(|e| e.eq_ignore_ascii_case("python"))
+  /// Returns true if this request uses the starlark engine.
+  pub fn is_starlark(&self) -> bool {
+    self
+      .engine
+      .iter()
+      .any(|e| e.eq_ignore_ascii_case("starlark"))
   }
 
-  /// Execute the Python source code in a RustPython sandbox and return the captured stdout.
+  /// Execute the Starlark source code and return the captured `print` output.
   ///
   /// Template variables derived from `target` are injected as module-level variables
   /// at the top of the script, matching nuclei's code protocol variable conventions.
   ///
   /// No standard library modules (os, sys, io, etc.) are available to the script.
-  /// Returns `None` when the engine is not python or the code feature is disabled.
+  /// Returns `None` when the engine is not starlark or the code feature is disabled.
   pub fn execute(&self, target: &Uri) -> Option<String> {
-    if !self.is_python() {
+    if !self.is_starlark() {
       return None;
     }
     let preamble = build_preamble(target);
     let full_source = format!("{preamble}\n{}", self.source);
-    run_python(&full_source)
+    run_starlark(&full_source)
   }
 }
 
-/// Build a Python preamble that injects template variables derived from `target`
+/// Build a Starlark preamble that injects template variables derived from `target`
 /// so that user code can reference `Hostname`, `Host`, `Port`, `Scheme`, `BaseURL`.
 fn build_preamble(target: &Uri) -> String {
   let scheme = target.scheme_str().unwrap_or("http");
@@ -69,57 +72,106 @@ fn default_port(scheme: &str) -> u16 {
   }
 }
 
-/// Execute Python `source` in a RustPython interpreter with no stdlib modules loaded.
-///
-/// The built-in `print` function is overridden so that all output is captured and
-/// returned as a `String` instead of being written to the process stdout.
-fn run_python(source: &str) -> Option<String> {
-  use rustpython_vm as vm;
-  use vm::function::FuncArgs;
+/// Accumulator for `print` output, shared with the evaluator via `eval.extra`.
+#[derive(Debug, Default, starlark::any::ProvidesStaticType)]
+struct Capture(std::cell::RefCell<String>);
 
-  thread_local! {
-    static CAPTURED: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
+impl Capture {
+  fn add_line(&self, line: String) {
+    self.0.borrow_mut().push_str(&line);
+    self.0.borrow_mut().push('\n');
+  }
+}
+
+/// Starlark builtins: a `print` that routes output into the capture buffer.
+#[starlark::starlark_module]
+fn code_globals(builder: &mut starlark::environment::GlobalsBuilder) {
+  /// Print some values, separated by a single space, followed by a newline.
+  fn print(
+    #[starlark(args)] args: starlark::values::tuple::UnpackTuple<starlark::values::Value>,
+    eval: &mut starlark::eval::Evaluator,
+  ) -> anyhow::Result<starlark::values::none::NoneType> {
+    let line = args
+      .items
+      .iter()
+      .map(|v| v.to_str())
+      .collect::<Vec<_>>()
+      .join(" ");
+    if let Some(c) = eval
+      .extra
+      .as_ref()
+      .and_then(|extra| extra.downcast_ref::<Capture>()) { c.add_line(line) }
+    Ok(starlark::values::none::NoneType)
+  }
+}
+
+/// Execute Starlark `source` in an interpreter with no loadable modules.
+///
+/// `print` output is captured and returned instead of being written to the
+/// process stdout. Parse or evaluation errors are logged and yield `None`.
+fn run_starlark(source: &str) -> Option<String> {
+  use starlark::environment::Module;
+  use starlark::eval::Evaluator;
+  use starlark::syntax::{AstModule, Dialect};
+
+  let capture = Capture::default();
+  Module::with_temp_heap(|module| {
+    let mut eval = Evaluator::new(&module);
+    eval.extra = Some(&capture);
+    let globals = starlark::environment::GlobalsBuilder::standard()
+      .with(code_globals)
+      .build();
+    let ast = match AstModule::parse("script.star", source.to_owned(), &Dialect::Standard) {
+      Ok(ast) => ast,
+      Err(err) => {
+        log::warn!("starlark parse error: {err}");
+        return None;
+      }
+    };
+    match eval.eval_module(ast, &globals) {
+      Ok(_) => Some(std::mem::take(&mut *capture.0.borrow_mut())),
+      Err(err) => {
+        log::warn!("starlark execution error: {err}");
+        None
+      }
+    }
+  })
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn code_req(engine: &str, source: &str) -> CodeRequest {
+    CodeRequest {
+      operators: Operators::default(),
+      id: None,
+      engine: vec![engine.to_owned()],
+      args: vec![],
+      pattern: None,
+      source: source.to_owned(),
+    }
   }
 
-  // Reset the capture buffer for this invocation.
-  CAPTURED.with(|c| c.borrow_mut().clear());
+  #[test]
+  fn test_starlark_captures_print() {
+    let req = code_req("starlark", "print(2 + 2)\nprint(\"hello\", Hostname)\n");
+    let target = Uri::from_static("http://example.com:8080/path");
+    let output = req.execute(&target).expect("starlark should run");
+    assert_eq!(output, "4\nhello example.com:8080\n");
+  }
 
-  let interpreter = vm::Interpreter::without_stdlib(Default::default());
-  let _ = interpreter.enter(|vm| -> vm::PyResult<()> {
-    let scope = vm.new_scope_with_builtins();
+  #[test]
+  fn test_non_starlark_engine_is_skipped() {
+    let req = code_req("python", "print(1)");
+    let target = Uri::from_static("http://example.com");
+    assert!(req.execute(&target).is_none());
+  }
 
-    // Replace the built-in `print` with a Rust function that appends to CAPTURED.
-    let print_fn = vm.new_function(
-      "print",
-      |args: FuncArgs, vm: &vm::VirtualMachine| -> vm::PyResult<()> {
-        let sep = match args.kwargs.get("sep") {
-          None => " ".to_owned(),
-          Some(v) if vm.is_none(v) => " ".to_owned(),
-          Some(v) => v.str(vm).map(|r| r.to_string_lossy().into_owned())?,
-        };
-        let end = match args.kwargs.get("end") {
-          None => "\n".to_owned(),
-          Some(v) if vm.is_none(v) => "\n".to_owned(),
-          Some(v) => v.str(vm).map(|r| r.to_string_lossy().into_owned())?,
-        };
-        let parts: vm::PyResult<Vec<String>> = args
-          .args
-          .iter()
-          .map(|a| a.str(vm).map(|r| r.to_string_lossy().into_owned()))
-          .collect();
-        let line = format!("{}{}", parts?.join(&sep), end);
-        CAPTURED.with(|c| c.borrow_mut().push_str(&line));
-        Ok(())
-      },
-    );
-
-    scope.globals.set_item("print", print_fn.into(), vm)?;
-
-    let code = vm
-      .compile(source, vm::compiler::Mode::Exec, "script.py".to_owned())
-      .map_err(|e| vm.new_syntax_error(&e, Some(source)))?;
-    vm.run_code_obj(code, scope).map(|_| ())
-  });
-
-  Some(CAPTURED.with(|c| std::mem::take(&mut *c.borrow_mut())))
+  #[test]
+  fn test_starlark_error_returns_none() {
+    let req = code_req("starlark", "def broken(:");
+    let target = Uri::from_static("http://example.com");
+    assert!(req.execute(&target).is_none());
+  }
 }

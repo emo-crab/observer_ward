@@ -10,7 +10,7 @@ info:
     verified: true
 code:
   - engine:
-      - python
+      - starlark
     source: |
       x = 2+2
       print(x)
