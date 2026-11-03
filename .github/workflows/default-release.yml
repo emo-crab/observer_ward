@@ -72,7 +72,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-multilib xz-utils liblz4-tool libc6-dev libssl-dev musl-tools pkg-config patchelf gcc-mingw-w64-x86-64 mingw-w64 protobuf-compiler
+          sudo apt-get install -y gcc-multilib xz-utils lz4 libc6-dev libssl-dev musl-tools pkg-config patchelf gcc-mingw-w64-x86-64 mingw-w64 protobuf-compiler
           sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
           sed -i -e "s/^version = .*/version = \"`date +'%-Y.%-m.%-d'`\"/" observer_ward/Cargo.toml
           sed -i -e "s/\"observer_ward version\"/\"observer_ward v`date +'%-Y.%-m.%-d'`\"/" observer_ward/src/cli.rs
